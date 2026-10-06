@@ -25,22 +25,48 @@ Das Plugin hat ein eigenes Go-Modul und nutzt nur `pkg/sdk`. Es braucht
 Das Präfix `partner__` ist von DBSchema vorgegeben (`<modul>__`). Bei PostgreSQL mit
 `isolation: schema` liegen die Tabellen im Schema `mod_partner`.
 
-| Tabelle | Object (Oberfläche/API) | Schlüssel | Zeitscheibe |
+| Tabelle | Object (Oberfläche/API) | Primärschlüssel | Zeitscheibe |
 |---|---|---|---|
-| `partner__address_roles` | `PartnerAddressRole` | `code` | ✔ |
+| `partner__address_roles` | `PartnerAddressRole` | `code, valid_from` | ✔ |
 | `partner__comm_categories` | `PartnerCommCategory` | `code` | – |
-| `partner__comm_types` | `PartnerCommType` | `code` | ✔ |
-| `partner__role_types` | `PartnerRoleType` | `code` | ✔ |
-| `partner__bp` | `BusinessPartner` | `id` (generiert) | – |
+| `partner__comm_types` | `PartnerCommType` | `code, valid_from` | ✔ |
+| `partner__role_types` | `PartnerRoleType` | `code, valid_from` | ✔ |
+| `partner__bp` | `BusinessPartner` | `id` (generiert)`, valid_from` | ✔ (seit 0.5.0) |
 | `partner__roles` | `PartnerRole` | `bp_id, role_code, valid_from` | ✔ |
 | `partner__addresses` | `PartnerAddressData` | `id` (generiert) | – |
-| `partner__bp_addresses` | `PartnerAddress` | `id` (generiert) | ✔ |
-| `partner__contacts` | `PartnerContact` | `id` (generiert) | ✔ |
-| `partner__bank_details` | `PartnerBankDetail` | `id` (generiert) | ✔ |
+| `partner__bp_addresses` | `PartnerAddress` | `id` (generiert)`, valid_from` | ✔ |
+| `partner__contacts` | `PartnerContact` | `id` (generiert)`, valid_from` | ✔ |
+| `partner__bank_details` | `PartnerBankDetail` | `id` (generiert)`, valid_from` | ✔ |
 | `partner__company_codes` | `PartnerCompanyCode` | `bp_id, company_code, role_code` | – |
 
-**Zusammengesetzte Schlüssel** erscheinen in der API und in URLs als eine `id`: die
-Teile URL-kodiert, getrennt durch `|`, zum Beispiel `9834…|DEBITOR|2026-01-01`.
+**Regel: Das Beginndatum ist immer Teil des Primärschlüssels.** Jede Tabelle mit Zeitscheibe
+hat `valid_from` als letzten Teil des Primärschlüssels; ein Test prüft das für Code und Schema.
+
+- **Mehrere Zeitscheiben je fachlichem Schlüssel** sind möglich, zum Beispiel ein Rollentyp
+  `DEBITOR` bis 2029-12-31 und ein neuer ab 2030-01-01. Sie dürfen sich **nicht überschneiden**.
+  Das prüfen `create`, `update` und `expire`.
+- **IDs:**
+  - `_id` identifiziert den Datensatz, also die Zeitscheibe. Die Teile sind URL-kodiert und
+    durch `|` getrennt, zum Beispiel `9834…|1900-01-01` oder `9834…|DEBITOR|2026-01-01`.
+  - `id` bleibt der **fachliche Schlüssel**, wo es eine Spalte `id` gibt (Partner, Zuordnungen,
+    Kontakte, Bank). Darauf verweisen andere Datensätze, etwa `bp_id`. Ohne Spalte `id` ist
+    `id` gleich `_id`.
+  - Ein Aufruf **nur mit dem fachlichen Schlüssel**, ohne Beginndatum, trifft die heute
+    gültige Zeitscheibe, sonst die jüngste. So arbeiten Verweise und das Aggregat. Mit `_id`
+    wird genau eine Zeitscheibe angesprochen.
+  - Das Beginndatum ist nach dem Anlegen fest, weil es Schlüssel ist. Eine neue Zeitscheibe ist
+    eine Neuanlage.
+- **Verweise auf Tabellen mit Zeitscheibe sind keine Fremdschlüssel der Datenbank.** Sie würden
+  auf keine eindeutige Zeile zeigen. Die Engine prüft sie zeitbezogen: Das Ziel muss am
+  `valid_from` des verweisenden Datensatzes gültig sein. Ein beendeter Partner nimmt also keine
+  neuen Kontakte ab seinem Enddatum an. Fremdschlüssel bleiben nur auf Tabellen ohne
+  Zeitscheibe (`comm_types` → `comm_categories`, `bp_addresses` → `addresses`).
+
+**Migration auf 0.5.0:** DBSchema baut die Tabellen mit geändertem Primärschlüssel neu auf
+(Atlas: neue Tabelle, Daten kopieren, umbenennen) und ohne Datenverlust. Bestehende Partner
+gelten ab `1900-01-01` bis `9999-12-31`. Die Spalte `is_active` aus 0.4.0 bleibt ungenutzt
+erhalten, weil DBSchema `DROP COLUMN` ablehnt. Den Weg prüft `TestMigrationFrom040` mit dem
+Schema von 0.4.0 (`testdata/schema-0.4.0.hcl`).
 
 **Seeds:** `DBSchema.Init` liefert neben dem Schema auch den Grundbestand der Kataloge
 (`sdk.SchemaInitResponse.Seed`). DBSchema fügt ihn in der Transaktion der Migration ein,
@@ -120,8 +146,10 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
   Großbuchstaben.
 - **BIC:** 8 oder 11 Zeichen.
 - **Land:** ISO-2.
-- **Inaktivieren eines Partners:** Rollen, Adresszuordnungen, Kontakte, Bankverbindungen und
-  Buchungskreisdaten bleiben erhalten (Historie).
+- **Beenden eines Partners:** Er bekommt ein Enddatum (`expire`). Rollen, Adresszuordnungen,
+  Kontakte, Bankverbindungen und Buchungskreisdaten bleiben erhalten (Historie). Ab dem
+  Enddatum läuft die gesetzliche Aufbewahrungsfrist; das spätere Löschen nach Fristablauf ist
+  vorbereitet, aber noch nicht umgesetzt.
 
 ## Lebenszyklus: Beenden und Inaktivieren statt Löschen
 
@@ -129,8 +157,8 @@ Physisch gelöscht wird nichts. Der Typ folgt aus der Entität (`lifecycle.go`):
 
 | Typ | Objects | Action |
 |---|---|---|
-| **A** Zeitscheibe | `PartnerRole`, `PartnerAddress` (Zuordnung mit Adressrolle), `PartnerContact`, `PartnerBankDetail`, Kataloge mit Gültigkeit: `PartnerAddressRole`, `PartnerCommType`, `PartnerRoleType` | `expire {id, valid_to}`: Enddatum Pflicht, nicht vor `valid_from`, rückwirkend erlaubt |
-| **B** Status-Flag | `BusinessPartner` (`is_active`, seit 0.4.0) | `deactivate {id}`. Das Flag ist schreibgeschützt (nur über `deactivate`), Beziehungen bleiben erhalten. Neue Verweise auf einen inaktiven Partner werden abgelehnt. |
+| **A** Zeitscheibe | `BusinessPartner` (seit 0.5.0), `PartnerRole`, `PartnerAddress` (Zuordnung mit Adressrolle), `PartnerContact`, `PartnerBankDetail`, Kataloge mit Gültigkeit: `PartnerAddressRole`, `PartnerCommType`, `PartnerRoleType` | `expire {id, valid_to}`: Enddatum Pflicht, nicht vor `valid_from`, rückwirkend erlaubt |
+| **B** Status-Flag | derzeit keines (der Partner war es in 0.4.0) | `deactivate {id}` |
 | **C** immutable | `PartnerAddressData` (Adressdetails), `PartnerCommCategory`, `PartnerCompanyCode` | keine; `delete` gibt es nicht |
 
 Die Kataloge **Adressrollen, Kommunikationstypen und Rollentypen haben eine Zeitscheibe** und

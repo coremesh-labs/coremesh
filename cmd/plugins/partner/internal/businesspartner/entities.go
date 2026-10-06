@@ -23,7 +23,7 @@ var timeSliceFields = []field{
 func withTimeSlice(fs ...field) []field { return append(fs, timeSliceFields...) }
 
 var (
-	refBP          = &ref{Table: "partner__bp", Column: "id", Label: "Geschäftspartner", ActiveField: "is_active", Object: "BusinessPartner", LabelFields: []string{"name1", "name2"}}
+	refBP          = &ref{Table: "partner__bp", Column: "id", Label: "Geschäftspartner", TimeSliced: true, Object: "BusinessPartner", LabelFields: []string{"name1", "name2"}}
 	refAddress     = &ref{Table: "partner__addresses", Column: "id", Label: "Adresse", Object: "PartnerAddressData", LabelFields: []string{"street", "house_no", "zip_code", "city", "country"}}
 	refAddressRole = &ref{Table: "partner__address_roles", Column: "code", Label: "Adressrolle", TimeSliced: true, Object: "PartnerAddressRole", LabelFields: []string{"description"}}
 	refCommCat     = &ref{Table: "partner__comm_categories", Column: "code", Label: "Kommunikationskategorie", Object: "PartnerCommCategory", LabelFields: []string{"description"}}
@@ -45,7 +45,7 @@ func (m *Module) entities() []*entity {
 func (m *Module) addressRoleCatalog() *entity {
 	return &entity{
 		Object: "PartnerAddressRole", Section: "Kataloge", Title: "Adressrollen", Icon: "icon-tag", Table: "partner__address_roles",
-		Keys: []string{"code"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
+		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
@@ -75,7 +75,7 @@ func (m *Module) commCategoryCatalog() *entity {
 func (m *Module) commTypeCatalog() *entity {
 	return &entity{
 		Object: "PartnerCommType", Section: "Kataloge", Title: "Kommunikationstypen", Icon: "icon-tag", Table: "partner__comm_types",
-		Keys: []string{"code"}, TimeSlice: true, Order: "category_code, code", Search: []string{"code", "description"}, Filters: []string{"category_code"},
+		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "category_code, code", Search: []string{"code", "description"}, Filters: []string{"category_code"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			field{Key: "category_code", Label: "Kategorie", Type: tText, Required: true, Listable: true, Ref: refCommCat},
@@ -95,7 +95,7 @@ func (m *Module) commTypeCatalog() *entity {
 func (m *Module) roleTypeCatalog() *entity {
 	return &entity{
 		Object: "PartnerRoleType", Section: "Kataloge", Title: "Rollentypen", Icon: "icon-tag", Table: "partner__role_types",
-		Keys: []string{"code"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
+		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
@@ -128,14 +128,15 @@ func (m *Module) uniqueMain(ctx context.Context, table, keyCol, key, groupCol st
 func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
-		Keys: []string{"id"}, Surrogate: true, Order: "search_term, name1", StatusField: "is_active",
+		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "search_term, name1, valid_from",
 		Search: []string{"name1", "name2", "search_term"},
 		// Detailansicht im Stil von LeanIX: Stammdaten plus eingebettete
 		// Unter-Objects. Adressen sind n:m über die Zuordnung PartnerAddress
 		// (Rolle + Zeitscheibe) zu wiederverwendbaren PartnerAddressData.
 		TitleField: "name1",
 		Sections: []metamodel.SectionDefinition{
-			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2", "search_term", "is_blocked", "is_active", "id"}},
+			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2", "search_term", "is_blocked", "id"}},
+			{Key: "gueltigkeit", Title: "Gültigkeit", Fields: []string{"valid_from", "valid_to"}},
 			{Key: "rollen", Title: "Rollen", Relation: &metamodel.Relation{Object: "PartnerRole", ForeignKey: "bp_id",
 				Columns: []string{"role_code", "company_codes", "valid_from", "valid_to"}}},
 			{Key: "adressen", Title: "Adressen", Relation: &metamodel.Relation{Object: "PartnerAddress", ForeignKey: "bp_id",
@@ -147,17 +148,18 @@ func (m *Module) businessPartner() *entity {
 			{Key: "buchungskreise", Title: "Buchungskreisdaten", Collapsed: true, Relation: &metamodel.Relation{Object: "PartnerCompanyCode", ForeignKey: "bp_id",
 				Columns: []string{"company_code", "role_code", "reconciliation_account", "payment_terms", "dunning_block", "posting_block"}}},
 		},
-		Fields: []field{
-			{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
-			{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: []metamodel.Option{
+		// Zeitscheibe seit 0.5.0 (Lebenszyklus timeslice): Ein Partner endet zu einem
+		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann
+		// er gelöscht werden (noch nicht umgesetzt).
+		Fields: withTimeSlice(
+			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
+			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: []metamodel.Option{
 				{Value: "ORGANIZATION", Label: "Organisation"}, {Value: "PERSON", Label: "Person"}}},
-			{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true},
-			{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
-			{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
-			{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
-			// Status-Flag: nur über deactivate änderbar (Lebenszyklus status).
-			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
-		},
+			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true},
+			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
+			field{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
+			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
+		),
 		validate: func(_ context.Context, rec, _ record) error {
 			if rec["search_term"] == nil { // Matchcode aus Name 1
 				rec["search_term"] = strings.ToUpper(str(rec["name1"]))
@@ -190,7 +192,7 @@ func (m *Module) address() *entity {
 func (m *Module) partnerAddress() *entity {
 	return &entity{
 		Object: "PartnerAddress", Title: "Partner-Adressen", Icon: "icon-map", Table: "partner__bp_addresses",
-		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, address_role_code, valid_from",
+		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "bp_id, address_role_code, valid_from",
 		Filters: []string{"bp_id", "address_id", "address_role_code"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
@@ -205,7 +207,7 @@ func (m *Module) partnerAddress() *entity {
 func (m *Module) partnerContact() *entity {
 	return &entity{
 		Object: "PartnerContact", Title: "Kommunikation", Icon: "icon-phone", Table: "partner__contacts",
-		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, comm_type_code, valid_from",
+		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "bp_id, comm_type_code, valid_from",
 		Filters: []string{"bp_id", "comm_type_code"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
@@ -231,7 +233,7 @@ func (m *Module) partnerContact() *entity {
 func (m *Module) partnerBankDetail() *entity {
 	return &entity{
 		Object: "PartnerBankDetail", Title: "Bankverbindungen", Icon: "icon-bank", Table: "partner__bank_details",
-		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, valid_from", Filters: []string{"bp_id"},
+		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "bp_id, valid_from", Filters: []string{"bp_id"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
 			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},

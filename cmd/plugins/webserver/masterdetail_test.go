@@ -321,3 +321,21 @@ func TestLifecycleAPI(t *testing.T) {
 		}
 	}
 }
+
+// TestTimeSliceRecordID: Links auf den Datensatz nutzen _id (mit Beginndatum),
+// eingebettete Abschnitte den fachlichen Schlüssel id.
+func TestTimeSliceRecordID(t *testing.T) {
+	rec := record{"_id": "c1|2026-01-01", "id": "c1"}
+	if recordID(rec) != "c1|2026-01-01" || businessKey(rec) != "c1" || recordID(record{"id": "x"}) != "x" || businessKey(record{"_id": "y"}) != "y" {
+		t.Fatal("recordID/businessKey")
+	}
+	v := view{objectCtx: newObjectCtx("crm", "Customer", mdDefs["Customer"]), Record: rec}
+	for _, s := range v.Sections() {
+		if s.Relation != nil && s.URL != "/m/crm/Customer/c1/rel/contacts" {
+			t.Fatalf("Abschnitt: %s", s.URL)
+		}
+	}
+	if v.ID() != "c1|2026-01-01" {
+		t.Fatalf("Datensatz-ID: %s", v.ID())
+	}
+}

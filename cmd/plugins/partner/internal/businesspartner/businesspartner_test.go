@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -220,7 +221,7 @@ func expect(t *testing.T, err error, target error, what string) {
 }
 
 func (e *env) newBP(name string) string {
-	return e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", name))["id"].(string)
+	return e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", name, "valid_from", "2000-01-01"))["id"].(string)
 }
 
 // --- Tests -----------------------------------------------------------------------------
@@ -323,18 +324,19 @@ func TestBusinessPartnerAndContacts(t *testing.T) {
 		t.Fatalf("expire: %v", ended)
 	}
 
-	// Status-Flag (Partner): inaktivieren, Beziehungen bleiben, keine neuen Verweise.
-	if bp := e.must("BusinessPartner", "deactivate", map[string]any{"id": id}); bp["is_active"] != false {
-		t.Fatalf("deactivate: %v", bp)
+	// Zeitscheibe (Partner): Enddatum statt Inaktivieren; Beziehungen bleiben.
+	// Nach dem Ende sind neue Verweise ab diesem Tag ungültig.
+	bp = e.must("BusinessPartner", "expire", map[string]any{"id": id, "valid_to": "2026-12-31"})
+	if bp["valid_to"] != "2026-12-31" || bp["id"] != id || bp["_id"] != id+"|"+str(bp["valid_from"]) {
+		t.Fatalf("Partner beenden: %v", bp)
 	}
 	if n := len(e.items("PartnerContact", map[string]any{"bp_id": id})); n == 0 {
-		t.Fatal("Kontakte nach Inaktivieren weg")
+		t.Fatal("Kontakte nach Beenden weg")
 	}
-	_, err = e.do("PartnerContact", "create", data("bp_id", id, "comm_type_code", "MOBILE", "value", "+41 79 000 00 00"))
-	expect(t, err, sdk.ErrInvalidArgument, "Verweis auf inaktiven Partner")
-	_, err = e.do("BusinessPartner", "update", map[string]any{"id": id, "data": row("is_active", true)})
-	if got := e.must("BusinessPartner", "get", map[string]any{"id": id}); got["is_active"] != false {
-		t.Fatalf("Status-Flag per update geändert: %v (%v)", got, err)
+	_, err = e.do("PartnerContact", "create", data("bp_id", id, "comm_type_code", "MOBILE", "value", "+41 79 000 00 00", "valid_from", "2027-01-01"))
+	expect(t, err, sdk.ErrInvalidArgument, "Verweis nach dem Ende des Partners")
+	if _, err := e.do("BusinessPartner", "deactivate", map[string]any{"id": id}); !errors.Is(err, sdk.ErrUnimplemented) {
+		t.Fatalf("deactivate gibt es nicht mehr: %v", err)
 	}
 }
 
@@ -545,7 +547,7 @@ func TestLifecycleTypes(t *testing.T) {
 		got[d.Name] = d.Lifecycle.Kind()
 	}
 	want := map[string]metamodel.LifecycleType{
-		"BusinessPartner":     metamodel.LifecycleStatus,
+		"BusinessPartner":     metamodel.LifecycleTimeSlice,
 		"PartnerAddress":      metamodel.LifecycleTimeSlice, // Zuordnung Partner ↔ Adresse mit Rolle
 		"PartnerRole":         metamodel.LifecycleTimeSlice,
 		"PartnerContact":      metamodel.LifecycleTimeSlice,
@@ -568,5 +570,148 @@ func TestLifecycleTypes(t *testing.T) {
 		if got[c.Object] == metamodel.LifecycleImmutable && (slices.Contains(c.Actions, "expire") || slices.Contains(c.Actions, "deactivate")) {
 			t.Errorf("%s ist immutable, bietet aber eine Ende-Action an: %v", c.Object, c.Actions)
 		}
+	}
+}
+
+// TestValidFromInPrimaryKey: Regel – bei jeder Entität mit Zeitscheibe ist
+// valid_from (letzter) Teil des Primärschlüssels, im Code wie im Schema.
+func TestValidFromInPrimaryKey(t *testing.T) {
+	m := New()
+	var desired schema.Schema
+	if err := sqlite.EvalHCLBytes([]byte("schema \"main\" {}\n"+schemaHCL), &desired, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range m.order {
+		if !e.TimeSlice {
+			continue
+		}
+		if e.Keys[len(e.Keys)-1] != "valid_from" {
+			t.Errorf("%s: Keys %v – valid_from muss letzter Schlüsselteil sein", e.Object, e.Keys)
+		}
+		tb, ok := desired.Table(e.Table)
+		if !ok || tb.PrimaryKey == nil {
+			t.Fatalf("%s: Tabelle %s ohne Primärschlüssel", e.Object, e.Table)
+		}
+		var pk []string
+		for _, p := range tb.PrimaryKey.Parts {
+			pk = append(pk, p.C.Name)
+		}
+		if !slices.Equal(pk, e.Keys) {
+			t.Errorf("%s: Primärschlüssel %v ≠ Keys %v", e.Table, pk, e.Keys)
+		}
+	}
+}
+
+// TestTimeSliceVersions: Ein fachlicher Schlüssel kann mehrere Zeitscheiben
+// haben; sie dürfen sich nicht überschneiden. Ohne valid_from in der id gilt
+// die heute gültige Zeitscheibe.
+func TestTimeSliceVersions(t *testing.T) {
+	e := setup(t)
+	_, err := e.do("PartnerRoleType", "create", data("code", "DEBITOR", "description", "Debitor neu", "valid_from", "2030-01-01"))
+	expect(t, err, sdk.ErrInvalidArgument, "überschneidende Zeitscheibe")
+
+	e.must("PartnerRoleType", "expire", map[string]any{"id": "DEBITOR", "valid_to": "2029-12-31"})
+	next := e.must("PartnerRoleType", "create", data("code", "DEBITOR", "description", "Debitor neu", "is_debitor", true, "valid_from", "2030-01-01"))
+	if next["_id"] != "DEBITOR|2030-01-01" || next["id"] != "DEBITOR|2030-01-01" {
+		t.Fatalf("neue Zeitscheibe: %v", next)
+	}
+	if got := e.must("PartnerRoleType", "get", map[string]any{"id": "DEBITOR"}); got["description"] != "Debitor" {
+		t.Fatalf("heute gültige Zeitscheibe: %v", got)
+	}
+	if got := e.must("PartnerRoleType", "get", map[string]any{"id": "DEBITOR|2030-01-01"}); got["description"] != "Debitor neu" {
+		t.Fatalf("Zeitscheibe über volle id: %v", got)
+	}
+	// Ein späteres Ende darf nicht in die folgende Zeitscheibe reichen.
+	_, err = e.do("PartnerRoleType", "expire", map[string]any{"id": "DEBITOR|1900-01-01", "valid_to": "2030-06-30"})
+	expect(t, err, sdk.ErrInvalidArgument, "Ende in die folgende Zeitscheibe")
+
+	// Partner: fachliche id bleibt, die Datensatz-ID enthält das Beginndatum;
+	// Änderungen über die fachliche id treffen nur die gültige Zeitscheibe.
+	id := e.newBP("Versionen AG")
+	got := e.must("BusinessPartner", "get", map[string]any{"id": id})
+	if got["id"] != id || got["_id"] != id+"|2000-01-01" {
+		t.Fatalf("Partner: %v", got)
+	}
+	e.must("BusinessPartner", "update", map[string]any{"id": id, "data": row("name2", "Neu")})
+	if got := e.must("BusinessPartner", "get", map[string]any{"id": id + "|2000-01-01"}); got["name2"] != "Neu" {
+		t.Fatalf("update über fachliche id: %v", got)
+	}
+	_, err = e.do("BusinessPartner", "update", map[string]any{"id": id, "data": row("valid_from", "2001-01-01")})
+	expect(t, err, sdk.ErrInvalidArgument, "Beginndatum ist Schlüssel")
+}
+
+// TestMigrationFrom040: Atlas migriert den Bestand von 0.4.0 (Primärschlüssel
+// ohne valid_from, Partner ohne Zeitscheibe) ohne Datenverlust.
+func TestMigrationFrom040(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "m.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+	drv, err := sqlite.Open(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	apply := func(hcl string) []schema.Change {
+		t.Helper()
+		var desired schema.Schema
+		if err := sqlite.EvalHCLBytes([]byte("schema \"main\" {}\n"+hcl), &desired, nil); err != nil {
+			t.Fatal(err)
+		}
+		desired.Name = "main"
+		for _, tb := range desired.Tables {
+			tb.Schema = &desired
+		}
+		current, err := drv.InspectSchema(ctx, "main", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		changes, err := drv.SchemaDiff(current, &desired)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := drv.ApplyChanges(ctx, changes); err != nil {
+			t.Fatal(err)
+		}
+		return changes
+	}
+	old, err := os.ReadFile("testdata/schema-0.4.0.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	apply(string(old))
+	for _, q := range []string{
+		`INSERT INTO partner__role_types (code, description, valid_from, valid_to) VALUES ('DEBITOR', 'Debitor', '1900-01-01', '9999-12-31')`,
+		`INSERT INTO partner__bp (id, type, name1) VALUES ('bp1', 'ORGANIZATION', 'Alt AG')`,
+		`INSERT INTO partner__roles (bp_id, role_code, valid_from, valid_to) VALUES ('bp1', 'DEBITOR', '2020-01-01', '9999-12-31')`,
+		`INSERT INTO partner__contacts (id, bp_id, comm_type_code, value, valid_from, valid_to) VALUES ('c1', 'bp1', 'EMAIL_WORK', 'a@alt.ch', '2020-01-01', '9999-12-31')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	changes := apply(schemaHCL)
+	for _, c := range changes {
+		if _, drop := c.(*schema.DropTable); drop {
+			t.Fatalf("Migration darf keine Tabelle löschen: %T", c)
+		}
+	}
+	var from, to, name string
+	if err := db.QueryRow(`SELECT valid_from, valid_to, name1 FROM partner__bp WHERE id = 'bp1'`).Scan(&from, &to, &name); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(from, "1900-01-01") || !strings.HasPrefix(to, "9999-12-31") || name != "Alt AG" {
+		t.Fatalf("Partner nach Migration: %s %s %s", from, to, name)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT (SELECT COUNT(*) FROM partner__roles) + (SELECT COUNT(*) FROM partner__contacts) + (SELECT COUNT(*) FROM partner__role_types)`).Scan(&n); err != nil || n != 3 {
+		t.Fatalf("Bestand nach Migration: %d %v", n, err)
+	}
+	// Zweite Zeitscheibe desselben Codes ist jetzt möglich (Primärschlüssel mit valid_from).
+	if _, err := db.Exec(`INSERT INTO partner__role_types (code, description, valid_from, valid_to) VALUES ('DEBITOR', 'Debitor neu', '2030-01-01', '9999-12-31')`); err != nil {
+		t.Fatal(err)
 	}
 }

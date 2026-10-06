@@ -198,9 +198,15 @@ WebServer reicht sie nur durch.
 | `expire`, `deactivate` | geänderter Datensatz (für Zeile bzw. Detail) |
 | `custom` | beliebig. Ein String-Feld `"message"` wird als Text gezeigt, sonst das JSON. |
 
-Ein **record** ist ein JSON-Objekt mit den Feldern aus dem Metamodell. Der Schlüssel
-**`"id"`** identifiziert den Datensatz und erscheint in den URLs. Die Werte werden
-anhand von `FieldDefinition.Type` angezeigt: Bei `select` das Label der Option,
+Ein **record** ist ein JSON-Objekt mit den Feldern aus dem Metamodell.
+
+- **`"_id"`** identifiziert den Datensatz und erscheint in den URLs. Bei Zeitscheiben enthält
+  er das Beginndatum, zum Beispiel `4711|2026-01-01`. Fehlt `"_id"`, gilt `"id"`.
+- **`"id"`** ist der fachliche Schlüssel, auf den andere Datensätze verweisen. Eingebettete
+  Abschnitte filtern ihre Unter-Objects danach (`{<fk>: <id>}`), denn ein Unter-Object verweist
+  auf den Partner, nicht auf eine bestimmte Zeitscheibe.
+
+Die Werte werden anhand von `FieldDefinition.Type` angezeigt: Bei `select` das Label der Option,
 bei `boolean` „Ja“/„Nein“. Fehlt in der Antwort von `create` oder `update` die `id`,
 ergänzt der WebServer sie aus dem Pfad.
 
@@ -410,7 +416,7 @@ curl -b jar -H "Content-Type: application/json" http://localhost:8080/api/v1/bus
   "id": "<bp>", "data": {"name2": "Zürich"},
   "relations": {
     "adressen":      {"create": [{"address_id": "<adr>", "address_role_code": "MAIN"}]},
-    "kommunikation": {"update": [{"id": "<k>", "data": {"value": "info@muster.ch"}}], "delete": ["<k2>"]}
+    "kommunikation": {"update": [{"id": "<k>", "data": {"value": "info@muster.ch"}}], "expire": [{"id": "<k2>", "valid_to": "2026-12-31"}]}
   }}'
 ```
 

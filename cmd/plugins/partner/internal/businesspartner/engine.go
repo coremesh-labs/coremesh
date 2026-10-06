@@ -121,6 +121,10 @@ func (e *entity) recordID(rec record) string {
 	return strings.Join(parts, "|")
 }
 
+// parseID liest eine Datensatz-ID. Bei Entitäten mit Zeitscheibe ist
+// valid_from der letzte Schlüsselteil; fehlt er (nur der fachliche Schlüssel,
+// z. B. die Partner-ID), meint die ID die heute gültige Zeitscheibe – sonst
+// die jüngste (siehe load).
 func (e *entity) parseID(id string) (record, error) {
 	if id == "" {
 		return nil, invalid("id fehlt")
@@ -131,24 +135,37 @@ func (e *entity) parseID(id string) (record, error) {
 		return key, nil
 	}
 	parts := strings.Split(id, "|")
-	if len(parts) != len(e.Keys) {
+	n := len(e.Keys)
+	if len(parts) != n && !(e.TimeSlice && len(parts) == n-1) {
 		return nil, invalid("id %q passt nicht zu %s", id, e.Object)
 	}
-	for i, k := range e.Keys {
-		v, err := url.QueryUnescape(parts[i])
+	for i, p := range parts {
+		v, err := url.QueryUnescape(p)
 		if err != nil {
 			return nil, invalid("id %q: %v", id, err)
 		}
-		key[k] = v
+		key[e.Keys[i]] = v
 	}
 	return key, nil
 }
 
+// keyOf liefert den vollständigen Schlüssel eines geladenen Datensatzes.
+func (e *entity) keyOf(rec record) record {
+	key := record{}
+	for _, k := range e.Keys {
+		key[k] = rec[k]
+	}
+	return key
+}
+
+// keyWhere: Bedingung für alle Schlüsselteile, die key enthält.
 func (e *entity) keyWhere(key record) (string, []any) {
-	conds := make([]string, len(e.Keys))
-	args := make([]any, len(e.Keys))
-	for i, k := range e.Keys {
-		conds[i], args[i] = k+" = ?", key[k]
+	var conds []string
+	var args []any
+	for _, k := range e.Keys {
+		if v, ok := key[k]; ok {
+			conds, args = append(conds, k+" = ?"), append(args, v)
+		}
 	}
 	return strings.Join(conds, " AND "), args
 }
@@ -234,7 +251,13 @@ func (e *entity) scan(ctx context.Context, cols []string, row []any) (record, er
 		}
 		rec[c] = v
 	}
-	rec["id"] = e.recordID(rec)
+	// _id identifiziert den Datensatz (bei Zeitscheiben inkl. valid_from). "id" bleibt
+	// der fachliche Schlüssel, wenn es eine Spalte id gibt (Verweise zeigen darauf);
+	// sonst ist auch "id" die Datensatz-ID.
+	rec["_id"] = e.recordID(rec)
+	if e.field("id") == nil {
+		rec["id"] = rec["_id"]
+	}
 	if e.decorate != nil {
 		if err := e.decorate(ctx, rec); err != nil {
 			return nil, err
@@ -317,7 +340,13 @@ func listQuery(payload any) map[string]any {
 func (e *entity) load(ctx context.Context, key record) (record, error) {
 	cols := e.columns()
 	w, args := e.keyWhere(key)
-	res, err := e.m.db.Query(ctx, "SELECT "+strings.Join(cols, ", ")+" FROM "+e.Table+" WHERE "+w, args...)
+	sql := "SELECT " + strings.Join(cols, ", ") + " FROM " + e.Table + " WHERE " + w
+	if _, full := key["valid_from"]; e.TimeSlice && !full {
+		// Nur fachlicher Schlüssel: heute gültige Zeitscheibe, sonst die jüngste.
+		sql += " ORDER BY CASE WHEN valid_from <= ? AND valid_to >= ? THEN 1 ELSE 0 END DESC, valid_from DESC LIMIT 1"
+		args = append(args, today(), today())
+	}
+	res, err := e.m.db.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +417,9 @@ func (e *entity) check(ctx context.Context, rec, old record) error {
 	}
 	if e.TimeSlice {
 		if err := checkTimeSlice(rec); err != nil {
+			return err
+		}
+		if err := e.checkOverlap(ctx, rec); err != nil {
 			return err
 		}
 	}
@@ -506,6 +538,7 @@ func (e *entity) update(ctx context.Context, payload any) (sdk.Response, error) 
 		if err != nil {
 			return err
 		}
+		key = e.keyOf(old) // genau diese Zeitscheibe, nicht alle des fachlichen Schlüssels
 		if e.checkRecord != nil {
 			if err := e.checkRecord(ctx, "update", old); err != nil {
 				return err
