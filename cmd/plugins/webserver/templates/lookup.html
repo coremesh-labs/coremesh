@@ -10,7 +10,7 @@
 <dialog open class="modal lookup-dialog"><article>
   <h2>{{t "core.lookup.title" .Title}}</h2>
   <input type="search" name="q" value="{{.Query}}" placeholder="{{t "core.lookup.search"}}" autofocus autocomplete="off"
-         hx-get="/lookup?from={{.From}}&field={{.Field}}&rows=1" hx-trigger="input changed delay:300ms, search"
+         hx-get="/lookup?{{.Src}}&rows=1" hx-trigger="input changed delay:300ms, search"
          hx-target="#lookup-rows" hx-swap="innerHTML">
   <div class="lookup-table">
     <table class="data">

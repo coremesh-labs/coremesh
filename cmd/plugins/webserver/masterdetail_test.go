@@ -72,7 +72,7 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "Catalog.GetDefinition":
 		if d, ok := mdDefs[p["object"].(string)]; ok {
 			h.fakeHost.record(ctx, req)
-			return sdk.Response{Payload: map[string]any{"definition": d, "available": true}}, nil
+			return sdk.Response{Payload: map[string]any{"definition": d, "available": true, "ui_module": "crm"}}, nil
 		}
 	case "Catalog.GetModule":
 		objs := []any{}
@@ -107,8 +107,8 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "ContactKind.list":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: []any{
-			map[string]any{"code": "MAIL", "description": "E-Mail"},
-			map[string]any{"code": "TEL", "description": "Telefon"},
+			map[string]any{"id": "MAIL", "code": "MAIL", "description": "E-Mail"},
+			map[string]any{"id": "TEL", "code": "TEL", "description": "Telefon"},
 		}}, nil
 	}
 	return h.fakeHost.Handle(ctx, req)
@@ -124,13 +124,19 @@ func (h *fakeHost) record(ctx context.Context, req sdk.Request) {
 
 func newMDServer(t *testing.T) (*server, *fakeHost) {
 	t.Helper()
+	return newMDServerFor(t, "*.*")
+}
+
+// newMDServerFor: wie newMDServer, mit den Berechtigungen perms.
+func newMDServerFor(t *testing.T, perms ...string) (*server, *fakeHost) {
+	t.Helper()
 	views, err := newRenderer("")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fh := &fakeHost{fail: map[string]error{}}
 	ids := newMemIdentity()
-	ids.add("tester", testPassword, "", "*.*")
+	ids.add("tester", testPassword, "", perms...)
 	auth := newAuthService(ids, newMemStore(), time.Hour)
 	_, token, _, err := auth.Login(context.Background(), "tester", testPassword, "test")
 	if err != nil {
@@ -164,7 +170,7 @@ func TestRelationSection(t *testing.T) {
 	}
 	mustContain(t, b,
 		"<th>Art</th><th>Adresse</th><th>Wert</th>", // Columns der Relation, ohne Fremdschlüssel
-		"<td>E-Mail</td>", // Label statt Code
+		"<td>E-Mail&#8288;<span class=\"peek\" hx-get=\"/peek/ContactKind/MAIL\"", // Label statt Code, mit Kopfdaten-Vorschau
 		`hx-get="/m/crm/Address/a1/edit?view=refresh"`, // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
@@ -213,7 +219,7 @@ func TestLookupDialog(t *testing.T) {
 	b := do(s, "GET", "/lookup?from=CustomerContact&field=kind_code", nil, true).Body.String()
 	mustContain(t, b,
 		"<h2>Kontaktarten auswählen</h2>",
-		`hx-get="/lookup?from=CustomerContact&field=kind_code&rows=1"`,
+		`hx-get="/lookup?field=kind_code&amp;from=CustomerContact&rows=1"`,
 		`data-field="kind_code" data-value="MAIL" data-label="E-Mail"`,
 		`data-value="TEL" data-label="Telefon"`,
 	)

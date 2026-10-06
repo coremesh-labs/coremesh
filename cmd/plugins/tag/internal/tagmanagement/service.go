@@ -18,7 +18,7 @@ import (
 // TagService: die einzige Schnittstelle für Werte (Object Tags, Payloads und
 // Antworten aus pkg/sdk/tagservice).
 //
-//	Tags.schema   {entity_type, company_code?, effective_date?, locale?}            → Schema
+//	Tags.schema   {entity_type, entity_id?|attributes?, company_code?, effective_date?, locale?} → Schema
 //	Tags.get      {entity_type, entity_id, company_code?, effective_date?, locale?} → EntityTags
 //	Tags.set      {entity_type, entity_id, company_code?, valid_from?, values}      → EntityTags
 //	Tags.validate wie set, ohne zu schreiben                                         → {violations, state}
@@ -29,6 +29,11 @@ import (
 // (<entity_type>.get – Existenz und Leserecht, auch je Buchungskreis des
 // Fachmoduls). Schreiben braucht zusätzlich <entity_type>.update im
 // Buchungskreis des Werts bzw. in allen Buchungskreisen für Werte mit "*".
+//
+// Bedingungen: Eine Zuordnung kann auf Datensätze mit bestimmten Feldwerten
+// beschränkt sein (condition_field/condition_values). Maßgeblich sind die Felder
+// aus <entity_type>.get (heute gültige Zeitscheibe); Tags.schema ohne Datensatz
+// nimmt attributes oder liefert alle Sets samt Bedingung.
 
 // tagInfo ist ein Tag im Schema mit Regeln und Geltungsbereich.
 type tagInfo struct {
@@ -60,14 +65,16 @@ func companyScopes(cc string) []any {
 func inClause(n int) string { return strings.TrimSuffix(strings.Repeat("?, ", n), ", ") }
 
 // loadSchema liest die Tag Sets eines Objekttyps zum Stichtag.
-func (m *Module) loadSchema(ctx context.Context, entityType, cc, at, locale string) (*schemaIndex, error) {
+// attrs sind die Feldwerte des Datensatzes für Tag Sets mit Bedingung; nil = nicht
+// filtern (Schema ohne Datensatz: alle Sets samt Bedingung).
+func (m *Module) loadSchema(ctx context.Context, entityType, cc, at, locale string, attrs map[string]string) (*schemaIndex, error) {
 	if !objectRe.MatchString(entityType) {
 		return nil, crud.Invalid("entity_type %q: Name eines Objects erwartet", entityType)
 	}
 	scopes := companyScopes(cc)
 	args := append([]any{entityType}, scopes...)
 	args = append(args, at, at)
-	res, err := m.db.Query(ctx, `SELECT a.company_code, s.code, s.name, s.translation_key
+	res, err := m.db.Query(ctx, `SELECT a.company_code, s.code, s.name, s.translation_key, a.condition_field, a.condition_values
 		FROM tag__tag_set_assignments a JOIN tag__tag_sets s ON s.code = a.tag_set_code AND s.valid_from <= ? AND s.valid_to >= ?
 		WHERE a.entity_type = ? AND a.company_code IN (`+inClause(len(scopes))+`) AND a.valid_from <= ? AND a.valid_to >= ?
 		ORDER BY CASE WHEN a.company_code = '*' THEN 0 ELSE 1 END, s.code`, append([]any{at, at}, args...)...)
@@ -81,6 +88,12 @@ func (m *Module) loadSchema(ctx context.Context, entityType, cc, at, locale stri
 	for _, r := range res.Rows {
 		set := tagservice.TagSet{CompanyCode: crud.Str(r[0]), Code: crud.Str(r[1]), TranslationKey: crud.Str(r[3]),
 			Items: []tagservice.SetItem{}, Rules: []tagservice.Rule{}}
+		if field := crud.Str(r[4]); field != "" {
+			set.Condition = &tagservice.SetCondition{Field: field, Values: splitValues(crud.Str(r[5]))}
+			if attrs != nil && !slices.Contains(set.Condition.Values, attrs[field]) {
+				continue // Bedingung nicht erfüllt, z. B. Darlehens- statt Mietvertrag
+			}
+		}
 		set.Name = translate(dict, set.TranslationKey, crud.Str(r[2]))
 		items, err := m.db.Query(ctx, `SELECT tag_type_code, mandatory, sort_order FROM tag__tag_set_items
 			WHERE tag_set_code = ? AND valid_from <= ? AND valid_to >= ? ORDER BY sort_order, tag_type_code`, set.Code, at, at)
@@ -186,7 +199,7 @@ func translate(dict map[string]string, key, fallback string) string {
 // --- Werte lesen --------------------------------------------------------------
 
 const assignmentCols = `id, company_code, tag_type_code, value_string, value_integer, value_amount, value_currency,
-	value_date, value_timestamp, option_code, valid_from, valid_to`
+	value_date, value_timestamp, option_code, valid_from, valid_to, value_ref`
 
 func scanAssignment(r []any) tagservice.Assignment {
 	s := stored{}
@@ -198,6 +211,7 @@ func scanAssignment(r []any) tagservice.Assignment {
 		return &x
 	}
 	s.String, s.Amount, s.Currency, s.Timestamp, s.Option = strp(r[3]), strp(r[5]), strp(r[6]), strp(r[8]), strp(r[9])
+	s.Ref = strp(r[12])
 	if r[4] != nil {
 		i := toInt(r[4])
 		s.Integer = &i
@@ -232,9 +246,29 @@ func (m *Module) currentValues(ctx context.Context, idx *schemaIndex, entityType
 		if a.Value.Option != nil {
 			a.OptionLabel = optionLabel(info.item.Tag, *a.Value.Option)
 		}
+		if a.Value.Ref != nil {
+			a.RefLabel = m.refLabel(ctx, info.item.Tag.RefObject, *a.Value.Ref)
+		}
 		out[a.Tag] = a
 	}
 	return out, nil
+}
+
+// refLabel: lesbarer Text eines Verweises – TitleField des Ziels (Metamodell),
+// sonst die id. Ohne Leserecht auf das Ziel bleibt es bei der id.
+func (m *Module) refLabel(ctx context.Context, object, id string) string {
+	def, err := m.objectDef(ctx, object)
+	if err != nil || def.TitleField == "" {
+		return id
+	}
+	rec, err := m.fetch(ctx, object, id)
+	if err != nil {
+		return id
+	}
+	if l := attrText(rec[def.TitleField]); l != "" {
+		return l
+	}
+	return id
 }
 
 func optionLabel(t tagservice.TagType, code string) string {
@@ -263,6 +297,8 @@ func text(v tagservice.Value) string {
 		return *v.Date
 	case v.Timestamp != nil:
 		return *v.Timestamp
+	case v.Ref != nil:
+		return *v.Ref
 	}
 	return ""
 }
@@ -336,18 +372,26 @@ func describe(r tagservice.Rule) string {
 // --- Zugriff ------------------------------------------------------------------
 
 // checkEntity: Den Datensatz gibt es und der Benutzer darf ihn lesen – über
-// die eigene Action des Fachmoduls.
-func (m *Module) checkEntity(ctx context.Context, entityType, entityID string) error {
+// die eigene Action des Fachmoduls. Ergebnis sind die Feldwerte des Datensatzes
+// (heute gültige Zeitscheibe) für Tag Sets mit Bedingung.
+func (m *Module) checkEntity(ctx context.Context, entityType, entityID string) (map[string]string, error) {
 	if entityID == "" {
-		return crud.Invalid("entity_id fehlt")
+		return nil, crud.Invalid("entity_id fehlt")
 	}
-	if _, err := m.services.Call(ctx, entityType, "get", map[string]any{"id": entityID}); err != nil {
+	rec, err := m.fetch(ctx, entityType, entityID)
+	if err != nil {
 		if errors.Is(err, sdk.ErrUnimplemented) {
-			return fmt.Errorf("%w: Objekttyp %s hat keine Action get", sdk.ErrInvalidArgument, entityType)
+			return nil, fmt.Errorf("%w: Objekttyp %s hat keine Action get", sdk.ErrInvalidArgument, entityType)
 		}
-		return err
+		return nil, err
 	}
-	return nil
+	attrs := map[string]string{}
+	for k, v := range rec {
+		if !strings.HasPrefix(k, "_") {
+			attrs[k] = attrText(v)
+		}
+	}
+	return attrs, nil
 }
 
 // checkWrite: <entity_type>.update im Buchungskreis des Werts (bzw. überall bei "*").
@@ -376,7 +420,14 @@ func (m *Module) schemaAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	idx, err := m.loadSchema(ctx, in.EntityType, in.CompanyCode, at, in.Locale)
+	// Bedingungen: Felder des Datensatzes, sonst die mitgegebenen Attribute, sonst alle Sets.
+	attrs := in.Attributes
+	if in.EntityID != "" {
+		if attrs, err = m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
+			return sdk.Response{}, err
+		}
+	}
+	idx, err := m.loadSchema(ctx, in.EntityType, in.CompanyCode, at, in.Locale, attrs)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -392,15 +443,16 @@ func (m *Module) getAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	if err := m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
+	attrs, err := m.checkEntity(ctx, in.EntityType, in.EntityID)
+	if err != nil {
 		return sdk.Response{}, err
 	}
-	out, err := m.entityTags(ctx, in.EntityType, in.EntityID, in.CompanyCode, at, in.Locale)
+	out, err := m.entityTags(ctx, in.EntityType, in.EntityID, in.CompanyCode, at, in.Locale, attrs)
 	return sdk.Response{Payload: out}, err
 }
 
-func (m *Module) entityTags(ctx context.Context, entityType, entityID, cc, at, locale string) (tagservice.EntityTags, error) {
-	idx, err := m.loadSchema(ctx, entityType, cc, at, locale)
+func (m *Module) entityTags(ctx context.Context, entityType, entityID, cc, at, locale string, attrs map[string]string) (tagservice.EntityTags, error) {
+	idx, err := m.loadSchema(ctx, entityType, cc, at, locale, attrs)
 	if err != nil {
 		return tagservice.EntityTags{}, err
 	}
@@ -429,12 +481,12 @@ type plan struct {
 
 // prepare prüft einen SetRequest vollständig: Datentypen, Auswahlwerte am
 // Stichtag, veraltete Tags, Regeln auf dem Gesamtstand.
-func (m *Module) prepare(ctx context.Context, in tagservice.SetRequest) (*plan, []tagservice.Violation, error) {
+func (m *Module) prepare(ctx context.Context, in tagservice.SetRequest, attrs map[string]string) (*plan, []tagservice.Violation, error) {
 	at, err := effective(in.ValidFrom)
 	if err != nil {
 		return nil, nil, err
 	}
-	idx, err := m.loadSchema(ctx, in.EntityType, in.CompanyCode, at, in.Locale)
+	idx, err := m.loadSchema(ctx, in.EntityType, in.CompanyCode, at, in.Locale, attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -474,6 +526,13 @@ func (m *Module) prepare(ctx context.Context, in tagservice.SetRequest) (*plan, 
 				Message: fmt.Sprintf("%s: Auswahlwert %q gibt es am %s nicht", idx.label(code), *s.Option, at)})
 			continue
 		}
+		if s.Ref != nil {
+			if _, err := m.fetch(ctx, t.RefObject, *s.Ref); err != nil {
+				violations = append(violations, tagservice.Violation{Tag: code, Code: "reference",
+					Message: fmt.Sprintf("%s: %s %q nicht gefunden oder nicht lesbar", idx.label(code), t.RefObject, *s.Ref)})
+				continue
+			}
+		}
 		if a, has := cur[code]; has && text(a.Value) == text(s.value()) {
 			continue // unverändert
 		}
@@ -505,10 +564,11 @@ func (m *Module) validateAction(ctx context.Context, req sdk.Request) (sdk.Respo
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	if err := m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
+	attrs, err := m.checkEntity(ctx, in.EntityType, in.EntityID)
+	if err != nil {
 		return sdk.Response{}, err
 	}
-	p, violations, err := m.prepare(ctx, in)
+	p, violations, err := m.prepare(ctx, in, attrs)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -533,10 +593,11 @@ func (m *Module) setAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	if err := m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
+	attrs, err := m.checkEntity(ctx, in.EntityType, in.EntityID)
+	if err != nil {
 		return sdk.Response{}, err
 	}
-	p, violations, err := m.prepare(ctx, in)
+	p, violations, err := m.prepare(ctx, in, attrs)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -559,7 +620,7 @@ func (m *Module) setAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	out, err := m.entityTags(ctx, in.EntityType, in.EntityID, in.CompanyCode, p.at, in.Locale)
+	out, err := m.entityTags(ctx, in.EntityType, in.EntityID, in.CompanyCode, p.at, in.Locale, attrs)
 	return sdk.Response{Payload: out}, err
 }
 
@@ -604,17 +665,17 @@ func (m *Module) writeSlice(ctx context.Context, in tagservice.SetRequest, p *pl
 }
 
 func (m *Module) writeValue(ctx context.Context, op, id string, in tagservice.SetRequest, scope, code string, s *stored, from, to string) error {
-	vals := []any{deref(s.String), intOrNil(s.Integer), deref(s.Amount), deref(s.Currency), deref(s.Date), deref(s.Timestamp), deref(s.Option),
+	vals := []any{deref(s.String), intOrNil(s.Integer), deref(s.Amount), deref(s.Currency), deref(s.Date), deref(s.Timestamp), deref(s.Option), deref(s.Ref),
 		time.Now().UTC().Format(time.RFC3339), nilIfEmpty(sdk.CallFromContext(ctx).UserID)}
 	if op == "UPDATE" {
 		_, err := m.db.Exec(ctx, `UPDATE tag__tag_assignments SET value_string = ?, value_integer = ?, value_amount = ?, value_currency = ?,
-			value_date = ?, value_timestamp = ?, option_code = ?, changed_at = ?, changed_by = ? WHERE id = ? AND valid_from = ?`,
+			value_date = ?, value_timestamp = ?, option_code = ?, value_ref = ?, changed_at = ?, changed_by = ? WHERE id = ? AND valid_from = ?`,
 			append(vals, id, from)...)
 		return err
 	}
 	_, err := m.db.Exec(ctx, `INSERT INTO tag__tag_assignments (value_string, value_integer, value_amount, value_currency, value_date,
-		value_timestamp, option_code, changed_at, changed_by, id, target_entity_type, target_entity_id, company_code, tag_type_code, valid_from, valid_to)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		value_timestamp, option_code, value_ref, changed_at, changed_by, id, target_entity_type, target_entity_id, company_code, tag_type_code, valid_from, valid_to)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		append(vals, id, in.EntityType, in.EntityID, scope, code, from, to)...)
 	return err
 }
@@ -641,7 +702,7 @@ func (m *Module) historyAction(ctx context.Context, req sdk.Request) (sdk.Respon
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	if err := m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
+	if _, err := m.checkEntity(ctx, in.EntityType, in.EntityID); err != nil {
 		return sdk.Response{}, err
 	}
 	scopes := companyScopes(in.CompanyCode)
@@ -691,7 +752,7 @@ func (m *Module) findAction(ctx context.Context, req sdk.Request) (sdk.Response,
 			return sdk.Response{}, crud.Invalid("%s: %v", in.Tag, err)
 		}
 		for col, v := range map[string]any{"value_string": deref(s.String), "value_integer": intOrNil(s.Integer), "value_amount": deref(s.Amount),
-			"value_currency": deref(s.Currency), "value_date": deref(s.Date), "value_timestamp": deref(s.Timestamp), "option_code": deref(s.Option)} {
+			"value_currency": deref(s.Currency), "value_date": deref(s.Date), "value_timestamp": deref(s.Timestamp), "option_code": deref(s.Option), "value_ref": deref(s.Ref)} {
 			if v != nil {
 				sql, args = sql+" AND "+col+" = ?", append(args, v)
 			}

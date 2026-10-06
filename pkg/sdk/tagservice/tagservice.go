@@ -46,6 +46,9 @@ const (
 	TypeCurrency  DataType = "CURRENCY" // Betrag (Dezimal) + Währung (ISO 4217)
 	TypeDate      DataType = "DATE"     // JJJJ-MM-TT
 	TypeTimestamp DataType = "TIMESTAMP"
+	// TypeReference verweist auf den fachlichen Schlüssel (id) eines Datensatzes
+	// eines anderen Objects (TagType.RefObject), z. B. ein Mietobjekt.
+	TypeReference DataType = "REFERENCE"
 )
 
 // ValueMode: freie Eingabe oder vordefinierte Auswahlwerte.
@@ -79,6 +82,7 @@ type Value struct {
 	Date      *string `json:"date,omitempty"`      // JJJJ-MM-TT
 	Timestamp *string `json:"timestamp,omitempty"` // RFC 3339, gespeichert in UTC
 	Option    *string `json:"option,omitempty"`    // Code eines TagValueOption
+	Ref       *string `json:"ref,omitempty"`       // REFERENCE: id des Datensatzes von TagType.RefObject
 }
 
 // Konstruktoren für Werte.
@@ -88,6 +92,7 @@ func Money(amount, currency string) *Value { return &Value{Amount: &amount, Curr
 func Date(d string) *Value                 { return &Value{Date: &d} }
 func Timestamp(ts string) *Value           { return &Value{Timestamp: &ts} }
 func Option(code string) *Value            { return &Value{Option: &code} }
+func Ref(id string) *Value                 { return &Value{Ref: &id} }
 
 // TagType ist die Definition eines Tags (ohne Zeitscheibe; Status ACTIVE/DEPRECATED).
 type TagType struct {
@@ -96,8 +101,9 @@ type TagType struct {
 	TranslationKey string        `json:"translation_key,omitempty"`
 	DataType       DataType      `json:"data_type"`
 	ValueMode      ValueMode     `json:"value_mode"`
-	Status         string        `json:"status"`            // ACTIVE | DEPRECATED
-	Options        []ValueOption `json:"options,omitempty"` // am Stichtag gültig
+	RefObject      string        `json:"ref_object,omitempty"` // REFERENCE: Object des Ziels, z. B. "RentalObject"
+	Status         string        `json:"status"`               // ACTIVE | DEPRECATED
+	Options        []ValueOption `json:"options,omitempty"`    // am Stichtag gültig
 }
 
 // ValueOption ist ein vordefinierter Auswahlwert.
@@ -128,12 +134,22 @@ type SetItem struct {
 
 // TagSet ist ein Tag Set, wie es am Stichtag gilt.
 type TagSet struct {
-	Code           string    `json:"code"`
-	CompanyCode    string    `json:"company_code"` // Zuordnung: Buchungskreis oder "*"
-	Name           string    `json:"name"`
-	TranslationKey string    `json:"translation_key,omitempty"`
-	Items          []SetItem `json:"items"`
-	Rules          []Rule    `json:"rules"`
+	Code        string `json:"code"`
+	CompanyCode string `json:"company_code"` // Zuordnung: Buchungskreis oder "*"
+	// Condition: Das Set gilt nur für Datensätze, deren Feld einen der Werte hat
+	// (z. B. contract_type in RENT, LEASE). nil = für alle Datensätze des Objekttyps.
+	Condition      *SetCondition `json:"condition,omitempty"`
+	Name           string        `json:"name"`
+	TranslationKey string        `json:"translation_key,omitempty"`
+	Items          []SetItem     `json:"items"`
+	Rules          []Rule        `json:"rules"`
+}
+
+// SetCondition schränkt die Zuordnung eines Tag Sets auf Datensätze mit bestimmten
+// Feldwerten ein (ODER-Verknüpfung der Werte).
+type SetCondition struct {
+	Field  string   `json:"field"`
+	Values []string `json:"values"`
 }
 
 // Schema sind die Tag Sets eines Objekttyps am Stichtag (für Eingabemasken).
@@ -151,6 +167,7 @@ type Assignment struct {
 	CompanyCode string `json:"company_code"` // Buchungskreis des Werts oder "*"
 	Value       Value  `json:"value"`
 	OptionLabel string `json:"option_label,omitempty"`
+	RefLabel    string `json:"ref_label,omitempty"` // REFERENCE: lesbarer Text des Ziels
 	ValidFrom   string `json:"valid_from"`
 	ValidTo     string `json:"valid_to"`
 }
@@ -183,6 +200,10 @@ type GetRequest struct {
 	CompanyCode   string `json:"company_code,omitempty"` // leer = nur globale Tag Sets
 	EffectiveDate string `json:"effective_date,omitempty"`
 	Locale        string `json:"locale,omitempty"` // Sprache für Name/Label (de, en, zh-CN)
+	// Attributes: Feldwerte für Tag Sets mit Bedingung, wenn es den Datensatz noch
+	// nicht gibt (Tags.schema, z. B. {"contract_type": "RENT"}). Mit EntityID gelten die
+	// Werte des Datensatzes; ohne beides liefert Tags.schema alle Sets samt Bedingung.
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
 // SetRequest setzt Werte ab ValidFrom (Standard heute). Ein Wert nil beendet

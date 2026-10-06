@@ -403,6 +403,33 @@ Partner-Buchungskreisdaten, aber nur lesend über die Actions des Ziels.
 
 Ohne JavaScript bleibt das Lookup-Feld ein normales Textfeld für den Schlüssel.
 
+**Lookup ohne Metamodell-Feld:** `GET /lookup?object=<Object>&field=<Eingabefeld>` sucht einen
+Datensatz eines beliebigen Objects, zum Beispiel für Verweis-Tags im TagEditor. Übernommen wird
+der fachliche Schlüssel `id`, angezeigt das `TitleField` des Ziels. `field` ist hier der Name des
+Eingabefelds (z. B. `v.RENTAL_OBJECT`). Auch diese Form liest nur über die `list`-Action des Ziels
+mit Berechtigungsprüfung.
+
+### Kopfdaten-Vorschau (Peek)
+
+Neben **jedem Verweis** steht ein Hinweissymbol ⓘ. Ein Verweis ist ein Feld mit `Lookup` im
+Metamodell, auch ein Verweis-Tag. Das Symbol erscheint in Listen, eingebetteten Tabellen und der
+Detailansicht. Es gilt für alle bestehenden und künftigen Module, ohne Code im Fachmodul.
+
+1. Beim ersten Überfahren (bzw. Tastaturfokus) lädt htmx `GET /peek/{object}/{id}` in eine
+   kleine Karte. Sie bleibt offen, solange Maus oder Fokus auf Symbol oder Karte sind, damit der
+   Link erreichbar ist.
+2. Die Karte zeigt:
+   - den Titel des Objects,
+   - als Überschrift das `TitleField`,
+   - die **Kopfdaten**: Felder des ersten Feld-Abschnitts der Detailansicht, sonst die listable
+     Felder. Höchstens 8, leere Felder entfallen.
+3. **„Details öffnen →“** springt in die Detailansicht des Ziels in dessen Modul. Den Modulnamen
+   liefert `Catalog.GetDefinition` (`ui_module`).
+4. Gelesen wird über die `get`-Action des Ziels. Ohne Leserecht, bei fehlendem Datensatz oder
+   wenn das Ziel-Plugin nicht läuft, steht ein Hinweis in der Karte, die Liste bleibt intakt.
+
+Blöcke `peek-icon` und `peek` in `templates/peek.html`, überschreibbar wie alle Blöcke.
+
 ### Aggregat-API (Fetch & Cascade Save)
 
 Für Frontends, die ein zusammengesetztes Object als Ganzes laden und speichern, registriert
@@ -529,7 +556,7 @@ geladen, nicht über `_id`:
 
 | Route | Zweck |
 |---|---|
-| `GET /tags/{entity}/{id}?effectiveDate=…&companyCode=…` | Editor als Fragment (`Tags.get`, Buchungskreise aus `CompanyCode.list`) |
+| `GET /tags/{entity}/{id}?effectiveDate=…&companyCode=…` | Editor als Fragment; Tag Sets mit Bedingung gelten nach den Feldern des Datensatzes (`Tags.get`, Buchungskreise aus `CompanyCode.list`) |
 | `POST /tags/{entity}/{id}/preview` | Regeln neu auswerten, ohne zu speichern (`Tags.validate`) |
 | `POST /tags/{entity}/{id}` | speichern ab „Gültig ab“ (`Tags.set`) |
 

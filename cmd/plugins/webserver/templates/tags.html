@@ -67,6 +67,15 @@
     <input type="text" name="v.{{$f.Code}}.currency" value="{{$f.Curr}}" placeholder="{{t "core.tags.currency"}}" maxlength="3" pattern="[A-Za-z]{3}" {{if $ro}}disabled{{end}}
            hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
   </span>
+  {{else if eq $f.DataType "REFERENCE"}}
+  <span class="lookup">
+    <input type="text" name="v.{{$f.Code}}" value="{{$f.Value}}" autocomplete="off" {{if $ro}}disabled{{end}}
+           hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+    {{if not $ro}}<button type="button" class="btn lookup-btn" title="{{t "core.lookup.select_from" $f.Name}}"
+            hx-get="/lookup?object={{$f.RefObject}}&field=v.{{$f.Code}}" hx-target="#lookup" hx-swap="innerHTML">{{t "core.lookup.select"}}</button>{{end}}
+    <span class="lookup-label" data-lookup-label="v.{{$f.Code}}">{{if ne $f.RefLabel $f.Value}}{{$f.RefLabel}}{{end}}</span>
+    {{template "peek-icon" $f.Peek}}
+  </span>
   {{else}}
   <input name="v.{{$f.Code}}" value="{{$f.Value}}" {{if $ro}}disabled{{end}}
          {{if eq $f.DataType "INTEGER"}}type="number" step="1"{{else if eq $f.DataType "DATE"}}type="date"{{else if eq $f.DataType "TIMESTAMP"}}type="datetime-local"{{else}}type="text" maxlength="1000"{{end}}

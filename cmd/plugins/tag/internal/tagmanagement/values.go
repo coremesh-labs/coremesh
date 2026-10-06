@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/camel/coremesh/pkg/sdk"
 	"github.com/camel/coremesh/pkg/sdk/crud"
+	"github.com/camel/coremesh/pkg/sdk/metamodel"
 	"github.com/camel/coremesh/pkg/sdk/tagservice"
 )
 
@@ -20,6 +22,7 @@ import (
 //	CURRENCY   value_amount     Dezimaltext (bis 15 Vor-, 4 Nachkommastellen) + value_currency (ISO 4217)
 //	DATE       value_date       JJJJ-MM-TT
 //	TIMESTAMP  value_timestamp  RFC 3339, gespeichert in UTC
+//	REFERENCE  value_ref        fachlicher Schlüssel (id) eines Datensatzes von ref_object
 //
 // Bei Tags mit Auswahlwerten ist der Code des Auswahlwerts der Wert: Er steht
 // in option_code und – nach Datentyp umgewandelt – in der Wertspalte.
@@ -28,13 +31,13 @@ var amountRe = regexp.MustCompile(`^-?\d{1,15}(\.\d{1,4})?$`)
 
 // stored ist ein Wert in Spaltenform.
 type stored struct {
-	String, Amount, Currency, Date, Timestamp, Option *string
+	String, Amount, Currency, Date, Timestamp, Option, Ref *string
 	Integer                                           *int64
 }
 
 func (s stored) value() tagservice.Value {
 	return tagservice.Value{String: s.String, Integer: s.Integer, Amount: s.Amount, Currency: s.Currency,
-		Date: s.Date, Timestamp: s.Timestamp, Option: s.Option}
+		Date: s.Date, Timestamp: s.Timestamp, Option: s.Option, Ref: s.Ref}
 }
 
 // parseValue prüft einen Wert gegen den Tag-Typ. codeOnly: nur den Code eines
@@ -60,7 +63,7 @@ func parseValue(t *tagservice.TagType, v *tagservice.Value, codeOnly bool) (stor
 		return out, fmt.Errorf("Tag %s hat freie Werte – option nicht erlaubt", t.Code)
 	}
 	set := 0
-	for _, p := range []bool{v.String != nil, v.Integer != nil, v.Amount != nil || v.Currency != nil, v.Date != nil, v.Timestamp != nil} {
+	for _, p := range []bool{v.String != nil, v.Integer != nil, v.Amount != nil || v.Currency != nil, v.Date != nil, v.Timestamp != nil, v.Ref != nil} {
 		if p {
 			set++
 		}
@@ -102,6 +105,11 @@ func parseValue(t *tagservice.TagType, v *tagservice.Value, codeOnly bool) (stor
 			return out, fmt.Errorf("Zeitpunkt (timestamp) erwartet")
 		}
 		return parseScalar(t.DataType, *v.Timestamp)
+	case tagservice.TypeReference:
+		if v.Ref == nil {
+			return out, fmt.Errorf("Verweis (ref) auf %s erwartet", t.RefObject)
+		}
+		return parseScalar(t.DataType, *v.Ref)
 	}
 	return out, fmt.Errorf("unbekannter Datentyp %s", t.DataType)
 }
@@ -137,6 +145,14 @@ func parseScalar(dt tagservice.DataType, s string) (stored, error) {
 		}
 		u := ts.UTC().Format(time.RFC3339)
 		return stored{Timestamp: &u}, nil
+	case tagservice.TypeReference:
+		if s == "" {
+			return stored{}, fmt.Errorf("Verweis darf nicht leer sein")
+		}
+		if len(s) > 200 {
+			return stored{}, fmt.Errorf("Verweis ist länger als 200 Zeichen")
+		}
+		return stored{Ref: &s}, nil
 	case tagservice.TypeCurrency:
 		return stored{}, fmt.Errorf("Auswahlwerte gibt es für CURRENCY nicht")
 	}
@@ -145,7 +161,7 @@ func parseScalar(dt tagservice.DataType, s string) (stored, error) {
 
 // loadType liest einen Tag-Typ.
 func (m *Module) loadType(ctx context.Context, code string) (*tagservice.TagType, error) {
-	res, err := m.db.Query(ctx, `SELECT code, name, translation_key, data_type, value_mode, status FROM tag__tag_types WHERE code = ?`, code)
+	res, err := m.db.Query(ctx, `SELECT code, name, translation_key, data_type, value_mode, status, ref_object FROM tag__tag_types WHERE code = ?`, code)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +170,7 @@ func (m *Module) loadType(ctx context.Context, code string) (*tagservice.TagType
 	}
 	r := res.Rows[0]
 	return &tagservice.TagType{Code: crud.Str(r[0]), Name: crud.Str(r[1]), TranslationKey: crud.Str(r[2]),
-		DataType: tagservice.DataType(crud.Str(r[3])), ValueMode: tagservice.ValueMode(crud.Str(r[4])), Status: crud.Str(r[5])}, nil
+		DataType: tagservice.DataType(crud.Str(r[3])), ValueMode: tagservice.ValueMode(crud.Str(r[4])), Status: crud.Str(r[5]), RefObject: crud.Str(r[6])}, nil
 }
 
 // checkCompanyCode: "*" oder ein Buchungskreis aus iam (über den Dispatcher).
@@ -182,3 +198,62 @@ var iso4217 = func() map[string]bool {
 	}
 	return m
 }()
+
+// objectDef liest das Metamodell eines Objects aus dem Catalog (Felder für
+// Bedingungen, TitleField für lesbare Verweise).
+func (m *Module) objectDef(ctx context.Context, object string) (*metamodel.ObjectDefinition, error) {
+	resp, err := m.services.Call(ctx, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Definition metamodel.ObjectDefinition `json:"definition"`
+	}
+	if err := sdk.Decode(resp.Payload, &out); err != nil {
+		return nil, err
+	}
+	return &out.Definition, nil
+}
+
+// fetch liest einen Datensatz eines anderen Objects über dessen Action get
+// (Existenz und Leserecht prüft das Fachmodul bzw. der Dispatcher).
+func (m *Module) fetch(ctx context.Context, object, id string) (map[string]any, error) {
+	resp, err := m.services.Call(ctx, object, "get", map[string]any{"id": id})
+	if err != nil {
+		return nil, err
+	}
+	rec := map[string]any{}
+	if err := sdk.Decode(resp.Payload, &rec); err != nil {
+		return nil, err
+	}
+	return rec, nil
+}
+
+// attrText ist die Textform eines Feldwerts für Bedingungen ("true", "42", "RENT").
+func attrText(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(x)
+	case bool:
+		return strconv.FormatBool(x)
+	case float64:
+		if x == float64(int64(x)) {
+			return strconv.FormatInt(int64(x), 10)
+		}
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	}
+	return fmt.Sprint(v)
+}
+
+// splitValues zerlegt "RENT, LEASE" bzw. zeilenweise Eingaben in Werte.
+func splitValues(s string) []string {
+	var out []string
+	for _, v := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ';' || r == '\n' || r == '\r' }) {
+		if v = strings.TrimSpace(v); v != "" && !slices.Contains(out, v) {
+			out = append(out, v)
+		}
+	}
+	return out
+}

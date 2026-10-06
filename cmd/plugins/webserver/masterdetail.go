@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -25,6 +26,9 @@ import (
 // listet das Nachschlage-Object über dessen list-Action, mit Suche.
 
 var keyRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// inputNameRe: Name eines Eingabefelds für Lookups ohne Metamodell-Feld, z. B. v.RENTAL_OBJECT.
+var inputNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.]{0,80}$`)
 
 // sectionView ist ein Abschnitt der Detailansicht.
 type sectionView struct {
@@ -209,6 +213,7 @@ const lookupLimit = 100
 
 type lookupView struct {
 	From, Field, Title, Query string
+	Src                       string // Parameter für die Suche (from+field bzw. object+field)
 	Columns                   []metamodel.FieldDefinition
 	Rows                      []lookupRow
 	More                      bool
@@ -220,6 +225,11 @@ type lookupRow struct {
 }
 
 // GET /lookup?from=<Object>&field=<Feld>[&q=<Suche>][&rows=1]
+// GET /lookup?object=<Object>&field=<Eingabefeld>[&q=…][&rows=1]
+//
+// Die zweite Form sucht einen Datensatz eines beliebigen Objects (Verweis-Tags
+// im TagEditor): Übernommen wird die id, angezeigt das TitleField. field ist
+// dann der Name des Eingabefelds, z. B. v.RENTAL_OBJECT.
 //
 // Das Nachschlage-Object kommt aus dem Metamodell des Felds – nicht aus der
 // URL. Gelesen wird über dessen list-Action; der Dispatcher prüft die
@@ -227,26 +237,41 @@ type lookupRow struct {
 // aus iam), aber nur lesend über die Actions des Ziels.
 func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	from, field := q.Get("from"), q.Get("field")
-	if !objectRe.MatchString(from) || !keyRe.MatchString(field) {
-		s.fail(w, r, fmt.Errorf("%w: from und field erwartet", sdk.ErrInvalidArgument))
-		return
+	from, field, object := q.Get("from"), q.Get("field"), q.Get("object")
+	var lk *metamodel.Lookup
+	srcParams := url.Values{"field": {field}}
+	if object != "" {
+		if !objectRe.MatchString(object) || !inputNameRe.MatchString(field) {
+			s.fail(w, r, fmt.Errorf("%w: object und field erwartet", sdk.ErrInvalidArgument))
+			return
+		}
+		lk = &metamodel.Lookup{Object: object, ValueField: "id"}
+		srcParams.Set("object", object)
+	} else {
+		if !objectRe.MatchString(from) || !keyRe.MatchString(field) {
+			s.fail(w, r, fmt.Errorf("%w: from und field erwartet", sdk.ErrInvalidArgument))
+			return
+		}
+		src, err := s.definition(r, from)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		i := slices.IndexFunc(src.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
+		if i < 0 {
+			s.fail(w, r, fmt.Errorf("%w: %s.%s ist kein Lookup-Feld", sdk.ErrNotFound, from, field))
+			return
+		}
+		lk = src.Def.Fields[i].Lookup
+		srcParams.Set("from", from)
 	}
-	src, err := s.definition(r, from)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	i := slices.IndexFunc(src.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
-	if i < 0 {
-		s.fail(w, r, fmt.Errorf("%w: %s.%s ist kein Lookup-Feld", sdk.ErrNotFound, from, field))
-		return
-	}
-	lk := src.Def.Fields[i].Lookup
 	tgt, err := s.definition(r, lk.Object)
 	if err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	if object != "" && tgt.Def.TitleField != "" {
+		lk.LabelFields = []string{tgt.Def.TitleField}
 	}
 	act, err := need(tgt, metamodel.KindList)
 	if err != nil {
@@ -269,10 +294,13 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lv := lookupView{From: from, Field: field, Title: tgt.Def.Title, Query: search, Columns: lookupColumns(tgt.Def, lk)}
+	lv := lookupView{From: from, Field: field, Title: tgt.Def.Title, Query: search, Columns: lookupColumns(tgt.Def, lk), Src: srcParams.Encode()}
 	needle := strings.ToLower(search)
 	for _, rec := range recs {
 		row := lookupRow{Value: scalar(rec[lk.ValueField])}
+		if row.Value == "" && object != "" {
+			row.Value = recordID(rec) // Objects ohne fachliche id
+		}
 		var labels []string
 		for _, k := range lk.LabelFields {
 			if v := rec[k]; v != nil && scalar(v) != "" {

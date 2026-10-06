@@ -87,6 +87,21 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 			return sdk.Response{Payload: map[string]any{"id": p["id"]}}, nil
 		}
 		return sdk.Response{}, fmt.Errorf("%w: Partner %v", sdk.ErrNotFound, p["id"])
+	case "Contract.get": // Verträge mit Vertragsart (Bedingungen von Tag Sets)
+		if ct, ok := map[string]string{"c1": "RENT", "c2": "LOAN"}[fmt.Sprint(p["id"])]; ok {
+			return sdk.Response{Payload: map[string]any{"_id": p["id"], "id": p["id"], "contract_type": ct, "active": true}}, nil
+		}
+		return sdk.Response{}, fmt.Errorf("%w: Vertrag %v", sdk.ErrNotFound, p["id"])
+	case "RentalObject.get": // Ziel von Verweis-Tags
+		if p["id"] == "ro1" {
+			return sdk.Response{Payload: map[string]any{"id": "ro1", "name": "Wohnung 3. OG"}}, nil
+		}
+		return sdk.Response{}, fmt.Errorf("%w: Mietobjekt %v", sdk.ErrNotFound, p["id"])
+	case "Catalog.GetDefinition":
+		if d, ok := testDefs[fmt.Sprint(p["object"])]; ok {
+			return sdk.Response{Payload: map[string]any{"definition": d, "available": true}}, nil
+		}
+		return sdk.Response{}, fmt.Errorf("%w: keine Definition für %v", sdk.ErrNotFound, p["object"])
 	case "CompanyCode.get":
 		if id := fmt.Sprint(p["id"]); id == "1000" || id == "2000" {
 			return sdk.Response{Payload: map[string]any{"code": id}}, nil

@@ -53,6 +53,7 @@ type tagEditorSet struct {
 type tagField struct {
 	Code, Name, DataType string
 	Options              []tagOption
+	RefObject, RefLabel  string // REFERENCE: Ziel-Object und lesbarer Text des Werts
 	Value, Amount, Curr  string // Formularwerte
 	Since                string // Beginn der Zeitscheibe des Werts
 	Scope                string // Buchungskreis des Werts oder "*"
@@ -99,7 +100,8 @@ func (s *server) tagEditorPost(w http.ResponseWriter, r *http.Request) {
 	}
 	// Schema zum Beginn der neuen Werte.
 	var schema tagservice.Schema
-	resp, err := s.call(r, tagservice.Object, "schema", tagservice.GetRequest{EntityType: ed.EntityType,
+	// Mit EntityID: Tag Sets mit Bedingung gelten nach den Feldern des Datensatzes.
+	resp, err := s.call(r, tagservice.Object, "schema", tagservice.GetRequest{EntityType: ed.EntityType, EntityID: ed.EntityID,
 		CompanyCode: ed.CompanyCode, EffectiveDate: ed.ValidFrom, Locale: localeFrom(r)})
 	if err == nil {
 		err = sdk.Decode(resp.Payload, &schema)
@@ -133,6 +135,7 @@ func (s *server) tagEditorPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if !save {
 		ed.fillForm(schema, r.PostForm, check.State, nil, fieldErrs)
+		s.refLabels(r, ed)
 		s.render(w, r, http.StatusOK, "tag-editor", ed, "", "")
 		return
 	}
@@ -156,6 +159,7 @@ func (s *server) tagEditorPost(w http.ResponseWriter, r *http.Request) {
 	}
 	maps.Copy(byTag, fieldErrs)
 	ed.fillForm(schema, r.PostForm, check.State, byTag, fieldErrs)
+	s.refLabels(r, ed)
 	s.render(w, r, http.StatusUnprocessableEntity, "tag-editor", ed, "", "")
 }
 
@@ -220,6 +224,8 @@ func (ed *tagEditor) fill(schema tagservice.Schema, values []tagservice.Assignme
 			if t, err := time.Parse(time.RFC3339, *v.Timestamp); err == nil {
 				f.Value = t.UTC().Format("2006-01-02T15:04")
 			}
+		case v.Ref != nil:
+			f.Value, f.RefLabel = *v.Ref, a.RefLabel
 		}
 	})
 }
@@ -249,7 +255,7 @@ func (ed *tagEditor) build(schema tagservice.Schema, st tagservice.State, errs m
 			seen[it.Tag.Code] = true
 			f := tagField{Code: it.Tag.Code, Name: it.Tag.Name, DataType: string(it.Tag.DataType), Scope: it.Scope,
 				Required: st.Required[it.Tag.Code], Visible: st.Visible[it.Tag.Code] || len(st.Visible) == 0,
-				Deprecated: it.Tag.Status != "ACTIVE", Error: errs[it.Tag.Code]}
+				Deprecated: it.Tag.Status != "ACTIVE", Error: errs[it.Tag.Code], RefObject: it.Tag.RefObject}
 			if it.Tag.ValueMode == tagservice.ModeOptions {
 				for _, o := range it.Tag.Options {
 					f.Options = append(f.Options, tagOption{Value: o.Code, Label: o.Label})
@@ -281,6 +287,8 @@ func formTagValues(schema tagservice.Schema, form url.Values) (map[string]*tagse
 				values[code] = optional(raw, tagservice.String)
 			case tagservice.TypeDate:
 				values[code] = optional(raw, tagservice.Date)
+			case tagservice.TypeReference:
+				values[code] = optional(raw, tagservice.Ref)
 			case tagservice.TypeInteger:
 				if raw == "" {
 					values[code] = nil
@@ -332,4 +340,24 @@ func (f tagField) Global() bool { return f.Scope == tagservice.AllCompanyCodes |
 type tagFieldCtx struct {
 	Ed *tagEditor
 	F  tagField
+}
+
+// refLabels ergänzt den lesbaren Text der Verweise aus den Formulareingaben
+// (Vorschau, Fehler) – gespeicherte Werte bringen ihn vom TagService mit.
+func (s *server) refLabels(r *http.Request, ed *tagEditor) {
+	for i := range ed.Sets {
+		for j := range ed.Sets[i].Fields {
+			if f := &ed.Sets[i].Fields[j]; f.RefObject != "" && f.Value != "" {
+				f.RefLabel = s.refLabel(r, f.RefObject, f.Value)
+			}
+		}
+	}
+}
+
+// Peek: Vorschau des Verweisziels ("" = kein Verweis bzw. kein Wert).
+func (f tagField) Peek() string {
+	if f.RefObject == "" {
+		return ""
+	}
+	return peekURL(f.RefObject, f.Value)
 }

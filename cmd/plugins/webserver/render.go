@@ -143,6 +143,8 @@ var funcs = template.FuncMap{
 	},
 	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
 	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
+	"peekFor":    peekFor,
+	"peekURL":    peekURL,
 	"pathEscape": url.PathEscape,
 	"domID":      domID,
 	"endBtn":     newEndBtn,
