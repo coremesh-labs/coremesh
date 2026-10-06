@@ -1,7 +1,7 @@
 # Domain-Plugins (eigene Prozesse via HashiCorp go-plugin).
 plugins:
   hello:
-    version: 0.1.0
+    version: 0.2.0
     # sha256: "<64 hex>"   # Pflicht für Downloads; lokal empfohlen (Prüfung bei jedem Start)
     args: []
     env:                   # Umgebung des Hosts wird NICHT vererbt

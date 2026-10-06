@@ -106,6 +106,17 @@ Soll = Haben), gibt es `Entity.ReadOnly` (kein generisches create/update; ein Ag
 dann nur `getAggregate`) und `Entity.Actions` (eigene Actions mit `metamodel.ActionConfig`,
 etwa `post` oder `reverse` mit `Record: true`).
 
+## SystemEvents
+
+Änderungen an Bewegungsdaten meldet ein Modul an den Event-Dispatcher (Core-Plugin `event`,
+Object `SystemEvent`):
+
+- **generisch:** crud-Entities mit `Events: true` nach `set.Events(env.Services, "<modul>")`,
+- **explizit:** `events.Push` aus [`pkg/sdk/events`](../events/events.go) nach dem Commit.
+
+Empfangen: eine Route `<Object>.onEvent` anmelden und in `Initialize` mit `events.Register`
+abonnieren. Details: [internal/coreplugins/event](../../../internal/coreplugins/event/README.md).
+
 ## Konsolenbefehle
 
 `r.Command(metamodel.CommandDefinition{…})` meldet einen Befehl für die Console an:

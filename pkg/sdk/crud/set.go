@@ -13,6 +13,8 @@ type Set struct {
 	entities []*Entity
 	byObject map[string]*Entity
 	db       module.DB
+	services module.Services // Event-Dispatcher (Set.Events); nil = keine Events
+	source   string
 }
 
 // NewSet fasst Entities zusammen (Reihenfolge = Navigation).
@@ -28,6 +30,12 @@ func NewSet(entities ...*Entity) *Set {
 
 // Bind übernimmt die Datenbank des Moduls (in Initialize, vor der ersten Anfrage).
 func (s *Set) Bind(db module.DB) { s.db = db }
+
+// Events schaltet SystemEvents für Entities mit Events: true ein (in Initialize).
+// source ist der Name des Moduls im Event.
+func (s *Set) Events(services module.Services, source string) {
+	s.services, s.source = services, source
+}
 
 // Entity liefert eine Entity über ihr Object (oder nil).
 func (s *Set) Entity(object string) *Entity { return s.byObject[object] }

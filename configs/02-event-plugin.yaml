@@ -1,0 +1,12 @@
+# Core-Plugin Event-Dispatcher (Object SystemEvent): Plugins abonnieren Änderungen
+# (Register) und melden Änderungen an Bewegungsdaten (Push). Zugestellt wird
+# asynchron an <Callback>.onEvent als eigene Systemanfrage – dafür ingress: true.
+plugins:
+  event:
+    kind: internal
+    ingress: true
+    settings:
+      workers: 4          # parallele Zustellungen
+      queue_size: 1000    # Puffer; ist er voll, wird das Event verworfen (Log-Warnung)
+      max_attempts: 3     # Versuche, wenn der Empfänger gerade nicht verfügbar ist
+      timeout_sec: 30     # Zeitlimit je Zustellung
