@@ -43,6 +43,24 @@ func TestValidateErrors(t *testing.T) {
 		"value leer":       func(d *ObjectDefinition) { d.Fields[2].Options[1].Value = "customer" },
 		"unbekannter kind": func(d *ObjectDefinition) { d.Actions[0].Kind = "export" },
 		"name doppelt":     func(d *ObjectDefinition) { d.Actions[1].Name = "list" },
+		"lookup.object": func(d *ObjectDefinition) {
+			d.Fields[0].Lookup = &Lookup{Object: "x", ValueField: "code", LabelFields: []string{"d"}}
+		},
+		"label_fields": func(d *ObjectDefinition) { d.Fields[0].Lookup = &Lookup{Object: "Role", ValueField: "code"} },
+		"lookup nicht": func(d *ObjectDefinition) {
+			d.Fields[2].Lookup = &Lookup{Object: "Role", ValueField: "code", LabelFields: []string{"d"}}
+		},
+		"title_field": func(d *ObjectDefinition) { d.TitleField = "gibts_nicht" },
+		"genau eines": func(d *ObjectDefinition) { d.Sections = []SectionDefinition{{Key: "a", Title: "A"}} },
+		"gibt es nicht": func(d *ObjectDefinition) {
+			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Fields: []string{"x"}}}
+		},
+		"steht schon": func(d *ObjectDefinition) {
+			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Fields: []string{"email"}}, {Key: "b", Title: "B", Fields: []string{"email"}}}
+		},
+		"relation braucht": func(d *ObjectDefinition) {
+			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Relation: &Relation{Object: "Contact"}}}
+		},
 	}
 	for want, mutate := range cases {
 		t.Run(want, func(t *testing.T) {
@@ -53,5 +71,18 @@ func TestValidateErrors(t *testing.T) {
 				t.Fatalf("Fehler mit %q erwartet, bekommen: %v", want, err)
 			}
 		})
+	}
+}
+
+func TestValidateSectionsAndLookups(t *testing.T) {
+	d := partner()
+	d.TitleField = "company_name"
+	d.Fields[0].Lookup = &Lookup{Object: "Company", ValueField: "id", LabelFields: []string{"name"}, Columns: []string{"id", "name"}}
+	d.Sections = []SectionDefinition{
+		{Key: "base", Title: "Stammdaten", Fields: []string{"company_name", "email"}},
+		{Key: "contacts", Title: "Kontakte", Collapsed: true, Relation: &Relation{Object: "Contact", ForeignKey: "partner_id"}},
+	}
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }

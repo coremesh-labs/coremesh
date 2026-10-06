@@ -56,6 +56,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", staticHandler(cfg.StaticDir)))
 	s.mux.HandleFunc("GET /{$}", s.home)
 	// Nur Module: je Modul ein gekapselter Sub-Router für Oberfläche, Actions und API.
+	s.mux.HandleFunc("GET /lookup", s.lookup)
 	s.mountModule("/m", s.uiRoutes(), s.fail)
 	s.mountModule("/action", s.actionRoutes(), s.fail)
 	s.mountModule("/api/v1", s.apiRoutes(), s.apiError)
@@ -251,12 +252,42 @@ func (s *server) newForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "form", v, v.FormTitle, oc.Object)
 }
 
+// createView baut das Formular für create. Vorbelegung über die URL
+// (?<feld>=<wert>), feste Felder über _lock, _view=refresh für die
+// Master-Detail-Ansicht (Antwort: Dialog zu, Abschnitte laden neu).
 func (s *server) createView(r *http.Request, oc objectCtx, values, errs map[string]string) view {
-	return view{
-		objectCtx: oc, Mode: "create", Modal: isHTMX(r),
-		FormTitle: oc.Def.Title + " – " + oc.Has["create"].Label, FormAction: oc.URL,
-		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "create", values, errs),
+	if values == nil {
+		values = map[string]string{}
+		for _, f := range oc.Def.Fields {
+			if v := r.URL.Query().Get(f.Key); v != "" {
+				values[f.Key] = v
+			}
+		}
 	}
+	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
+	v := view{
+		objectCtx: oc, Mode: "create", Modal: isHTMX(r), ViewParam: refreshParam(r), Locked: lockList,
+		FormTitle: oc.Def.Title + " – " + oc.Has["create"].Label, FormAction: oc.URL,
+		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "create", values, errs, formOpts{locked: locked}),
+	}
+	return v
+}
+
+// refreshParam: "refresh", wenn das Formular aus einem eingebetteten
+// Abschnitt (Master-Detail) kommt, sonst "".
+func refreshParam(r *http.Request) string {
+	if r.FormValue("_view") == "refresh" || r.URL.Query().Get("view") == "refresh" {
+		return "refresh"
+	}
+	return ""
+}
+
+// refreshed beantwortet ein Formular aus der Master-Detail-Ansicht: Der
+// Dialog wird geleert (leerer Haupt-Swap in #modal), ein Toast erscheint, und
+// das Ereignis coremesh-changed lädt die eingebetteten Abschnitte neu.
+func (s *server) refreshed(w http.ResponseWriter, r *http.Request, msg string) {
+	w.Header().Set("HX-Trigger", "coremesh-changed")
+	s.render(w, r, http.StatusOK, "toast", &toast{Level: "success", Message: msg}, "", "")
 }
 
 // POST /m/{module}/{object}
@@ -291,6 +322,10 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	}
 	if !isHTMX(r) {
 		http.Redirect(w, r, oc.URL, http.StatusSeeOther)
+		return
+	}
+	if refreshParam(r) == "refresh" {
+		s.refreshed(w, r, oc.Def.Title+" angelegt")
 		return
 	}
 	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: &toast{Level: "success", Message: oc.Def.Title + " angelegt"}}
@@ -357,20 +392,26 @@ func (s *server) editForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "form", v, v.FormTitle, oc.Object)
 }
 
+// editView: viewParam row (Tabelle), detail (Detailansicht) oder refresh
+// (eingebetteter Abschnitt einer Master-Detail-Ansicht).
 func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, errs map[string]string, viewParam string) view {
-	if viewParam != "row" {
+	if viewParam != "row" && viewParam != "refresh" {
 		viewParam = "detail"
 	}
 	id := recordID(rec)
 	target := "#detail"
-	if viewParam == "row" {
+	switch viewParam {
+	case "row":
 		target = "#row-" + hex.EncodeToString([]byte(id))
+	case "refresh":
+		target = "#modal"
 	}
+	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
 	return view{
-		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target,
+		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target, Locked: lockList,
 		FormTitle:  oc.Def.Title + " – " + oc.Has["update"].Label,
 		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
-		FormFields: buildFields(oc.Def, "edit", values, errs),
+		FormFields: buildFields(oc.Def, "edit", values, errs, formOpts{labels: labelsOf(rec), locked: locked}),
 	}
 }
 
@@ -414,6 +455,10 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 		rec["id"] = id
 	}
 	viewParam := r.PostForm.Get("_view")
+	if viewParam == "refresh" {
+		s.refreshed(w, r, oc.Def.Title+" gespeichert")
+		return
+	}
 	if viewParam != "row" {
 		viewParam = "detail"
 	}
@@ -497,7 +542,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 	return view{
 		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: oc.Def.Title + " – " + act.Label, FormAction: oc.ActionURL + "/" + act.Name,
-		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "action", values, errs),
+		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "action", values, errs, formOpts{}),
 	}
 }
 

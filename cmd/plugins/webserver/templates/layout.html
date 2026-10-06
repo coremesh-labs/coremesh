@@ -5,7 +5,7 @@
   Modul zeigt seine Objects, gruppiert nach Section (navItem {Object, Title, Icon, URL, Active}).
 
   Überschreibbare Blöcke: head, brand, sidebar, nav-module, nav-item, user-menu, content, footer, scripts.
-  Pflicht-IDs für HTMX: #main-content, #modal, #toast-container.
+  Pflicht-IDs für HTMX: #main-content, #modal, #lookup (Auswahldialog über dem Dialog), #toast-container.
 */}}
 {{define "layout"}}<!doctype html>
 <html lang="de">
@@ -52,6 +52,7 @@
   </aside>
   <main id="main-content">{{block "content" .}}{{.Content}}{{end}}</main>
   <div id="modal"></div>
+  <div id="lookup"></div>
   <div id="toast-container" aria-live="polite"></div>
   {{block "footer" .}}{{end}}
   {{block "scripts" .}}
@@ -65,6 +66,18 @@
         a.classList.toggle("active", path === href || path.indexOf(href + "/") === 0);
       });
     });
+    // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
+    // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
+    function coremeshPick(row) {
+      var field = row.dataset.field;
+      var scope = document.querySelector("#modal form") || document;
+      var input = scope.querySelector("[name=\"" + field + "\"]");
+      if (input) { input.value = row.dataset.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
+      var label = scope.querySelector("[data-lookup-label=\"" + field + "\"]");
+      if (label) label.textContent = row.dataset.label;
+      document.getElementById("lookup").innerHTML = "";
+      if (input) input.focus();
+    }
   </script>
   {{end}}
 </body>

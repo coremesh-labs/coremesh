@@ -1,0 +1,55 @@
+package businesspartner
+
+import (
+	"context"
+	"strings"
+)
+
+// withLabels ergänzt Datensätze um "_labels": {<feld>: <lesbarer Text>} für
+// alle Verweise mit LabelFields – je Feld eine Abfrage für alle Datensätze
+// (kein N+1). Die Oberfläche zeigt den Text statt des Schlüssels, z. B.
+// „Hauptanschrift“ statt MAIN oder die Anschrift statt der Adress-ID.
+func (e *entity) withLabels(ctx context.Context, recs ...record) error {
+	for i := range e.Fields {
+		f := &e.Fields[i]
+		if f.Ref == nil || len(f.Ref.LabelFields) == 0 {
+			continue
+		}
+		var values []any
+		seen := map[string]bool{}
+		for _, rec := range recs {
+			if v := str(rec[f.Key]); v != "" && !seen[v] {
+				seen[v] = true
+				values = append(values, v)
+			}
+		}
+		if len(values) == 0 {
+			continue
+		}
+		parts := make([]string, len(f.Ref.LabelFields))
+		for j, c := range f.Ref.LabelFields {
+			parts[j] = "COALESCE(CAST(" + c + " AS TEXT), '')" // portabel: SQLite und PostgreSQL
+		}
+		marks := strings.TrimSuffix(strings.Repeat("?, ", len(values)), ", ")
+		res, err := e.m.db.Query(ctx, "SELECT "+f.Ref.Column+", "+strings.Join(parts, " || ' ' || ")+
+			" FROM "+f.Ref.Table+" WHERE "+f.Ref.Column+" IN ("+marks+")", values...)
+		if err != nil {
+			return err
+		}
+		texts := map[string]string{}
+		for _, r := range res.Rows {
+			texts[str(r[0])] = strings.Join(strings.Fields(str(r[1])), " ")
+		}
+		for _, rec := range recs {
+			if t := texts[str(rec[f.Key])]; t != "" {
+				labels, _ := rec["_labels"].(map[string]any)
+				if labels == nil {
+					labels = map[string]any{}
+					rec["_labels"] = labels
+				}
+				labels[f.Key] = t
+			}
+		}
+	}
+	return nil
+}

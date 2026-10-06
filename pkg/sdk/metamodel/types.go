@@ -11,6 +11,14 @@ type ObjectDefinition struct {
 	Icon    string            `json:"icon,omitempty"` // Icon-CSS-Klasse
 	Fields  []FieldDefinition `json:"fields"`         // Spalten / Formularfelder
 	Actions []ActionConfig    `json:"actions"`        // Erlaubte Aktionen
+
+	// TitleField benennt das Feld, das einen Datensatz in Überschriften
+	// vertritt (z. B. "name1"). Optional.
+	TitleField string `json:"title_field,omitempty"`
+	// Sections gliedern die Detailansicht in aufklappbare Abschnitte: Felder
+	// des Objects oder eingebettete Unter-Objekte (Relation). Felder ohne
+	// Abschnitt erscheinen in einem vorangestellten Abschnitt „Allgemein“.
+	Sections []SectionDefinition `json:"sections,omitempty"`
 }
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).
@@ -22,6 +30,47 @@ type FieldDefinition struct {
 	Listable bool      `json:"listable"`          // in der Übersichtstabelle anzeigen
 	Editable bool      `json:"editable"`          // im Formular bearbeitbar
 	Options  []Option  `json:"options,omitempty"` // nur für TypeSelect
+	// Lookup: Der Wert ist der Schlüssel eines Datensatzes eines anderen
+	// Objects (Fremdschlüssel). Die Oberfläche bietet einen Auswahldialog an.
+	Lookup *Lookup `json:"lookup,omitempty"`
+}
+
+// Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object
+// (Stammdatentabelle, Katalog). Der Dialog ruft dessen Action vom Kind list
+// mit {"query": {"q": <Suche>}} auf.
+//
+// Anzeige: Liefert das Modul in einem Datensatz "_labels": {<key>: <Text>},
+// zeigt die Oberfläche den Text statt des Schlüssels.
+type Lookup struct {
+	Object      string   `json:"object"`            // Nachschlage-Object, z. B. "PartnerAddressRole"
+	ValueField  string   `json:"value_field"`       // Feld des Ziels, dessen Wert übernommen wird (z. B. "code")
+	LabelFields []string `json:"label_fields"`      // Felder des Ziels für den lesbaren Text (mit Leerzeichen verbunden)
+	Columns     []string `json:"columns,omitempty"` // Spalten im Dialog (Standard: listable Felder des Ziels)
+}
+
+// SectionDefinition ist ein aufklappbarer Abschnitt der Detailansicht.
+// Genau eines von Fields und Relation ist gesetzt.
+type SectionDefinition struct {
+	Key       string    `json:"key"` // eindeutig im Object, [a-z][a-z0-9_]*
+	Title     string    `json:"title"`
+	Collapsed bool      `json:"collapsed,omitempty"` // anfangs zugeklappt
+	Fields    []string  `json:"fields,omitempty"`    // Feld-Keys dieses Objects
+	Relation  *Relation `json:"relation,omitempty"`  // eingebettete Unter-Objekte (Master-Detail)
+}
+
+// Relation verbindet ein Object (Master) mit Datensätzen eines Unter-Objects
+// (Detail), die über ForeignKey auf die id des Masters verweisen. Eine
+// n:m-Beziehung ist eine Relation auf die Zwischentabelle, deren zweiter
+// Schlüssel ein Lookup ist – z. B. BusinessPartner → PartnerAddress
+// (bp_id, address_role_code) → PartnerAddressData über address_id.
+//
+// Konvention für das Unter-Object: list filtert mit {"query": {<ForeignKey>: <id>}},
+// create/update/delete wie im WebServer üblich. Unter-Object und Master gehören
+// zum selben Plugin und Modul.
+type Relation struct {
+	Object     string   `json:"object"`            // Unter-Object, z. B. "PartnerAddress"
+	ForeignKey string   `json:"foreign_key"`       // Feld des Unter-Objects mit der id des Masters, z. B. "bp_id"
+	Columns    []string `json:"columns,omitempty"` // Spalten der eingebetteten Tabelle (Standard: listable ohne ForeignKey)
 }
 
 // FieldType bestimmt Darstellung und Eingabe eines Felds.

@@ -64,6 +64,27 @@ func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []met
 			}
 		}
 	}
+	// Relationen (Master-Detail) verweisen nur auf eigene Objects mit dem Fremdschlüssel-Feld.
+	byName := map[string]metamodel.ObjectDefinition{}
+	for _, d := range defs {
+		byName[d.Name] = d
+	}
+	for _, d := range defs {
+		for _, s := range d.Sections {
+			if s.Relation == nil {
+				continue
+			}
+			child, ok := byName[s.Relation.Object]
+			if !ok {
+				errs = append(errs, fmt.Errorf("Object %s: Relation %s verweist auf %s – kein Object von Modul %s", d.Name, s.Key, s.Relation.Object, module))
+				continue
+			}
+			if !slices.ContainsFunc(child.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == s.Relation.ForeignKey }) {
+				errs = append(errs, fmt.Errorf("Object %s: Relation %s: %s hat kein Feld %s", d.Name, s.Key, child.Name, s.Relation.ForeignKey))
+			}
+		}
+	}
+
 	// Module bündeln nur eigene, beschriebene Objects; jedes Object höchstens einmal.
 	inModule := map[string]string{}
 	names := map[string]bool{}
