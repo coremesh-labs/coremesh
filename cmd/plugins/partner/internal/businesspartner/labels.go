@@ -31,8 +31,15 @@ func (e *entity) withLabels(ctx context.Context, recs ...record) error {
 			parts[j] = "COALESCE(CAST(" + c + " AS TEXT), '')" // portabel: SQLite und PostgreSQL
 		}
 		marks := strings.TrimSuffix(strings.Repeat("?, ", len(values)), ", ")
-		res, err := e.m.db.Query(ctx, "SELECT "+f.Ref.Column+", "+strings.Join(parts, " || ' ' || ")+
-			" FROM "+f.Ref.Table+" WHERE "+f.Ref.Column+" IN ("+marks+")", values...)
+		sql := "SELECT " + f.Ref.Column + ", " + strings.Join(parts, " || ' ' || ") +
+			" FROM " + f.Ref.Table + " WHERE " + f.Ref.Column + " IN (" + marks + ")"
+		if f.Ref.TimeSliced {
+			// Mehrere Zeitscheiben je Schlüssel: Die zuletzt gelesene gewinnt – die
+			// heute gültige, sonst die jüngste.
+			sql += " ORDER BY CASE WHEN valid_from <= ? AND valid_to >= ? THEN 1 ELSE 0 END, valid_from"
+			values = append(values, today(), today())
+		}
+		res, err := e.m.db.Query(ctx, sql, values...)
 		if err != nil {
 			return err
 		}

@@ -22,16 +22,29 @@ import (
 //	deactivate  {"id": "<id>"}                    → record (Typ status)
 //	custom  {"id"?: "<id>", "data": {<Felder>}} → beliebig; "message" wird angezeigt
 //
-// Ein record ist ein JSON-Objekt; der Schlüssel "id" identifiziert ihn.
+// Ein record ist ein JSON-Objekt. "_id" identifiziert ihn (bei Zeitscheiben inkl.
+// Beginndatum, z. B. "4711|2026-01-01"); fehlt "_id", gilt "id". "id" ist der
+// fachliche Schlüssel, auf den Verweise zeigen (z. B. bp_id eines Unter-Objects).
 
 // record ist ein Datensatz eines Business-Objects.
 type record map[string]any
 
 func recordID(r record) string {
+	for _, k := range []string{"_id", "id"} {
+		if v, ok := r[k]; ok && v != nil {
+			return scalar(v)
+		}
+	}
+	return ""
+}
+
+// businessKey ist der fachliche Schlüssel ("id"), auf den andere Datensätze
+// verweisen – bei Zeitscheiben ohne Beginndatum. Fehlt er, die Datensatz-ID.
+func businessKey(r record) string {
 	if v, ok := r["id"]; ok && v != nil {
 		return scalar(v)
 	}
-	return ""
+	return recordID(r)
 }
 
 // records liest die Antwort einer list-Action.

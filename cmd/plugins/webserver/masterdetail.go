@@ -66,7 +66,8 @@ func (v view) Sections() []sectionView {
 			}
 		}
 		if s.Relation != nil {
-			sv.URL = v.URL + "/" + pathEscape(v.ID()) + "/rel/" + s.Key
+			// Unter-Objects verweisen auf den fachlichen Schlüssel, nicht auf die Zeitscheibe.
+			sv.URL = v.URL + "/" + pathEscape(businessKey(v.Record)) + "/rel/" + s.Key
 		}
 		out = append(out, sv)
 	}

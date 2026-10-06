@@ -50,9 +50,9 @@ plugins:
 	@# Namenskonvention des Resolvers: <dir>/<xx>/<name>-<version>-<os>-<arch>[.exe]
 	go build -o $(BIN_DIR)/plugins/he/hello-0.1.0-$(GOOS)-$(GOARCH)$(EXT) ./examples/plugins/hello
 	@# Eigenes Go-Modul: im Modulverzeichnis bauen
-	cd cmd/plugins/webserver && go build -o ../../../$(BIN_DIR)/plugins/we/webserver-0.6.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/webserver && go build -o ../../../$(BIN_DIR)/plugins/we/webserver-0.7.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/console && go build -o ../../../$(BIN_DIR)/plugins/co/console-0.1.0-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.4.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.5.0-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:
 	go test ./...
