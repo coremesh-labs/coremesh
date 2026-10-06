@@ -10,7 +10,7 @@ import (
 	"github.com/camel/coremesh/cmd/plugins/tag/internal/tagmanagement"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	plugin.Main(module.NewPlugin(

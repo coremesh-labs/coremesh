@@ -61,6 +61,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("GET /{$}", s.home)
 	// Nur Module: je Modul ein gekapselter Sub-Router für Oberfläche, Actions und API.
 	s.mux.HandleFunc("GET /lookup", s.lookup)
+	s.mux.HandleFunc("GET /peek/{object}/{id}", s.peek)
 	// Mehrsprachigkeit: Sprachwähler, Wörterbuch, eigenes Profil (siehe i18n.go).
 	s.mux.HandleFunc("POST /locale", s.setLocale)
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.

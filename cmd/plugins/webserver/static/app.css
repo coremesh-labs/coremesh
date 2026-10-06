@@ -37,8 +37,9 @@ h2 { font-size: 1.15rem; margin: 0 0 1rem; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .btn.danger, .link.danger { color: var(--danger); }
 .link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
-table.data { width: 100%; border-collapse: collapse; background: var(--surface);
-             border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+table.data { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface);
+             border: 1px solid var(--border); border-radius: var(--radius); }
+table.data tbody tr:last-child td { border-bottom: 0; }
 table.data th, table.data td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--border); }
 table.data th { font-size: .85rem; color: var(--muted); font-weight: 600; }
 table.data td.actions { text-align: right; white-space: nowrap; }
@@ -141,3 +142,20 @@ fieldset.tag-set legend { font-weight: 600; padding: 0 .35rem; }
 .tag-editor footer { display: flex; gap: 1rem; align-items: end; justify-content: flex-end; }
 .tag-valid-from { display: grid; gap: .2rem; font-size: .9rem; color: var(--muted); }
 .field .badge { margin-left: .35rem; font-weight: 400; }
+
+/* Kopfdaten-Vorschau (peek): Hinweissymbol neben Verweisen, Karte beim Überfahren */
+.peek { position: relative; display: inline-block; margin-left: .3rem; vertical-align: baseline; }
+.peek-icon { background: none; border: 0; padding: 0 .1rem; color: var(--muted); cursor: help; font: inherit; line-height: 1; }
+.peek-icon:hover, .peek-icon:focus-visible { color: var(--accent); }
+.peek-card { display: none; position: absolute; z-index: 50; top: calc(100% + .3rem); left: -.5rem;
+             width: max-content; min-width: 14rem; max-width: min(24rem, 90vw); padding: .7rem .9rem;
+             background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+             box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: .9rem; white-space: normal; text-align: left; }
+.peek-card::before { content: ""; position: absolute; top: -.6rem; left: 0; right: 0; height: .6rem; } /* Brücke für die Maus */
+.peek:hover .peek-card, .peek:focus-within .peek-card { display: block; }
+.peek-head { display: flex; flex-direction: column; margin-bottom: .4rem; }
+.peek-head strong { font-size: 1rem; }
+.peek-fields { display: grid; grid-template-columns: auto 1fr; gap: .2rem .8rem; margin: 0 0 .5rem; }
+.peek-fields dt { color: var(--muted); }
+.peek-fields dd { margin: 0; }
+.peek-link { font-weight: 600; }

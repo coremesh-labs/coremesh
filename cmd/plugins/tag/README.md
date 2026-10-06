@@ -22,13 +22,13 @@ Risikoklasse, ein Kreditlimit oder das Datum der letzten Bonitätsprüfung am Ge
 | Begriff | Bedeutung |
 |---|---|
 | **Tag-Typ** (`TagType`) | Definition eines Merkmals: Code, Name, Datentyp, Wertemodus, Status |
-| **Datentyp** | `STRING`, `INTEGER`, `CURRENCY` (Betrag + ISO-4217-Währung), `DATE`, `TIMESTAMP` |
+| **Datentyp** | `STRING`, `INTEGER`, `CURRENCY` (Betrag + ISO-4217-Währung), `DATE`, `TIMESTAMP`, `REFERENCE` (Verweis auf den Schlüssel eines Datensatzes eines anderen Objects, z. B. ein Mietobjekt) |
 | **Wertemodus** | `FREE` (freie Eingabe) oder `OPTIONS` (Auswahl aus `TagValueOption`) |
 | **Auswahlwert** (`TagValueOption`) | erlaubter Wert eines `OPTIONS`-Tags, mit `translation_key` und Zeitscheibe |
 | **Tag Set** (`TagSet`) | fachliche Gruppe von Tags (Items) mit Regeln, z. B. „Risiko“ |
 | **Item** (`TagSetItem`) | ein Tag im Set: Pflicht ja/nein, Reihenfolge |
 | **Regel** (`TagSetRule`) | `REQUIRES`, `EXCLUDES`, `SHOW_IF` zwischen zwei Tags des Sets |
-| **Zuordnung** (`TagSetAssignment`) | Tag Set gilt für einen Objekttyp (`entity_type`) **in einem Buchungskreis** oder in allen (`*`) |
+| **Zuordnung** (`TagSetAssignment`) | Tag Set gilt für einen Objekttyp (`entity_type`) **in einem Buchungskreis** oder in allen (`*`), optional **nur für Datensätze mit bestimmten Feldwerten** (z. B. `contract_type` = `RENT`) |
 | **Wert** (`TagAssignment`) | Wert eines Tags an einem konkreten Objekt (`target_entity_type` + `target_entity_id`) |
 
 ## ERD
@@ -47,8 +47,9 @@ erDiagram
         text code PK
         text name
         text translation_key
-        text data_type "STRING|INTEGER|CURRENCY|DATE|TIMESTAMP"
+        text data_type "STRING|INTEGER|CURRENCY|DATE|TIMESTAMP|REFERENCE"
         text value_mode "FREE|OPTIONS"
+        text ref_object "Ziel bei REFERENCE"
         text status "ACTIVE|DEPRECATED"
     }
     VALUE_OPTIONS {
@@ -91,6 +92,8 @@ erDiagram
         text tag_set_code PK
         date valid_from PK
         date valid_to
+        text condition_field "z. B. contract_type"
+        text condition_values "z. B. RENT,LEASE"
     }
     TAG_ASSIGNMENTS {
         text id PK
@@ -107,6 +110,7 @@ erDiagram
         date value_date
         text value_timestamp "RFC 3339"
         text option_code
+        text value_ref "REFERENCE: id des Ziels"
         text changed_at
         text changed_by
     }
@@ -133,7 +137,7 @@ Tabellen mit Zeitscheibe prüft die Engine stichtagsbezogen.
 
 **Werte speichern:** Je Datentyp gibt es eine typisierte Spalte. Beträge stehen als Dezimaltext
 in `value_amount`, damit beim Rechnen kein Gleitkommafehler entsteht. Bei `OPTIONS`-Tags steht
-der Code in `option_code`.
+der Code in `option_code`. Verweise stehen als fachlicher Schlüssel (`id`) des Ziels in `value_ref`.
 
 ## Fachliche Regeln
 
@@ -141,7 +145,7 @@ der Code in `option_code`.
 
 - `data_type` und `value_mode` sind nach dem Anlegen **unveränderlich**, denn bestehende Werte
   hängen davon ab.
-- `OPTIONS` ist mit `CURRENCY` nicht kombinierbar.
+- `OPTIONS` ist mit `CURRENCY` und `REFERENCE` nicht kombinierbar.
 - **Lebenszyklus:** `DEPRECATED` statt Löschen. Ein veralteter Tag
   - bleibt lesbar und in der Historie,
   - nimmt aber **keine neuen oder geänderten Werte** mehr an (Verstoß `deprecated`),
@@ -160,7 +164,7 @@ der Code in `option_code`.
 
 Ohne `condition_value` genügt es, dass `source` überhaupt einen Wert hat. Die Regeln wertet der
 Server aus (`evaluate`). Das Ergebnis ist ein `State{visible, required}` plus Verstöße
-(`required`, `excludes`, `hidden`, `type`, `option`, `unknown`, `deprecated`).
+(`required`, `excludes`, `hidden`, `type`, `option`, `unknown`, `deprecated`, `reference`).
 
 ### Buchungskreis (Company Code)
 
@@ -181,6 +185,50 @@ Objekt in verschiedenen Buchungskreisen verschiedene Tags haben.
   - Für globale Werte (`*`) braucht man `<entity_type>.update` ohne Einschränkung des
     Buchungskreises.
   - Lesen setzt voraus, dass `<entity_type>.get` für das Objekt erlaubt ist.
+
+### Bedingung: nur für Datensätze mit bestimmten Feldwerten
+
+Objekttyp und Buchungskreis reichen nicht immer. Ein Mietvertrag braucht andere Tags als ein
+Versicherungs- oder Darlehensvertrag, obwohl alle drei `Contract` sind. Deshalb kann eine
+Zuordnung zusätzlich ein **Feld des Objects** und **einen oder mehrere Werte** nennen:
+
+| entity_type | company_code | tag_set_code | condition_field | condition_values |
+|---|---|---|---|---|
+| `Contract` | `*` | `RENT_SET` | `contract_type` | `RENT` |
+| `Contract` | `*` | `LOAN_SET` | `contract_type` | `LOAN,INSURANCE` |
+| `Contract` | `*` | `GENERAL` | – | – |
+
+- Die Werte sind ODER-verknüpft. Eingabe kommagetrennt (auch `;` oder zeilenweise), gespeichert
+  normalisiert ohne Leerzeichen und Dubletten.
+- **Prüfung beim Anlegen** gegen das Metamodell des Objekttyps (Catalog): Das Feld muss
+  existieren. Bei Auswahlfeldern (`select`) müssen die Werte gültige Optionen sein, bei
+  Ja/Nein-Feldern `true` oder `false`.
+- **Auswertung:** `Tags.get`, `set`, `validate` und `schema` mit `entity_id` lesen den Datensatz
+  über `<entity_type>.get` und vergleichen den Feldwert als Text. Maßgeblich ist der Datensatz,
+  den `get` liefert, also die heute gültige Zeitscheibe.
+- `Tags.schema` **ohne** Datensatz:
+  - mit `attributes` (z. B. `{"contract_type": "RENT"}`, etwa für eine Neuanlage) → gefiltert,
+  - ohne `attributes` → alle Sets; die Bedingung steht in `TagSet.condition`.
+- Ändert sich der Feldwert (Vertragsart wechselt), erscheinen die Tags des anderen Sets. Werte des
+  alten Sets bleiben gespeichert und in `Tags.history` sichtbar, sie sind nur nicht mehr
+  zugewiesen.
+
+### Verweis-Tags (`REFERENCE`)
+
+Ein Tag vom Datentyp `REFERENCE` verweist auf einen Datensatz eines **anderen Objects**, zum
+Beispiel `RENTAL_OBJECT` → `RentalObject` am Mietvertrag oder `PARENT` → `BusinessPartner`
+(Konzernmutter).
+
+- `ref_object` ist Pflicht, unveränderlich und muss ein Object mit Metamodell sein. Auswahlwerte
+  (`OPTIONS`) gibt es für Verweise nicht.
+- Der Wert ist der **fachliche Schlüssel** (`id`) des Ziels, nicht der Zeitscheiben-Schlüssel
+  `_id`, und überlebt damit neue Zeitscheiben des Ziels.
+- `Tags.set`/`validate` prüfen über `<ref_object>.get`, dass das Ziel existiert und lesbar ist
+  (Verstoß `reference`).
+- `Tags.get` liefert zusätzlich `ref_label`, das `TitleField` des Ziels laut Metamodell (ohne
+  Leserecht: die id).
+- `Tags.find` mit `{"ref": "<id>"}` beantwortet die Umkehrfrage, etwa: Welche Verträge verweisen
+  auf dieses Mietobjekt?
 
 ### Zeitscheiben und Stichtag
 
@@ -225,7 +273,7 @@ _, err = tags.Set(ctx, tagservice.SetRequest{
 
 | Methode / Action | Zweck | Payload (JSON) | Antwort |
 |---|---|---|---|
-| `Schema` / `Tags.schema` | Welche Sets, Tags und Regeln gelten für den Objekttyp | `entity_type, company_code?, effective_date?, locale?` | `Schema{sets[{code, name, company_code, items[{tag, mandatory, scope}], rules}]}` |
+| `Schema` / `Tags.schema` | Welche Sets, Tags und Regeln gelten für den Objekttyp | `entity_type, entity_id?` oder `attributes?`, `company_code?, effective_date?, locale?` | `Schema{sets[{code, name, company_code, items[{tag, mandatory, scope}], rules}]}` |
 | `Get` / `Tags.get` | Werte eines Objekts am Stichtag samt Regelzustand | dazu `entity_id` | `EntityTags{…Schema, entity_id, values[], state}` |
 | `Set` / `Tags.set` | Werte setzen oder beenden ab `valid_from` (atomar, alles oder nichts) | `entity_type, entity_id, company_code?, valid_from?, values{TAG: Value \| null}` | `EntityTags` nach dem Schreiben, bei Verstößen `InvalidArgument` |
 | `Validate` / `Tags.validate` | wie `set`, schreibt aber nicht (Vorschau, Formularprüfung) | wie `set` | `{violations[], state}` |
@@ -236,7 +284,7 @@ _, err = tags.Set(ctx, tagservice.SetRequest{
 
 ```json
 {"string": "…"} · {"integer": 42} · {"amount": "1500.00", "currency": "EUR"}
-{"date": "2026-10-07"} · {"timestamp": "2026-10-07T08:00:00Z"} · {"option": "HIGH"}
+{"date": "2026-10-07"} · {"timestamp": "2026-10-07T08:00:00Z"} · {"option": "HIGH"} · {"ref": "9834…"}
 ```
 
 Der Service prüft:
@@ -290,6 +338,7 @@ zuordnen genügt, dann erscheinen die Felder.
    IAM; „Alle Buchungskreise (global)“ zeigt nur globale Sets). Ein Wechsel lädt den Editor neu.
 3. **Je Tag Set ein Fieldset**, je Item ein Feld passend zum Datentyp:
    - `OPTIONS` → Auswahl (übersetzte Labels)
+   - `REFERENCE` → Schlüssel des Ziels + Auswahldialog (`/lookup?object=<ref_object>`), daneben der lesbare Text und das Kopfdaten-Symbol ⓘ
    - `CURRENCY` → Betrag + Währung
    - `DATE` / `TIMESTAMP` → Datums- bzw. Datum-Zeit-Feld
    - `INTEGER` → Zahl
@@ -332,11 +381,11 @@ wird jetzt von `partner` und `tag` geteilt.
 ## Bauen und testen
 
 ```bash
-make build   # baut u. a. bin/plugins/ta/tag-0.1.0-<os>-<arch>
+make build   # baut u. a. bin/plugins/ta/tag-0.2.0-<os>-<arch>
 make test    # inkl. cd cmd/plugins/tag && go test ./...
 ```
 
-Die Tests (`tagmanagement_test.go`) laufen gegen SQLite mit echten Atlas-Migrationen. Sie
+Die Tests (`tagmanagement_test.go`, `condition_ref_test.go`) laufen gegen SQLite mit echten Atlas-Migrationen. Sie
 decken ab:
 
 - Datentypen und Währungen,
@@ -345,4 +394,6 @@ decken ab:
 - Buchungskreis-Scope und -Berechtigung,
 - Zeitscheiben inkl. künftiger Scheiben,
 - DEPRECATED-Tags,
+- Bedingungen auf Feldwerte (Mietvertrag vs. Darlehensvertrag),
+- Verweis-Tags inkl. Label und Suche,
 - `find` und `history`.

@@ -33,6 +33,11 @@ table "tag__tag_types" {
   }
   column "data_type"  { type = text }
   column "value_mode" { type = text }
+  # REFERENCE: Object des Ziels (z. B. RentalObject); sonst leer
+  column "ref_object" {
+    type = text
+    null = true
+  }
   column "status" {
     type    = text
     default = "ACTIVE"
@@ -134,6 +139,16 @@ table "tag__tag_set_assignments" {
     default = "*"
   }
   column "tag_set_code" { type = text }
+  # Bedingung: Feld des Objekts und erlaubte Werte (kommagetrennt), z. B.
+  # contract_type = "RENT,LEASE". Leer = alle Datensätze des Objekttyps.
+  column "condition_field" {
+    type = text
+    null = true
+  }
+  column "condition_values" {
+    type = text
+    null = true
+  }
   column "valid_from"   { type = date }
   column "valid_to"     { type = date }
   primary_key { columns = [column.entity_type, column.company_code, column.tag_set_code, column.valid_from] }
@@ -176,6 +191,10 @@ table "tag__tag_assignments" {
     null = true
   }
   column "option_code" {
+    type = text
+    null = true
+  }
+  column "value_ref" {
     type = text
     null = true
   }

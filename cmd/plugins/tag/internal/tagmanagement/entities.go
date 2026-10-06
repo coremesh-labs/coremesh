@@ -3,6 +3,7 @@ package tagmanagement
 import (
 	"context"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/camel/coremesh/pkg/sdk/crud"
@@ -36,6 +37,7 @@ var (
 		{Value: string(tagservice.TypeCurrency), Label: "Betrag mit Währung"},
 		{Value: string(tagservice.TypeDate), Label: "Datum"},
 		{Value: string(tagservice.TypeTimestamp), Label: "Zeitpunkt"},
+		{Value: string(tagservice.TypeReference), Label: "Verweis auf Datensatz"},
 	}
 	valueModes = []metamodel.Option{
 		{Value: string(tagservice.ModeFree), Label: "Freie Eingabe"},
@@ -74,21 +76,26 @@ func (m *Module) tagType() *crud.Entity {
 			{Key: "name", Label: "Name", Type: tText, Required: true, Listable: true},
 			{Key: "data_type", Label: "Datentyp", Type: tSelect, Required: true, Listable: true, Immutable: true, Options: dataTypes},
 			{Key: "value_mode", Label: "Werte", Type: tSelect, Required: true, Listable: true, Immutable: true, Options: valueModes},
+			{Key: "ref_object", Label: "Verweis auf Object (nur Verweis, z. B. RentalObject)", Type: tText, Immutable: true},
 			{Key: "translation_key", Label: "Übersetzungsschlüssel", Type: tText},
 			{Key: "description", Label: "Beschreibung", Type: tArea},
 			{Key: "status", Label: "Status", Type: tSelect, Listable: true, ReadOnly: true, Options: statuses},
 		},
 		Sections: []metamodel.SectionDefinition{
-			{Key: "definition", Title: "Definition", Fields: []string{"code", "name", "data_type", "value_mode", "status", "translation_key", "description"}},
+			{Key: "definition", Title: "Definition", Fields: []string{"code", "name", "data_type", "value_mode", "ref_object", "status", "translation_key", "description"}},
 			{Key: "options", Title: "Auswahlwerte", Relation: &metamodel.Relation{Object: "TagValueOption", ForeignKey: "tag_type_code",
 				Columns: []string{"code", "label", "translation_key", "sort_order", "valid_from", "valid_to"}}},
 		},
-		Validate: func(_ context.Context, rec, old crud.Record) error {
-			if crud.Str(rec["value_mode"]) == string(tagservice.ModeOptions) && crud.Str(rec["data_type"]) == string(tagservice.TypeCurrency) {
-				return crud.Invalid("Auswahlwerte gibt es für den Datentyp CURRENCY nicht")
+		Validate: func(ctx context.Context, rec, old crud.Record) error {
+			dt := tagservice.DataType(crud.Str(rec["data_type"]))
+			if crud.Str(rec["value_mode"]) == string(tagservice.ModeOptions) && (dt == tagservice.TypeCurrency || dt == tagservice.TypeReference) {
+				return crud.Invalid("Auswahlwerte gibt es für den Datentyp %s nicht", dt)
 			}
 			if old != nil {
 				return nil
+			}
+			if err := m.checkRefObject(ctx, rec); err != nil {
+				return err
 			}
 			return checkCode(rec, "code")
 		},
@@ -150,7 +157,7 @@ func (m *Module) tagSet() *crud.Entity {
 			{Key: "rules", Title: "Regeln", Relation: &metamodel.Relation{Object: "TagSetRule", ForeignKey: "tag_set_code",
 				Columns: []string{"rule_type", "source_tag", "condition_value", "target_tag", "valid_from", "valid_to"}}},
 			{Key: "assignments", Title: "Objekttypen", Relation: &metamodel.Relation{Object: "TagSetAssignment", ForeignKey: "tag_set_code",
-				Columns: []string{"entity_type", "company_code", "valid_from", "valid_to"}}},
+				Columns: []string{"entity_type", "company_code", "condition_field", "condition_values", "valid_from", "valid_to"}}},
 		},
 		Validate: func(_ context.Context, rec, old crud.Record) error {
 			if old != nil {
@@ -227,7 +234,9 @@ func (m *Module) setRule() *crud.Entity {
 
 // TagSetAssignment weist einem Objekttyp (Object anderer Module, z. B.
 // BusinessPartner) ein Tag Set zu – für einen Buchungskreis oder mit "*" für
-// alle. Derselbe Datensatz erhält so je Buchungskreis andere Tags.
+// alle. Derselbe Datensatz erhält so je Buchungskreis andere Tags. Optional
+// gilt die Zuordnung nur für Datensätze, deren Feld condition_field einen der
+// Werte aus condition_values hat (z. B. Mietvertrag vs. Darlehensvertrag).
 func (m *Module) setAssignment() *crud.Entity {
 	return &crud.Entity{
 		Object: "TagSetAssignment", Title: "Objekttypen", Icon: "icon-link", Table: "tag__tag_set_assignments", Section: "Tag Sets",
@@ -238,8 +247,13 @@ func (m *Module) setAssignment() *crud.Entity {
 			crud.Field{Key: "company_code", Label: "Buchungskreis (* = alle)", Type: tText, Required: true, Listable: true, Immutable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
 			crud.Field{Key: "tag_set_code", Label: "Tag Set", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refTagSet},
+			crud.Field{Key: "condition_field", Label: "Nur wenn Feld (optional, z. B. contract_type)", Type: tText, Listable: true},
+			crud.Field{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
 		),
 		Validate: func(ctx context.Context, rec, old crud.Record) error {
+			if err := m.checkCondition(ctx, rec); err != nil {
+				return err
+			}
 			if !objectRe.MatchString(strings.TrimSpace(crud.Str(rec["entity_type"]))) {
 				return crud.Invalid("Objekttyp %q: Name eines Objects in PascalCase erwartet, z. B. BusinessPartner", crud.Str(rec["entity_type"]))
 			}
@@ -255,3 +269,67 @@ func (m *Module) setAssignment() *crud.Entity {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// checkRefObject: REFERENCE braucht ein Object mit Metamodell als Ziel, alle
+// anderen Datentypen kein Ziel.
+func (m *Module) checkRefObject(ctx context.Context, rec crud.Record) error {
+	ref := strings.TrimSpace(crud.Str(rec["ref_object"]))
+	if tagservice.DataType(crud.Str(rec["data_type"])) != tagservice.TypeReference {
+		if ref != "" {
+			return crud.Invalid("Verweis auf Object nur beim Datentyp REFERENCE")
+		}
+		rec["ref_object"] = nil
+		return nil
+	}
+	if !objectRe.MatchString(ref) {
+		return crud.Invalid("Verweis auf Object: Name eines Objects in PascalCase erwartet, z. B. BusinessPartner")
+	}
+	if _, err := m.objectDef(ctx, ref); err != nil {
+		return crud.Invalid("Verweis auf Object %s: unbekannt (%v)", ref, err)
+	}
+	rec["ref_object"] = ref
+	return nil
+}
+
+// checkCondition prüft Feld und Werte einer Bedingung gegen das Metamodell des
+// Objekttyps und speichert die Werte normalisiert ("RENT,LEASE").
+func (m *Module) checkCondition(ctx context.Context, rec crud.Record) error {
+	field := strings.TrimSpace(crud.Str(rec["condition_field"]))
+	values := splitValues(crud.Str(rec["condition_values"]))
+	if field == "" {
+		if len(values) > 0 {
+			return crud.Invalid("Werte der Bedingung ohne Feld – Feld angeben oder Werte leeren")
+		}
+		rec["condition_field"], rec["condition_values"] = nil, nil
+		return nil
+	}
+	if len(values) == 0 {
+		return crud.Invalid("Bedingung auf %s: mindestens einen Wert angeben", field)
+	}
+	entity := strings.TrimSpace(crud.Str(rec["entity_type"]))
+	def, err := m.objectDef(ctx, entity)
+	if err != nil {
+		return crud.Invalid("Bedingung: Objekttyp %s ist unbekannt (%v)", entity, err)
+	}
+	i := slices.IndexFunc(def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field })
+	if i < 0 {
+		return crud.Invalid("Bedingung: %s hat kein Feld %q", entity, field)
+	}
+	f := def.Fields[i]
+	switch {
+	case f.Type == metamodel.TypeBoolean:
+		for _, v := range values {
+			if v != "true" && v != "false" {
+				return crud.Invalid("Bedingung: %s ist ein Ja/Nein-Feld – Werte true oder false", field)
+			}
+		}
+	case len(f.Options) > 0:
+		for _, v := range values {
+			if !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == v }) {
+				return crud.Invalid("Bedingung: %q ist kein Wert von %s.%s", v, entity, field)
+			}
+		}
+	}
+	rec["condition_field"], rec["condition_values"] = field, strings.Join(values, ",")
+	return nil
+}

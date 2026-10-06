@@ -1,0 +1,22 @@
+{{/*
+  Kopfdaten-Vorschau eines Verweises.
+  Blöcke:
+    peek-icon  Hinweissymbol neben dem Wert. Daten: URL aus peekFor/peekURL ("" = nichts).
+               Beim ersten Überfahren bzw. Fokus lädt htmx GET /peek/… in die Karte;
+               sichtbar ist sie per CSS, solange Maus oder Fokus im Symbol bzw. in der
+               Karte sind – so bleibt der Link erreichbar.
+    peek       Inhalt der Karte (GET /peek/{object}/{id}).
+               Daten: peekView {Object, ID, Title, Heading, Record, Fields, DetailURL, Message}.
+*/}}
+{{define "peek-icon"}}{{if .}}&#8288;<span class="peek" hx-get="{{.}}" hx-trigger="mouseenter once delay:150ms, focusin once"
+  hx-target="find .peek-card" hx-swap="innerHTML"><button type="button" class="peek-icon"
+  title="{{t "core.peek.show"}}" aria-label="{{t "core.peek.show"}}">ⓘ</button><span class="peek-card" role="dialog"><span
+  class="muted">{{t "core.peek.loading"}}</span></span></span>{{end}}{{end}}
+
+{{define "peek"}}
+<span class="peek-head"><small class="muted">{{.Title}}</small><strong>{{.Heading}}</strong></span>
+{{with .Message}}<span class="empty">{{.}}</span>{{else}}
+{{if .Fields}}<dl class="peek-fields">{{range $f := .Fields}}{{with value $.Record $f}}<dt>{{$f.Label}}</dt><dd>{{.}}</dd>{{end}}{{end}}</dl>{{end}}
+{{with .DetailURL}}<a class="peek-link" href="{{.}}" hx-get="{{.}}" hx-target="#main-content" hx-push-url="true">{{t "core.peek.open"}} →</a>{{end}}
+{{end}}
+{{end}}

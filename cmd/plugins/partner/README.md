@@ -50,7 +50,7 @@ hat `valid_from` als letzten Teil des Primärschlüssels; ein Test prüft das f�
     durch `|` getrennt, zum Beispiel `9834…|1900-01-01` oder `9834…|DEBITOR|2026-01-01`.
   - `id` bleibt der **fachliche Schlüssel**, wo es eine Spalte `id` gibt (Partner, Zuordnungen,
     Kontakte, Bank). Darauf verweisen andere Datensätze, etwa `bp_id`. Ohne Spalte `id` ist
-    `id` gleich `_id`.
+    `id` der fachliche Schlüssel ohne Beginndatum, zum Beispiel `DEBITOR`.
   - Ein Aufruf **nur mit dem fachlichen Schlüssel**, ohne Beginndatum, trifft die heute
     gültige Zeitscheibe, sonst die jüngste. So arbeiten Verweise und das Aggregat. Mit `_id`
     wird genau eine Zeitscheibe angesprochen.

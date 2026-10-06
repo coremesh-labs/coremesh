@@ -22,6 +22,7 @@ var tagSchema = tagservice.Schema{EntityType: "Partner", EffectiveDate: "2026-10
 			Options: []tagservice.ValueOption{{Code: "LOW", Label: "Niedrig"}, {Code: "HIGH", Label: "Hoch"}}}},
 		{Scope: "1000", Tag: tagservice.TagType{Code: "LIMIT", Name: "Kreditlimit", DataType: "CURRENCY", ValueMode: "FREE", Status: "ACTIVE"}},
 		{Scope: "*", Tag: tagservice.TagType{Code: "AUDIT", Name: "Prüfdatum", DataType: "DATE", ValueMode: "FREE", Status: "DEPRECATED"}},
+		{Scope: "*", Tag: tagservice.TagType{Code: "OBJ", Name: "Mietobjekt", DataType: "REFERENCE", ValueMode: "FREE", Status: "ACTIVE", RefObject: "Address"}},
 	},
 	Rules: []tagservice.Rule{{Type: tagservice.RuleShowIf, Source: "RISK", Condition: "HIGH", Target: "LIMIT"}},
 }}}
@@ -36,15 +37,16 @@ func (h tagsHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, er
 	case "Tags.get":
 		return sdk.Response{Payload: tagservice.EntityTags{Schema: tagSchema, EntityID: "p1",
 			Values: []tagservice.Assignment{{Tag: "RISK", CompanyCode: "*", Value: tagservice.Value{Option: ptr("HIGH")}, ValidFrom: "2026-01-01"},
-				{Tag: "LIMIT", CompanyCode: "1000", Value: tagservice.Value{Amount: ptr("5000.00"), Currency: ptr("CHF")}, ValidFrom: "2026-01-01"}},
-			State: tagservice.State{Visible: map[string]bool{"RISK": true, "LIMIT": true, "AUDIT": true}, Required: map[string]bool{"RISK": true}}}}, nil
+				{Tag: "LIMIT", CompanyCode: "1000", Value: tagservice.Value{Amount: ptr("5000.00"), Currency: ptr("CHF")}, ValidFrom: "2026-01-01"},
+				{Tag: "OBJ", CompanyCode: "*", Value: tagservice.Value{Ref: ptr("a1")}, RefLabel: "Zürich", ValidFrom: "2026-01-01"}},
+			State: tagservice.State{Visible: map[string]bool{"RISK": true, "LIMIT": true, "AUDIT": true, "OBJ": true}, Required: map[string]bool{"RISK": true}}}}, nil
 	case "Tags.schema":
 		return sdk.Response{Payload: tagSchema}, nil
 	case "Tags.validate":
 		in := req.Payload.(tagservice.SetRequest)
 		visible := in.Values["RISK"] != nil && *in.Values["RISK"].Option == "HIGH"
 		return sdk.Response{Payload: map[string]any{"violations": []any{},
-			"state": tagservice.State{Visible: map[string]bool{"RISK": true, "LIMIT": visible, "AUDIT": true}, Required: map[string]bool{"RISK": true}}}}, nil
+			"state": tagservice.State{Visible: map[string]bool{"RISK": true, "LIMIT": visible, "AUDIT": true, "OBJ": true}, Required: map[string]bool{"RISK": true}}}}, nil
 	case "Tags.set":
 		return sdk.Response{Payload: tagservice.EntityTags{Schema: tagSchema, EntityID: "p1",
 			State: tagservice.State{Visible: map[string]bool{"RISK": true, "LIMIT": false, "AUDIT": true}}}}, nil

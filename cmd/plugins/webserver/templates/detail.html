@@ -50,7 +50,7 @@
   </div>
   {{else}}
   <dl class="fields">
-    {{range .Def.Fields}}<dt>{{.Label}}</dt><dd>{{value $.Record .}}</dd>{{end}}
+    {{range .Def.Fields}}<dt>{{.Label}}</dt><dd>{{value $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</dd>{{end}}
   </dl>
   {{end}}
 </section>
@@ -59,6 +59,6 @@
 {{/* Felder eines Abschnitts. Daten: sectionCtx {View, Section}. */}}
 {{define "section-fields"}}
 <dl class="fields">
-  {{range .Section.Fields}}<dt>{{.Label}}</dt><dd>{{value $.View.Record .}}</dd>{{end}}
+  {{range .Section.Fields}}<dt>{{.Label}}</dt><dd>{{value $.View.Record .}}{{template "peek-icon" (peekFor $.View.Record .)}}</dd>{{end}}
 </dl>
 {{end}}

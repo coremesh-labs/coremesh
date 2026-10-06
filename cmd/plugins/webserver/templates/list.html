@@ -44,7 +44,7 @@
 {{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>". */}}
 {{define "row"}}
 <tr id="row-{{domID .ID}}">
-  {{range listable .Def}}<td>{{value $.Record .}}</td>{{end}}
+  {{range listable .Def}}<td>{{value $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</td>{{end}}
   <td class="actions">{{block "row-actions" .}}
     {{with .Has.item}}
     <a href="{{$.URL}}/{{pathEscape $.ID}}" hx-get="{{$.URL}}/{{pathEscape $.ID}}"

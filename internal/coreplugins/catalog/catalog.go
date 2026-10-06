@@ -326,6 +326,7 @@ func (p *Plugin) getDefinition(object string) (sdk.Response, error) {
 	return sdk.Response{Payload: map[string]any{
 		"definition": d,
 		"module":     e.Module,
+		"ui_module":  p.moduleOf(object), // fachliches Modul (Namensraum im WebServer), "" = keines
 		"version":    e.Version,
 		"source":     map[bool]string{false: "registered", true: "cache"}[fromCache],
 		"available":  available,
