@@ -19,6 +19,7 @@ type userRow struct {
 	DisplayName string
 	TenantID    string
 	Active      bool
+	Locale      string // "" = automatisch (Sprachaushandlung im Frontend)
 	CreatedAt   string
 	Roles       []string // Rollennamen
 }
@@ -112,10 +113,10 @@ func (p *Plugin) countUsers(ctx context.Context) (int, error) {
 
 // --- Benutzer ------------------------------------------------------------------
 
-const userCols = `id, username, display_name, tenant_id, active, created_at`
+const userCols = `id, username, display_name, tenant_id, active, created_at, locale`
 
 func scanUser(r []any) userRow {
-	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5])}
+	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5]), Locale: s(r[6])}
 }
 
 func (p *Plugin) listUsers(ctx context.Context) ([]userRow, error) {

@@ -304,3 +304,39 @@ func TestLifecycle(t *testing.T) {
 		t.Fatal("Lifecycle")
 	}
 }
+
+// TestProfileLocaleAndHistory: Sprache im eigenen Profil; Benutzerliste nur
+// mit aktiven Benutzern, auf Wunsch mit inaktiven.
+func TestProfileLocaleAndHistory(t *testing.T) {
+	p, adminID := setup(t)
+	ctx := as(adminID)
+	me, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"locale": "zh"})
+	if err != nil || me["locale"] != "zh-CN" {
+		t.Fatalf("UpdateProfile: %v %v", me, err)
+	}
+	if me, _ := call(t, p, ctx, "Account", "Me", nil); me["locale"] != "zh-CN" {
+		t.Fatalf("Me: %v", me)
+	}
+	if _, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"locale": "zh-TW"}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Fatalf("nicht unterstützte Sprache: %v", err)
+	}
+	if me, _ := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"locale": ""}); me["locale"] != "" {
+		t.Fatalf("automatisch: %v", me)
+	}
+
+	u, _ := call(t, p, ctx, "User", "create", map[string]any{"data": map[string]any{"username": "alt", "password": "alt-passwort-123", "active": true}})
+	call(t, p, ctx, "User", "deactivate", map[string]any{"id": u["id"]})
+	count := func(payload any) int {
+		l, _ := call(t, p, ctx, "User", "list", payload)
+		return len(l["items"].([]any))
+	}
+	if active, all := count(nil), count(map[string]any{"query": map[string]any{"includeHistory": "true"}}); active+1 != all {
+		t.Fatalf("aktiv %d, mit Historie %d", active, all)
+	}
+
+	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	d := resp.Payload.(metamodel.DescribeResponse)
+	if d.Objects[0].Fields[0].LabelKey != "admin.User.fields.username" || d.Translations["zh-CN"]["admin.User.fields.username"] != "用户名" {
+		t.Fatalf("Übersetzungen: %+v", d.Objects[0].Fields[0])
+	}
+}

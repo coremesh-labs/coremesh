@@ -15,7 +15,7 @@
     {{block "detail-toolbar" .}}
     <div class="toolbar">
       {{if .Has.list}}
-      <a class="btn" href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true">Zurück</a>
+      <a class="btn" href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true">{{t "core.app.back"}}</a>
       {{end}}
       {{with .Has.update}}
       <a class="btn primary" href="{{$.URL}}/{{pathEscape $.ID}}/edit"
@@ -36,7 +36,11 @@
       <summary>{{.Section.Title}}</summary>
       {{if .Section.Relation}}
       <div class="relation" hx-get="{{.Section.URL}}" hx-trigger="load, coremesh-changed from:body" hx-swap="innerHTML">
-        <p class="muted">Lädt …</p>
+        <p class="muted">{{t "core.app.loading"}}</p>
+      </div>
+      {{else if .Section.Tags}}
+      <div class="tag-section" hx-get="{{.Section.URL}}" hx-trigger="load" hx-swap="innerHTML">
+        <p class="muted">{{t "core.app.loading"}}</p>
       </div>
       {{else}}
       {{template "section-fields" .}}

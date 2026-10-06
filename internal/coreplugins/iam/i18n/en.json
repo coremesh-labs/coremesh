@@ -1,0 +1,22 @@
+{
+  "admin.module.title": "Administration",
+  "admin.module.description": "Users, roles and company codes",
+  "admin.navigation.zugriff": "Access",
+  "admin.navigation.organisation": "Organization",
+  "admin.User.title": "Users",
+  "admin.User.fields.username": "User name",
+  "admin.User.fields.display_name": "Name",
+  "admin.User.fields.tenant_id": "Tenant",
+  "admin.User.fields.roles": "Roles (one per line)",
+  "admin.User.fields.active": "Active",
+  "admin.User.fields.password": "Password (leave empty when editing = unchanged)",
+  "admin.User.fields.created_at": "Created",
+  "admin.User.actions.deactivate.confirm": "Deactivate user? They will no longer be able to sign in.",
+  "admin.Role.title": "Roles",
+  "admin.Role.fields.name": "Name",
+  "admin.Role.fields.description": "Description",
+  "admin.Role.fields.permissions": "Permissions (Object.Action[@CompanyCode,…], one per line, * as wildcard)",
+  "admin.CompanyCode.title": "Company codes",
+  "admin.CompanyCode.fields.code": "Company code",
+  "admin.CompanyCode.fields.description": "Description"
+}

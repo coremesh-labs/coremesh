@@ -32,6 +32,7 @@ type sectionView struct {
 	Collapsed  bool
 	Fields     []metamodel.FieldDefinition
 	Relation   *metamodel.Relation
+	Tags       bool   // Abschnitt mit dem TagEditor (Plugin tag)
 	URL        string // nur Relation: Fragment der eingebetteten Tabelle
 }
 
@@ -56,14 +57,18 @@ func (v view) Sections() []sectionView {
 		}
 	}
 	if len(rest) > 0 {
-		out = append(out, sectionView{Key: "allgemein", Title: "Allgemein", Fields: rest})
+		out = append(out, sectionView{Key: "allgemein", Title: v.T("core.section.general"), Fields: rest})
 	}
 	for _, s := range d.Sections {
-		sv := sectionView{Key: s.Key, Title: s.Title, Collapsed: s.Collapsed, Relation: s.Relation}
+		sv := sectionView{Key: s.Key, Title: s.Title, Collapsed: s.Collapsed, Relation: s.Relation, Tags: s.Tags}
 		for _, k := range s.Fields {
 			if i := slices.IndexFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
 				sv.Fields = append(sv.Fields, d.Fields[i])
 			}
+		}
+		if s.Tags {
+			// Tags hängen am fachlichen Schlüssel, nicht an der Zeitscheibe.
+			sv.URL = tagEditorURL(v.Object, businessKey(v.Record))
 		}
 		if s.Relation != nil {
 			// Unter-Objects verweisen auf den fachlichen Schlüssel, nicht auf die Zeitscheibe.
@@ -96,9 +101,9 @@ func (s *server) definition(r *http.Request, object string) (objectCtx, error) {
 		return objectCtx{}, err
 	}
 	if !def.Available {
-		return objectCtx{}, fmt.Errorf("%w: %s ist derzeit nicht verfügbar", sdk.ErrUnavailable, def.Definition.Title)
+		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.unavailable", def.Definition.Title))
 	}
-	return newObjectCtx(moduleFrom(r).Name, object, def.Definition).visibleFor(userFrom(r)), nil
+	return s.withLocale(r, newObjectCtx(moduleFrom(r).Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r))), nil
 }
 
 // relationView ist eine eingebettete Tabelle (Fragment "relation").
@@ -111,6 +116,7 @@ type relationView struct {
 	AddURL     string            // Formular für ein neues Unter-Object (leer = nicht erlaubt)
 	LookupEdit map[string]string // Feld → Basis-URL des Lookup-Ziels im Modul (Bearbeiten-Link)
 	Message    string            // statt der Tabelle, z. B. fehlende Berechtigung
+	History    bool              // inkl. beendeter / inaktiver Einträge
 }
 
 // GET /m/{module}/{object}/{id}/rel/{section}
@@ -129,11 +135,12 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	sd := oc.Def.Sections[i]
 	rel := sd.Relation
 	mod := moduleFrom(r)
-	rv := relationView{Section: sectionView{Key: sd.Key, Title: sd.Title}, ForeignKey: rel.ForeignKey, LookupEdit: map[string]string{}}
+	rv := relationView{Section: sectionView{Key: sd.Key, Title: sd.Title, URL: r.URL.Path}, ForeignKey: rel.ForeignKey,
+		LookupEdit: map[string]string{}, History: includeHistory(r)}
 
 	if _, ok := mod.object(rel.Object); !ok {
 		// Unter-Object läuft nicht oder der Benutzer darf es gar nicht sehen.
-		rv.Message = "Keine Berechtigung oder derzeit nicht verfügbar."
+		rv.Message = s.T(r, "core.relation.no_access")
 		s.render(w, r, http.StatusOK, "relation", rv, "", "")
 		return
 	}
@@ -145,11 +152,15 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	rv.Child = child
 	act, err := need(child, metamodel.KindList)
 	if err != nil {
-		rv.Message = "Keine Berechtigung für " + child.Def.Title + "."
+		rv.Message = s.T(r, "core.relation.no_permission", child.Def.Title)
 		s.render(w, r, http.StatusOK, "relation", rv, "", "")
 		return
 	}
-	resp, err := s.call(r, child.Object, act.Name, map[string]any{"query": map[string]any{rel.ForeignKey: id}})
+	query := map[string]any{rel.ForeignKey: id}
+	if includeHistory(r) {
+		query["includeHistory"] = "true"
+	}
+	resp, err := s.call(r, child.Object, act.Name, map[string]any{"query": query})
 	if err != nil {
 		s.fail(w, r, err)
 		return

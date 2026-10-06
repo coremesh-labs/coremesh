@@ -62,7 +62,7 @@ Tabelle der Buchungskreise. Ohne `@` (oder mit `@*`) gilt die Berechtigung in
 | Anfrage eines angemeldeten Benutzers (Wurzelanfrage mit `UserID`) | **ja**, gegen seine Rollen |
 | Modul ruft innerhalb dieser Anfrage ein anderes Modul auf | nein. Wer `Order.create` darf, braucht `Stock.reserve` nicht zusätzlich. |
 | System-Anfragen ohne Benutzer (Host-Start, `host -call`, Login-Vorgang) | nein |
-| Katalog lesen, `Account.Me`, `Account.ChangePassword` | für jeden angemeldeten Benutzer erlaubt |
+| Katalog lesen (inkl. Übersetzungen), `Account.Me`, `Account.UpdateProfile`, `Account.ChangePassword` | für jeden angemeldeten Benutzer erlaubt |
 
 - **Inaktive Benutzer** haben keine Berechtigungen, und ihre Sessions im WebServer enden
   beim nächsten Aufruf.
@@ -79,11 +79,12 @@ aber immer der Dispatcher, unabhängig davon, über welchen Weg eine Anfrage kom
 | Object.Action | Zweck | Erreichbar |
 |---|---|---|
 | `Account.Authenticate {username, password}` | Anmeldedaten prüfen → Profil | nur als Wurzelanfrage (Ingress), nie aus einem Plugin heraus |
-| `Account.Me` | eigenes Profil inkl. `roles` und `permissions` | jeder angemeldete Benutzer |
+| `Account.Me` | eigenes Profil inkl. `roles`, `permissions` und `locale` | jeder angemeldete Benutzer |
+| `Account.UpdateProfile {locale}` | eigene Sprache (`de`, `en`, `zh-CN`, leer = automatisch); Spalte `iam__users.locale` seit 0.4.0 | jeder angemeldete Benutzer |
 | `Account.ChangePassword {current, new}` | eigenes Passwort | jeder angemeldete Benutzer |
 | `Account.Check {object, action, company_code}` | → `{allowed}`: darf der Benutzer das im Buchungskreis? | jeder angemeldete Benutzer, v. a. Module (`sdk.CheckAccess`) |
 | `Account.Granted {object, action}` | → `{all, company_codes}`: in welchen Buchungskreisen? | jeder angemeldete Benutzer, v. a. Module (`sdk.GrantedCompanyCodes`) |
-| `User.list/get/create/update/deactivate` | Benutzerverwaltung. Lebenszyklus **status** (`active`): inaktivieren statt löschen | mit Berechtigung, z. B. `User.*` |
+| `User.list/get/create/update/deactivate` | Benutzerverwaltung. Lebenszyklus **status** (`active`): inaktivieren statt löschen; `list` nur aktive, mit `includeHistory=true` alle | mit Berechtigung, z. B. `User.*` |
 | `Role.list/get/create/update` | Rollenverwaltung. **immutable**: kein Löschen | mit Berechtigung, z. B. `Role.*` |
 | `CompanyCode.list/get/create/update` | Buchungskreise (`code`, `description`). **immutable** | mit Berechtigung, z. B. `CompanyCode.*` |
 
@@ -182,3 +183,9 @@ plugins:
   für Mehrfachauswahl mit dynamischen Optionen im Metamodell wäre komfortabler.
 - **SSO:** Für OIDC oder SAML würde `Account.Authenticate` um einen externen
   Identitätsanbieter ergänzt. Rollen und Berechtigungen blieben in `iam`.
+
+## Übersetzungen
+
+Das Modul `admin` bringt eigene Texte in Deutsch, Englisch und Chinesisch mit
+(`i18n/*.json`, Schlüssel `admin.…`). Die Metamodelle erhalten ihre Schlüssel über
+`metamodel.WithKeys`.

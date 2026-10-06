@@ -172,7 +172,7 @@ func TestListObjectsAndActions(t *testing.T) {
 	if objs["Property"].Defined || !objs["Property"].Available {
 		t.Fatalf("Property: %+v", objs["Property"])
 	}
-	if objs["DBSchema"].Actions != 1 || objs["Catalog"].Actions != 5 { // ohne Host-Routen
+	if objs["DBSchema"].Actions != 1 || objs["Catalog"].Actions != 6 { // ohne Host-Routen
 		t.Fatalf("Host-Routen sichtbar: %+v / %+v", objs["DBSchema"], objs["Catalog"])
 	}
 
@@ -299,5 +299,39 @@ func TestRelationsOnlyToOwnObjects(t *testing.T) {
 		Relation: &metamodel.Relation{Object: "Property", ForeignKey: "bp_id"}}}
 	if _, err := e.register("partner", "1.2.0", bp); !errors.Is(err, sdk.ErrPermissionDenied) {
 		t.Fatalf("Relation auf fremdes Object: %v", err)
+	}
+}
+
+func TestTranslations(t *testing.T) {
+	e := setup(t, t.TempDir())
+	bp := metamodel.ModuleDefinition{Name: "businesspartner", Title: "Geschäftspartner",
+		Objects: []metamodel.ModuleObject{{Object: "BusinessPartner"}}}
+	register := func(tr metamodel.Translations) error {
+		_, err := e.d.Call(e.ctx, sdk.Request{Object: Object, Action: "Register", Payload: map[string]any{
+			"module": "partner", "version": "1.2.0", "objects": []metamodel.ObjectDefinition{partnerDef()},
+			"modules": []metamodel.ModuleDefinition{bp}, "translations": tr}})
+		return err
+	}
+	if err := register(metamodel.Translations{"en": {"iam.User.title": "fremd"}}); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("fremder Namensraum: %v", err)
+	}
+	if err := register(metamodel.Translations{
+		"de":    {"businesspartner.module.title": "Geschäftspartner", "businesspartner.BusinessPartner.title": "Partner"},
+		"zh-CN": {"businesspartner.module.title": "业务伙伴"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := e.call("Translations", map[string]any{"locale": "zh"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := p.(map[string]any)
+	tr := m["translations"].(map[string]string)
+	// zh-CN überschreibt, fehlende Schlüssel fallen auf de zurück.
+	if m["locale"] != "zh-CN" || tr["businesspartner.module.title"] != "业务伙伴" || tr["businesspartner.BusinessPartner.title"] != "Partner" {
+		t.Fatalf("Übersetzungen: %v", m)
+	}
+	if _, err := e.call("Translations", map[string]any{"locale": "fr"}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Fatalf("unbekannte Sprache: %v", err)
 	}
 }

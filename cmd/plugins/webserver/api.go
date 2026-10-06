@@ -60,31 +60,28 @@ func (s *server) apiModule(w http.ResponseWriter, r *http.Request) {
 		}
 		out.Objects = append(out.Objects, apiObject{Object: o.Object, Title: o.Title, Section: o.Section, Actions: actions})
 	}
+	for _, svc := range m.Services { // Services: nur JSON-API, ohne Metamodell
+		actions, err := s.allowedActions(r, svc)
+		if err != nil {
+			s.apiError(w, r, err)
+			return
+		}
+		out.Objects = append(out.Objects, apiObject{Object: svc, Title: svc, Section: "service", Actions: actions})
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
 // POST /api/v1/{module}/{object}/{action}
 func (s *server) apiCall(w http.ResponseWriter, r *http.Request) {
 	object, action := r.PathValue("object"), r.PathValue("action")
-	if _, ok := moduleFrom(r).object(object); !ok {
-		s.apiError(w, r, fmt.Errorf("%w: Object %s gehört nicht zu Modul %s", sdk.ErrNotFound, object, moduleFrom(r).Name))
+	if _, ok := moduleFrom(r).object(object); !ok && !slices.Contains(moduleFrom(r).Services, object) {
+		s.apiError(w, r, fmt.Errorf("%w: %s", sdk.ErrNotFound, s.T(r, "core.error.not_in_module", object, moduleFrom(r).Name)))
 		return
 	}
 	var payload any
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAPIBody))
-	if err != nil {
-		s.apiError(w, r, fmt.Errorf("%w: Body: %v", sdk.ErrInvalidArgument, err))
+	if err := decodeJSONBody(w, r, &payload); err != nil {
+		s.apiError(w, r, err)
 		return
-	}
-	if len(body) > 0 {
-		if mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mt != "application/json" {
-			writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type application/json erwartet"})
-			return
-		}
-		if err := json.Unmarshal(body, &payload); err != nil {
-			s.apiError(w, r, fmt.Errorf("%w: JSON: %v", sdk.ErrInvalidArgument, err))
-			return
-		}
 	}
 	resp, err := s.call(r, object, action, payload)
 	if errors.Is(err, sdk.ErrUnimplemented) {
@@ -108,7 +105,7 @@ func (s *server) apiError(w http.ResponseWriter, r *http.Request, err error) {
 	msg := err.Error()
 	if status >= 500 && !errors.Is(err, sdk.ErrUnavailable) {
 		s.logError(r, "API", err)
-		msg = "Interner Fehler"
+		msg = s.T(r, "core.app.internal_error")
 	}
 	writeJSON(w, status, map[string]string{"error": msg})
 }
@@ -136,7 +133,7 @@ func (s *server) apiObject(w http.ResponseWriter, r *http.Request) {
 	object := r.PathValue("object")
 	mod := moduleFrom(r)
 	if _, ok := mod.object(object); !ok {
-		s.apiError(w, r, fmt.Errorf("%w: Object %s gehört nicht zu Modul %s", sdk.ErrNotFound, object, mod.Name))
+		s.apiError(w, r, fmt.Errorf("%w: %s", sdk.ErrNotFound, s.T(r, "core.error.not_in_module", object, mod.Name)))
 		return
 	}
 	oc, err := s.definition(r, object)
@@ -198,4 +195,25 @@ func (s *server) allowedActions(r *http.Request, object string) ([]string, error
 		}
 	}
 	return out, nil
+}
+
+var errUnsupportedMedia = errors.New("Content-Type application/json erwartet")
+
+// decodeJSONBody liest einen JSON-Body (höchstens maxAPIBody). Ein leerer
+// Body ist erlaubt; sonst ist Content-Type application/json Pflicht.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, v any) error {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAPIBody))
+	if err != nil {
+		return fmt.Errorf("%w: Body: %v", sdk.ErrInvalidArgument, err)
+	}
+	if len(body) == 0 {
+		return nil
+	}
+	if mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mt != "application/json" {
+		return errUnsupportedMedia
+	}
+	if err := json.Unmarshal(body, v); err != nil {
+		return fmt.Errorf("%w: JSON: %v", sdk.ErrInvalidArgument, err)
+	}
+	return nil
 }

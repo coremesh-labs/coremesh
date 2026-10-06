@@ -12,16 +12,15 @@
 {{define "relation"}}
 {{with .Message}}<p class="empty">{{.}}</p>{{else}}
 {{block "relation-toolbar" .}}
-{{with .AddURL}}
 <div class="relation-toolbar">
-  <a class="btn small" href="{{.}}" hx-get="{{.}}" hx-target="#modal">+ Hinzufügen</a>
+  {{if .Child.HasHistory}}{{template "history-toggle" (historyCtx .Section.URL .History "closest .relation" "innerHTML")}}{{end}}
+  {{with .AddURL}}<a class="btn small" href="{{.}}" hx-get="{{.}}" hx-target="#modal">{{t "core.relation.add"}}</a>{{end}}
 </div>
-{{end}}
 {{end}}
 {{if .Rows}}
 <table class="data sub">
   <thead>
-    <tr>{{range .Columns}}<th>{{.Label}}</th>{{end}}<th class="actions"><span class="sr-only">Aktionen</span></th></tr>
+    <tr>{{range .Columns}}<th>{{.Label}}</th>{{end}}<th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th></tr>
   </thead>
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
@@ -29,7 +28,7 @@
       {{range $f := .Rel.Columns}}
       <td>{{value $.Row $f}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
         <a class="inline-edit" href="{{.}}/{{pathEscape $v}}/edit" hx-get="{{.}}/{{pathEscape $v}}/edit?view=refresh"
-           hx-target="#modal" title="Verknüpften Datensatz bearbeiten">✎</a>{{end}}{{end}}</td>
+           hx-target="#modal" title="{{t "core.relation.edit_linked"}}">✎</a>{{end}}{{end}}</td>
       {{end}}
       <td class="actions">
         {{with .Rel.Child.Has.update}}
@@ -43,7 +42,7 @@
   </tbody>
 </table>
 {{else}}
-<p class="empty">Keine Einträge.</p>
+<p class="empty">{{t "core.list.empty"}}</p>
 {{end}}
 {{end}}
 {{end}}

@@ -7,7 +7,7 @@
 */}}
 {{define "list"}}
 <section id="list" class="object-list"
-         hx-get="{{.URL}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
+         hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
   <header class="page-header">
     <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}</h1>
     {{block "list-toolbar" .}}
@@ -18,6 +18,7 @@
       {{range .Custom}}
       <a class="btn" href="{{$.ActionURL}}/{{.Name}}" hx-get="{{$.ActionURL}}/{{.Name}}" hx-target="#modal">{{.Label}}</a>
       {{end}}
+      {{if .HasHistory}}{{template "history-toggle" (historyCtx .URL .History "#list" "outerHTML")}}{{end}}
     </div>
     {{end}}
   </header>
@@ -30,14 +31,14 @@
   <thead>
     <tr>
       {{range listable .Def}}<th>{{.Label}}</th>{{end}}
-      <th class="actions"><span class="sr-only">Aktionen</span></th>
+      <th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th>
     </tr>
   </thead>
   <tbody id="rows">
     {{range .Rows}}{{template "row" ($.Row .)}}{{end}}
   </tbody>
 </table>
-{{if not .Rows}}<p class="empty">Keine Einträge.</p>{{end}}
+{{if not .Rows}}<p class="empty">{{t "core.list.empty"}}</p>{{end}}
 {{end}}
 
 {{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>". */}}

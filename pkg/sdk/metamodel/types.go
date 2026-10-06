@@ -6,11 +6,12 @@ package metamodel
 
 // ObjectDefinition beschreibt ein Business-Object.
 type ObjectDefinition struct {
-	Name    string            `json:"name"`           // z. B. "BusinessPartner" – Object im Dispatcher
-	Title   string            `json:"title"`          // z. B. "Geschäftspartner"
-	Icon    string            `json:"icon,omitempty"` // Icon-CSS-Klasse
-	Fields  []FieldDefinition `json:"fields"`         // Spalten / Formularfelder
-	Actions []ActionConfig    `json:"actions"`        // Erlaubte Aktionen
+	Name     string            `json:"name"`                // z. B. "BusinessPartner" – Object im Dispatcher
+	Title    string            `json:"title"`               // z. B. "Geschäftspartner"
+	TitleKey string            `json:"title_key,omitempty"` // Übersetzungsschlüssel für Title (i18n)
+	Icon     string            `json:"icon,omitempty"`      // Icon-CSS-Klasse
+	Fields   []FieldDefinition `json:"fields"`              // Spalten / Formularfelder
+	Actions  []ActionConfig    `json:"actions"`             // Erlaubte Aktionen
 
 	// TitleField benennt das Feld, das einen Datensatz in Überschriften
 	// vertritt (z. B. "name1"). Optional.
@@ -26,13 +27,14 @@ type ObjectDefinition struct {
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).
 type FieldDefinition struct {
-	Key      string    `json:"key"`               // z. B. "company_name"
-	Label    string    `json:"label"`             // z. B. "Firmenname"
-	Type     FieldType `json:"type"`              // siehe FieldType
-	Required bool      `json:"required"`          // Pflichtfeld im Formular
-	Listable bool      `json:"listable"`          // in der Übersichtstabelle anzeigen
-	Editable bool      `json:"editable"`          // im Formular bearbeitbar
-	Options  []Option  `json:"options,omitempty"` // nur für TypeSelect
+	Key      string    `json:"key"`                 // z. B. "company_name"
+	Label    string    `json:"label"`               // z. B. "Firmenname"
+	LabelKey string    `json:"label_key,omitempty"` // Übersetzungsschlüssel, z. B. "businesspartner.BusinessPartner.fields.name1"
+	Type     FieldType `json:"type"`                // siehe FieldType
+	Required bool      `json:"required"`            // Pflichtfeld im Formular
+	Listable bool      `json:"listable"`            // in der Übersichtstabelle anzeigen
+	Editable bool      `json:"editable"`            // im Formular bearbeitbar
+	Options  []Option  `json:"options,omitempty"`   // nur für TypeSelect
 	// Lookup: Der Wert ist der Schlüssel eines Datensatzes eines anderen
 	// Objects (Fremdschlüssel). Die Oberfläche bietet einen Auswahldialog an.
 	Lookup *Lookup `json:"lookup,omitempty"`
@@ -56,9 +58,13 @@ type Lookup struct {
 type SectionDefinition struct {
 	Key       string    `json:"key"` // eindeutig im Object, [a-z][a-z0-9_]*
 	Title     string    `json:"title"`
+	TitleKey  string    `json:"title_key,omitempty"` // Übersetzungsschlüssel (i18n)
 	Collapsed bool      `json:"collapsed,omitempty"` // anfangs zugeklappt
 	Fields    []string  `json:"fields,omitempty"`    // Feld-Keys dieses Objects
 	Relation  *Relation `json:"relation,omitempty"`  // eingebettete Unter-Objekte (Master-Detail)
+	// Tags: Abschnitt mit den Tags des Datensatzes (Plugin tag, TagService) –
+	// Eingabefelder entstehen aus den Tag Sets, die dem Object zugewiesen sind.
+	Tags bool `json:"tags,omitempty"`
 }
 
 // Relation verbindet ein Object (Master) mit Datensätzen eines Unter-Objects
@@ -93,8 +99,9 @@ const (
 
 // Option ist ein Eintrag eines Auswahlfelds.
 type Option struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value    string `json:"value"`
+	Label    string `json:"label"`
+	LabelKey string `json:"label_key,omitempty"` // Übersetzungsschlüssel (i18n)
 }
 
 // ActionConfig beschreibt eine Aktion, die die Oberfläche anbietet.
@@ -106,6 +113,9 @@ type ActionConfig struct {
 	Icon  string     `json:"icon,omitempty"`
 	// Sicherheitsabfrage vor dem Ausführen, z. B. bei delete.
 	Confirm string `json:"confirm,omitempty"`
+	// Übersetzungsschlüssel für Label und Confirm (i18n).
+	LabelKey   string `json:"label_key,omitempty"`
+	ConfirmKey string `json:"confirm_key,omitempty"`
 }
 
 // ActionKind sagt dem WebServer, wie er eine Aktion einbindet.
@@ -135,6 +145,9 @@ type DescribeResponse struct {
 	// Module dieses Plugins. Jedes Object, das in der Oberfläche erscheinen
 	// soll, gehört zu genau einem Modul (siehe ModuleDefinition).
 	Modules []ModuleDefinition `json:"modules,omitempty"`
+	// Übersetzungen der Texte dieses Plugins (Locale → Schlüssel → Text).
+	// Jeder Schlüssel beginnt mit dem Namen eines eigenen Moduls und ".".
+	Translations Translations `json:"translations,omitempty"`
 }
 
 // LifecycleType unterscheidet, wie ein Datensatz eines Objects endet.
@@ -159,7 +172,10 @@ type Lifecycle struct {
 	Type        LifecycleType `json:"type"`                   // timeslice | status | immutable (leer = immutable)
 	ValidFrom   string        `json:"valid_from,omitempty"`   // timeslice: Feld „gültig ab“ (TypeDate)
 	ValidTo     string        `json:"valid_to,omitempty"`     // timeslice: Feld „gültig bis“ (TypeDate)
-	StatusField string        `json:"status_field,omitempty"` // status: Feld (TypeBoolean), true = aktiv
+	StatusField string        `json:"status_field,omitempty"` // status: Feld – TypeBoolean (true = aktiv) oder TypeSelect
+	// InactiveValue: bei einem Status-Feld vom Typ select der Wert für „inaktiv“
+	// (z. B. "DEPRECATED"); deactivate setzt ihn. Leer bei TypeBoolean.
+	InactiveValue string `json:"inactive_value,omitempty"`
 }
 
 // Kind liefert den Typ; ein leerer Lebenszyklus ist immutable.

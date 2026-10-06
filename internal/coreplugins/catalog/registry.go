@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/camel/coremesh/internal/dispatcher"
@@ -24,6 +25,7 @@ type moduleEntry struct {
 	RegisteredAt string                       `json:"registered_at"`
 	Objects      []metamodel.ObjectDefinition `json:"objects"`
 	Modules      []metamodel.ModuleDefinition `json:"modules,omitempty"`
+	Translations metamodel.Translations       `json:"translations,omitempty"`
 }
 
 // cacheFile ist das Format der Cache-Datei.
@@ -35,7 +37,7 @@ const cacheName = "catalog-cache.json"
 
 // checkOwnership prüft, dass ein Modul nur Objects beschreibt, die es selbst
 // bedient, und nur Actions anbietet, die als Route dieses Moduls existieren.
-func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition, routes []dispatcher.Entry) error {
+func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition, tr metamodel.Translations, routes []dispatcher.Entry) error {
 	own := map[string][]string{} // Object -> Actions dieses Moduls
 	for _, e := range routes {
 		if e.Plugin == module {
@@ -92,6 +94,11 @@ func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []met
 		if err := md.Validate(seen); err != nil {
 			errs = append(errs, err)
 		}
+		for _, s := range md.Services {
+			if _, ok := own[s]; !ok {
+				errs = append(errs, fmt.Errorf("Modul %s: Service %s wird nicht von Plugin %s bedient", md.Name, s, module))
+			}
+		}
 		if names[md.Name] {
 			errs = append(errs, fmt.Errorf("Modul %s: doppelt", md.Name))
 		}
@@ -103,17 +110,29 @@ func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []met
 			inModule[o.Object] = md.Name
 		}
 	}
+	// Übersetzungen nur in bekannten Sprachen und im Namensraum eigener Module.
+	for loc, dict := range tr {
+		if !slices.Contains(metamodel.Locales, loc) {
+			errs = append(errs, fmt.Errorf("Übersetzungen: Sprache %q nicht unterstützt", loc))
+		}
+		for key := range dict {
+			if !slices.ContainsFunc(mods, func(md metamodel.ModuleDefinition) bool { return strings.HasPrefix(key, md.Name+".") }) {
+				errs = append(errs, fmt.Errorf("Übersetzung %q: kein Schlüssel eines eigenen Moduls", key))
+			}
+		}
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%w: Metamodell von Modul %s abgelehnt:\n%w", sdk.ErrPermissionDenied, module, errors.Join(errs...))
 	}
 	return nil
 }
 
-func newEntry(module, version string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition) (*moduleEntry, error) {
+func newEntry(module, version string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition, tr metamodel.Translations) (*moduleEntry, error) {
 	b, err := json.Marshal(struct {
-		Objects []metamodel.ObjectDefinition
-		Modules []metamodel.ModuleDefinition
-	}{defs, mods})
+		Objects      []metamodel.ObjectDefinition
+		Modules      []metamodel.ModuleDefinition
+		Translations metamodel.Translations
+	}{defs, mods, tr})
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +144,7 @@ func newEntry(module, version string, defs []metamodel.ObjectDefinition, mods []
 		RegisteredAt: time.Now().UTC().Format(time.RFC3339),
 		Objects:      defs,
 		Modules:      mods,
+		Translations: tr,
 	}, nil
 }
 

@@ -41,6 +41,7 @@ type user struct {
 	TenantID    string   `json:"tenant_id"`
 	Roles       []string `json:"roles"`
 	Permissions []string `json:"permissions"` // "Object.Action[@Buchungskreis,…]" mit Platzhaltern
+	Locale      string   `json:"locale"`      // Sprache aus dem Profil ("" = automatisch)
 }
 
 // Name ist der Anzeigename.

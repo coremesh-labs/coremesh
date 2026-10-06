@@ -13,7 +13,7 @@
 */}}
 {{define "end-button"}}
 {{if .Action}}
-  {{if .Inactive}}<span class="badge inactive" title="Bereits inaktiv">Inaktiv</span>
+  {{if .Inactive}}<span class="badge inactive" title="{{t "core.end.inactive_title"}}">{{t "core.end.inactive"}}</span>
   {{else}}<a class="{{.Class}}" href="{{.URL}}/{{pathEscape .ID}}/end"
      hx-get="{{.URL}}/{{pathEscape .ID}}/end?view={{.View}}" hx-target="#modal">{{.Action.Label}}</a>{{end}}
 {{end}}
@@ -27,25 +27,36 @@
   {{if .Modal}}hx-post="{{.FormAction}}" hx-target="{{.Target}}" hx-swap="{{if eq .ViewParam "refresh"}}innerHTML{{else}}outerHTML{{end}}"{{end}}>
   <input type="hidden" name="_view" value="{{.ViewParam}}">
   {{if eq .EndKind "timeslice"}}{{block "end-timeslice" .}}
-  <p>Der Eintrag gilt ab {{with .EndMin}}<strong>{{.}}</strong>{{else}}seinem Beginn{{end}}.
-     Zu welchem Datum soll die Gültigkeit enden? Rückwirkende und künftige Daten sind möglich.</p>
+  <p>{{with .EndMin}}{{t "core.end.valid_since" .}}{{else}}{{t "core.end.valid_since_start"}}{{end}}
+     {{t "core.end.question"}}</p>
   <label class="field">
-    <span>Gültigkeit beenden am <abbr title="Pflichtfeld">*</abbr></span>
+    <span>{{t "core.end.date_label"}} <abbr title="{{t "core.app.required"}}">*</abbr></span>
     <input type="date" name="valid_to" value="{{.EndDate}}" {{with .EndMin}}min="{{.}}"{{end}} required autofocus>
   </label>
   {{end}}{{else}}{{block "end-status" .}}
-  <p>{{with .Action.Confirm}}{{.}}{{else}}{{.Def.Title}} inaktivieren?{{end}}</p>
-  <p class="muted">Der Datensatz bleibt erhalten und wird als inaktiv gekennzeichnet.</p>
+  <p>{{with .Action.Confirm}}{{.}}{{else}}{{t "core.end.confirm_status" .Def.Title}}{{end}}</p>
+  <p class="muted">{{t "core.end.status_hint"}}</p>
   {{end}}{{end}}
   <footer>
     <button type="submit" class="btn {{if eq .EndKind "status"}}danger{{else}}primary{{end}}">
-      {{if eq .EndKind "timeslice"}}Gültigkeit beenden{{else}}Inaktivieren{{end}}</button>
+      {{if eq .EndKind "timeslice"}}{{t "core.end.submit_timeslice"}}{{else}}{{t "core.end.submit_status"}}{{end}}</button>
     {{if .Modal}}
-    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">Abbrechen</button>
+    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.cancel"}}</button>
     {{else}}
-    <a class="btn" href="{{.CancelURL}}">Abbrechen</a>
+    <a class="btn" href="{{.CancelURL}}">{{t "core.app.cancel"}}</a>
     {{end}}
   </footer>
 </form>
 {{if .Modal}}</article></dialog>{{end}}
+{{end}}
+
+{{/* Schalter für beendete / künftige / inaktive Einträge (nur bei Zeitscheibe oder
+     Status-Flag). Lädt die Liste bzw. den Abschnitt mit ?includeHistory=true neu.
+     Daten: historyCtx {URL, On, Target, Swap}. */}}
+{{define "history-toggle"}}
+<label class="history-toggle">
+  <input type="checkbox" name="includeHistory" value="true" {{if .On}}checked{{end}}
+         hx-get="{{.URL}}" hx-target="{{.Target}}" hx-swap="{{.Swap}}" hx-include="this" hx-trigger="change">
+  {{t "core.list.history"}}
+</label>
 {{end}}

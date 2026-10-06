@@ -30,7 +30,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.3.0"
+	Version = "0.4.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -65,7 +65,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Version:     Version,
 		Description: "Benutzer, Rollen und Berechtigungen",
 		Capabilities: []sdk.Capability{
-			{Object: "Account", Actions: []string{"Authenticate", "Me", "ChangePassword", "Check", "Granted"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung"},
+			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
 			{Object: "Role", Actions: []string{"list", "get", "create", "update"}, Description: "Rollen und Berechtigungen"},
 			{Object: "CompanyCode", Actions: []string{"list", "get", "create", "update"}, Description: "Buchungskreise"},
@@ -106,12 +106,16 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return sdk.Response{Payload: sdk.SchemaInitResponse{Module: in.Module, Schema: schemaHCL}}, nil
 	case sdk.ObjectCatalog + "." + sdk.ActionDescribe:
 		return sdk.Response{Payload: metamodel.DescribeResponse{
-			Objects: []metamodel.ObjectDefinition{userDef, roleDef, companyCodeDef},
-			Modules: []metamodel.ModuleDefinition{adminModule},
+			Objects: []metamodel.ObjectDefinition{
+				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef)},
+			Modules:      []metamodel.ModuleDefinition{metamodel.ModuleKeys(adminModule)},
+			Translations: translations,
 		}}, nil
 
 	case "Account.Authenticate":
 		return p.authenticate(ctx, req.Payload)
+	case "Account.UpdateProfile":
+		return p.updateProfile(ctx, req.Payload)
 	case "Account.Me":
 		return p.me(ctx)
 	case "Account.ChangePassword":
@@ -122,7 +126,7 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.granted(ctx, req.Payload)
 
 	case "User.list":
-		return p.userList(ctx)
+		return p.userList(ctx, req.Payload)
 	case "User.get":
 		return p.userGet(ctx, req.Payload)
 	case "User.create":
@@ -214,7 +218,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	}
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
-		"roles": roles, "permissions": ps,
+		"roles": roles, "permissions": ps, "locale": u.Locale,
 	}}, nil
 }
 
@@ -261,14 +265,19 @@ func userRecord(u userRow) map[string]any {
 	}
 }
 
-func (p *Plugin) userList(ctx context.Context) (sdk.Response, error) {
+// userList liefert standardmäßig nur aktive Benutzer (Lebenszyklus status);
+// {"query": {"includeHistory": "true"}} liefert auch inaktive.
+func (p *Plugin) userList(ctx context.Context, payload any) (sdk.Response, error) {
 	users, err := p.listUsers(ctx)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	items := make([]any, len(users))
-	for i, u := range users {
-		items[i] = userRecord(u)
+	all := includeHistory(payload)
+	items := []any{}
+	for _, u := range users {
+		if u.Active || all {
+			items = append(items, userRecord(u))
+		}
 	}
 	return sdk.Response{Payload: map[string]any{"items": items}}, nil
 }
@@ -655,4 +664,49 @@ func (p *Plugin) ccSave(ctx context.Context, payload any, create bool) (sdk.Resp
 	}
 	p.invalidate()
 	return sdk.Response{Payload: ccRecord(c)}, nil
+}
+
+// updateProfile ändert die Einstellungen des eigenen Kontos: {"locale": "de"|"en"|"zh-CN"|""}.
+// Leer = automatisch (Sprachwähler, Accept-Language, Standard).
+func (p *Plugin) updateProfile(ctx context.Context, payload any) (sdk.Response, error) {
+	id := sdk.CallFromContext(ctx).UserID
+	if id == "" {
+		return sdk.Response{}, fmt.Errorf("%w: keine Anmeldung", sdk.ErrPermissionDenied)
+	}
+	var in struct {
+		Locale *string `json:"locale"`
+	}
+	if err := sdk.Decode(payload, &in); err != nil {
+		return sdk.Response{}, err
+	}
+	if in.Locale != nil {
+		loc := metamodel.NormalizeLocale(*in.Locale)
+		if *in.Locale != "" && loc == "" {
+			return sdk.Response{}, fmt.Errorf("%w: Sprache %q nicht unterstützt (%v)", sdk.ErrInvalidArgument, *in.Locale, metamodel.Locales)
+		}
+		var value any
+		if loc != "" {
+			value = loc
+		}
+		if _, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__users SET locale = ?, updated_at = ? WHERE id = ?`),
+			value, time.Now().UTC().Format(time.RFC3339), id); err != nil {
+			return sdk.Response{}, err
+		}
+	}
+	return p.profile(ctx, id)
+}
+
+// includeHistory: {"query": {"includeHistory": "true"}} (oder direkt im Payload).
+func includeHistory(payload any) bool {
+	m, _ := payload.(map[string]any)
+	if q, ok := m["query"].(map[string]any); ok {
+		m = q
+	}
+	switch v := m["includeHistory"].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1" || v == "on"
+	}
+	return false
 }

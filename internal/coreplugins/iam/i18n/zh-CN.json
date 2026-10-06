@@ -1,0 +1,22 @@
+{
+  "admin.module.title": "系统管理",
+  "admin.module.description": "用户、角色和公司代码",
+  "admin.navigation.zugriff": "访问权限",
+  "admin.navigation.organisation": "组织",
+  "admin.User.title": "用户",
+  "admin.User.fields.username": "用户名",
+  "admin.User.fields.display_name": "姓名",
+  "admin.User.fields.tenant_id": "租户",
+  "admin.User.fields.roles": "角色（每行一个）",
+  "admin.User.fields.active": "启用",
+  "admin.User.fields.password": "密码（编辑时留空表示不变）",
+  "admin.User.fields.created_at": "创建时间",
+  "admin.User.actions.deactivate.confirm": "停用该用户？停用后该用户将无法登录。",
+  "admin.Role.title": "角色",
+  "admin.Role.fields.name": "名称",
+  "admin.Role.fields.description": "描述",
+  "admin.Role.fields.permissions": "权限（Object.Action[@公司代码,…]，每行一个，* 为通配符）",
+  "admin.CompanyCode.title": "公司代码",
+  "admin.CompanyCode.fields.code": "公司代码",
+  "admin.CompanyCode.fields.description": "描述"
+}

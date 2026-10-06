@@ -1,0 +1,7 @@
+# TagManagement (externes Plugin, eigenes Go-Modul unter cmd/plugins/tag).
+# Andere Plugins nutzen es über pkg/sdk/tagservice (Actions Tags.*), nie über Tabellen.
+plugins:
+  tag:
+    version: 0.1.0
+    databases:
+      main: { access: write }        # Tabellen tag__* via DBSchema.Init

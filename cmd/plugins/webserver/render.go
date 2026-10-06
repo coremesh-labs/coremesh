@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/camel/coremesh/pkg/sdk/module"
 )
 
 //go:embed templates/*.html
@@ -25,12 +26,21 @@ var embeddedStatic embed.FS
 // renderer hält alle Templates. Eingebettet sind die Standard-Templates;
 // *.html aus templatesDir werden danach geparst und ersetzen jeden Block
 // ({{define "name"}}), den sie neu definieren.
+//
+// Je Sprache gibt es eine Kopie der Templates, in der die Funktionen t (Text
+// übersetzen), locale (Sprache) und value (Ja/Nein) an diese Sprache gebunden
+// sind. Überschriebene Blöcke nutzen dieselben Funktionen.
 type renderer struct {
-	t *template.Template
+	t        *template.Template
+	byLocale map[string]*template.Template
 }
 
 func newRenderer(templatesDir string) (*renderer, error) {
-	t, err := template.New("").Funcs(funcs).ParseFS(embeddedTemplates, "templates/*.html")
+	core, err := module.LoadTranslations(coreFiles, "i18n")
+	if err != nil {
+		return nil, err
+	}
+	t, err := template.New("").Funcs(funcs).Funcs(localeFuncs(core, metamodel.LocaleDE)).ParseFS(embeddedTemplates, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -45,14 +55,47 @@ func newRenderer(templatesDir string) (*renderer, error) {
 			}
 		}
 	}
-	return &renderer{t: t}, nil
+	r := &renderer{t: t, byLocale: map[string]*template.Template{}}
+	for _, loc := range metamodel.Locales {
+		c, err := t.Clone()
+		if err != nil {
+			return nil, err
+		}
+		r.byLocale[loc] = c.Funcs(localeFuncs(core, loc))
+	}
+	return r, nil
+}
+
+// localeFuncs sind die an eine Sprache gebundenen Template-Funktionen.
+func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
+	t := func(key string, args ...any) string {
+		s := core.Lookup(loc, key, key)
+		if len(args) > 0 {
+			return fmt.Sprintf(s, args...)
+		}
+		return s
+	}
+	return template.FuncMap{
+		"t":      t,
+		"locale": func() string { return loc },
+		"value": func(rec record, f metamodel.FieldDefinition) string {
+			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
+		},
+	}
+}
+
+func (r *renderer) tmpl(loc string) *template.Template {
+	if t, ok := r.byLocale[loc]; ok {
+		return t
+	}
+	return r.t
 }
 
 // fragment rendert den Block name. Es wird erst in einen Puffer geschrieben,
 // damit ein Fehler keine halbe Antwort hinterlässt.
-func (r *renderer) fragment(w io.Writer, name string, data any) error {
+func (r *renderer) fragment(loc string, w io.Writer, name string, data any) error {
 	var buf bytes.Buffer
-	if err := r.t.ExecuteTemplate(&buf, name, data); err != nil {
+	if err := r.tmpl(loc).ExecuteTemplate(&buf, name, data); err != nil {
 		return err
 	}
 	_, err := w.Write(buf.Bytes())
@@ -67,6 +110,7 @@ type pageData struct {
 	Nav      []navModule   // Module aus Catalog.ListModules; das aktive mit seinen Objects
 	Content  template.HTML // bereits gerendertes Fragment
 	User     *user         // angemeldeter Benutzer
+	Path     string        // aktueller Pfad (Rücksprung des Sprachwählers)
 }
 
 // navItem ist ein Object in der Navigation des aktiven Moduls.
@@ -79,20 +123,24 @@ type navItem struct {
 }
 
 // page rendert das Fragment und bettet es in das Layout ein.
-func (r *renderer) page(w io.Writer, fragment string, data any, page pageData) error {
+func (r *renderer) page(loc string, w io.Writer, fragment string, data any, page pageData) error {
 	var buf bytes.Buffer
-	if err := r.t.ExecuteTemplate(&buf, fragment, data); err != nil {
+	if err := r.tmpl(loc).ExecuteTemplate(&buf, fragment, data); err != nil {
 		return err
 	}
 	// Ausgabe von html/template – bereits korrekt escaped.
 	page.Content = template.HTML(buf.String())
-	return r.fragment(w, "layout", page)
+	return r.fragment(loc, w, "layout", page)
 }
 
 var funcs = template.FuncMap{
-	"listable":   listable,
-	"value":      displayValue,
-	"raw":        func(rec record, key string) string { return scalar(rec[key]) },
+	"listable":    listable,
+	"raw":         func(rec record, key string) string { return scalar(rec[key]) },
+	"locales":     func() []string { return metamodel.Locales },
+	"tagFieldCtx": func(ed *tagEditor, f tagField) tagFieldCtx { return tagFieldCtx{Ed: ed, F: f} },
+	"historyCtx": func(url string, on bool, target, swap string) historyCtx {
+		return historyCtx{URL: url, On: on, Target: target, Swap: swap}
+	},
 	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
 	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
 	"pathEscape": url.PathEscape,
@@ -115,7 +163,13 @@ func listable(d metamodel.ObjectDefinition) []metamodel.FieldDefinition {
 }
 
 // displayValue formatiert einen Feldwert zur Anzeige.
+// displayValue formatiert mit deutschen Ja/Nein-Texten (Tests, Rückfall);
+// Templates nutzen displayValueIn mit den Texten der Sprache.
 func displayValue(rec record, f metamodel.FieldDefinition) string {
+	return displayValueIn(rec, f, "Ja", "Nein")
+}
+
+func displayValueIn(rec record, f metamodel.FieldDefinition, yes, no string) string {
 	v, ok := rec[f.Key]
 	if !ok || v == nil || f.Type == metamodel.TypePassword {
 		return ""
@@ -127,9 +181,9 @@ func displayValue(rec record, f metamodel.FieldDefinition) string {
 	switch f.Type {
 	case metamodel.TypeBoolean:
 		if b, _ := v.(bool); b {
-			return "Ja"
+			return yes
 		}
-		return "Nein"
+		return no
 	case metamodel.TypeSelect:
 		s := scalar(v)
 		for _, o := range f.Options {

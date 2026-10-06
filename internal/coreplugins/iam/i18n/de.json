@@ -1,0 +1,22 @@
+{
+  "admin.module.title": "Administration",
+  "admin.module.description": "Benutzer, Rollen und Buchungskreise",
+  "admin.navigation.zugriff": "Zugriff",
+  "admin.navigation.organisation": "Organisation",
+  "admin.User.title": "Benutzer",
+  "admin.User.fields.username": "Benutzername",
+  "admin.User.fields.display_name": "Name",
+  "admin.User.fields.tenant_id": "Mandant",
+  "admin.User.fields.roles": "Rollen (eine pro Zeile)",
+  "admin.User.fields.active": "Aktiv",
+  "admin.User.fields.password": "Passwort (bei Bearbeitung leer = unverändert)",
+  "admin.User.fields.created_at": "Angelegt",
+  "admin.User.actions.deactivate.confirm": "Benutzer inaktivieren? Er kann sich danach nicht mehr anmelden.",
+  "admin.Role.title": "Rollen",
+  "admin.Role.fields.name": "Name",
+  "admin.Role.fields.description": "Beschreibung",
+  "admin.Role.fields.permissions": "Berechtigungen (Object.Action[@Buchungskreis,…], eine pro Zeile, * als Platzhalter)",
+  "admin.CompanyCode.title": "Buchungskreise",
+  "admin.CompanyCode.fields.code": "Buchungskreis",
+  "admin.CompanyCode.fields.description": "Beschreibung"
+}

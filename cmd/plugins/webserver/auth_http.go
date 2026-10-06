@@ -24,7 +24,7 @@ func userFrom(r *http.Request) *user {
 
 // publicPath: ohne Anmeldung erreichbar.
 func publicPath(p string) bool {
-	return p == "/login" || strings.HasPrefix(p, "/static/")
+	return p == "/login" || p == "/locale" || strings.HasPrefix(p, "/static/")
 }
 
 // securityHeaders setzt Schutz-Header für alle Antworten.
@@ -53,13 +53,13 @@ func checkOrigin(next http.Handler) http.Handler {
 			return
 		}
 		if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
-			http.Error(w, "Anfrage von fremder Seite abgelehnt", http.StatusForbidden)
+			http.Error(w, earlyText(r, "core.app.foreign_origin"), http.StatusForbidden)
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || !strings.EqualFold(u.Host, r.Host) {
-				http.Error(w, "Anfrage von fremder Seite abgelehnt", http.StatusForbidden)
+				http.Error(w, earlyText(r, "core.app.foreign_origin"), http.StatusForbidden)
 				return
 			}
 		}
@@ -72,13 +72,17 @@ func checkOrigin(next http.Handler) http.Handler {
 func (s *server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if publicPath(r.URL.Path) {
+			// Öffentlich, aber mit Benutzer, falls angemeldet (z. B. Sprachwähler → Profil).
+			if u, _ := s.currentUser(r); u != nil {
+				r = r.WithContext(context.WithValue(r.Context(), userKey{}, u))
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
 		u, err := s.currentUser(r)
 		if err != nil {
 			s.logError(r, "Session", err)
-			http.Error(w, "Anmeldung derzeit nicht möglich", http.StatusServiceUnavailable)
+			http.Error(w, earlyText(r, "core.auth.unavailable"), http.StatusServiceUnavailable)
 			return
 		}
 		if u == nil && strings.HasPrefix(r.URL.Path, "/api/") {
@@ -122,21 +126,21 @@ func (s *server) loginForm(w http.ResponseWriter, r *http.Request) {
 // POST /login
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "ungültige Anfrage", http.StatusBadRequest)
+		http.Error(w, s.T(r, "core.app.bad_request"), http.StatusBadRequest)
 		return
 	}
 	username, next := r.PostForm.Get("username"), r.PostForm.Get("next")
 	_, token, expires, err := s.auth.Login(r.Context(), username, r.PostForm.Get("password"), clientIP(r))
 	switch {
 	case errors.Is(err, errInvalidCredentials):
-		s.renderLogin(w, r, http.StatusUnauthorized, err.Error(), username, next)
+		s.renderLogin(w, r, http.StatusUnauthorized, s.T(r, "core.auth.invalid"), username, next)
 		return
 	case errors.Is(err, errTooManyAttempts):
-		s.renderLogin(w, r, http.StatusTooManyRequests, err.Error(), username, next)
+		s.renderLogin(w, r, http.StatusTooManyRequests, s.T(r, "core.auth.too_many"), username, next)
 		return
 	case err != nil:
 		s.logError(r, "Login", err)
-		s.renderLogin(w, r, http.StatusServiceUnavailable, "Anmeldung derzeit nicht möglich", username, next)
+		s.renderLogin(w, r, http.StatusServiceUnavailable, s.T(r, "core.auth.unavailable"), username, next)
 		return
 	}
 	s.setSessionCookie(w, r, token, expires)
@@ -161,22 +165,22 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 
 // GET /account/password
 func (s *server) passwordForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "password", map[string]any{"User": userFrom(r)}, "Passwort ändern", "")
+	s.render(w, r, http.StatusOK, "password", map[string]any{"User": userFrom(r)}, s.T(r, "core.auth.change_password"), "")
 }
 
 // POST /account/password
 func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "ungültige Anfrage", http.StatusBadRequest)
+		http.Error(w, s.T(r, "core.app.bad_request"), http.StatusBadRequest)
 		return
 	}
 	u := userFrom(r)
 	next := r.PostForm.Get("new_password")
 	again := func(msg string) {
-		s.render(w, r, http.StatusUnprocessableEntity, "password", map[string]any{"User": u, "Error": msg}, "Passwort ändern", "")
+		s.render(w, r, http.StatusUnprocessableEntity, "password", map[string]any{"User": u, "Error": msg}, s.T(r, "core.auth.change_password"), "")
 	}
 	if next != r.PostForm.Get("confirm_password") {
-		again("Die beiden neuen Passwörter stimmen nicht überein")
+		again(s.T(r, "core.auth.password_mismatch"))
 		return
 	}
 	token, expires, err := s.auth.ChangePassword(r.Context(), u, r.PostForm.Get("current_password"), next)
@@ -189,15 +193,15 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, r, token, expires) // alle anderen Sessions sind beendet
-	s.render(w, r, http.StatusOK, "password", map[string]any{"User": u, "Done": true}, "Passwort ändern", "")
+	s.render(w, r, http.StatusOK, "password", map[string]any{"User": u, "Done": true}, s.T(r, "core.auth.change_password"), "")
 }
 
 func (s *server) renderLogin(w http.ResponseWriter, r *http.Request, status int, msg, username, next string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	if err := s.views.fragment(w, "login", map[string]any{
-		"AppTitle": s.cfg.Title, "Error": msg, "Username": username, "Next": safeNext(next),
+	if err := s.views.fragment(localeFrom(r), w, "login", map[string]any{
+		"AppTitle": s.cfg.Title, "Error": msg, "Username": username, "Next": safeNext(next), "Path": originalURI(r),
 	}); err != nil {
 		s.logError(r, "Template login", err)
 	}

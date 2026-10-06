@@ -1,0 +1,78 @@
+{{/*
+  TagEditor – Abschnitt „Tags“ der Detailansicht (SectionDefinition.Tags), geladen von
+  GET /tags/{entity}/{id}. Daten: tagEditor {URL, EntityType, EntityID, EffectiveDate,
+  ValidFrom, CompanyCode, CompanyCodes, Sets, ReadOnly, Errors, Saved, Unavailable}.
+  Blöcke: tag-editor, tag-field.
+
+  Stichtag und Buchungskreis laden den Editor neu (GET). Jede Eingabe wertet die
+  Regeln neu aus (POST …/preview: SHOW_IF blendet aus, REQUIRES macht zur Pflicht).
+  Speichern schreibt ab „Gültig ab“ eine neue Zeitscheibe (POST /tags/{entity}/{id}).
+*/}}
+{{define "tag-editor"}}
+<div class="tag-editor">
+{{with .Unavailable}}<p class="empty">{{.}}</p>{{else}}
+<form method="post" action="{{.URL}}" hx-post="{{.URL}}" hx-target="closest .tag-editor" hx-swap="outerHTML">
+  <div class="tag-toolbar">
+    <label>{{t "core.tags.effective_date"}}
+      <input type="date" name="effectiveDate" value="{{.EffectiveDate}}" required
+             hx-get="{{.URL}}" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+    </label>
+    <label>{{t "core.tags.company_code"}}
+      <select name="companyCode" hx-get="{{.URL}}" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+        <option value="">{{t "core.tags.global"}}</option>
+        {{range .CompanyCodes}}<option value="{{.Value}}" {{if eq .Value $.CompanyCode}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </label>
+  </div>
+  {{range .Errors}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+  {{if .Saved}}<p class="result-message" role="status">{{t "core.tags.saved"}}</p>{{end}}
+  {{if not .Sets}}<p class="empty">{{t "core.tags.empty"}}</p>{{end}}
+  {{range .Sets}}
+  <fieldset class="tag-set">
+    <legend>{{.Name}}</legend>
+    {{range .Fields}}{{if .Visible}}{{template "tag-field" (tagFieldCtx $ .)}}{{end}}{{end}}
+  </fieldset>
+  {{end}}
+  {{if and .Sets (not .ReadOnly)}}
+  <footer>
+    <label class="tag-valid-from">{{t "core.tags.valid_from"}}
+      <input type="date" name="validFrom" value="{{.ValidFrom}}" required>
+    </label>
+    <button type="submit" class="btn primary">{{t "core.tags.save"}}</button>
+  </footer>
+  {{end}}
+</form>
+{{end}}
+</div>
+{{end}}
+
+{{/* Ein Eingabefeld je Datentyp. Daten: tagFieldCtx {Ed, F}. */}}
+{{define "tag-field"}}
+{{$f := .F}}{{$ro := or .Ed.ReadOnly $f.Deprecated}}
+<label class="field{{if $f.Error}} invalid{{end}}">
+  <span>{{$f.Name}}{{if $f.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}
+    {{if not $f.Global}}<small class="badge">{{t "core.tags.scope" $f.Scope}}</small>{{end}}
+    {{if $f.Deprecated}}<small class="badge inactive">{{t "core.tags.deprecated"}}</small>{{end}}
+    {{with $f.Since}}<small class="muted">{{t "core.tags.since" .}}</small>{{end}}</span>
+  {{if $f.Options}}
+  <select name="v.{{$f.Code}}" {{if $ro}}disabled{{end}}
+          hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+    <option value="">{{t "core.tags.choose"}}</option>
+    {{range $f.Options}}<option value="{{.Value}}" {{if eq .Value $f.Value}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  {{else if eq $f.DataType "CURRENCY"}}
+  <span class="tag-money">
+    <input type="text" inputmode="decimal" name="v.{{$f.Code}}.amount" value="{{$f.Amount}}" placeholder="{{t "core.tags.amount"}}" {{if $ro}}disabled{{end}}
+           hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+    <input type="text" name="v.{{$f.Code}}.currency" value="{{$f.Curr}}" placeholder="{{t "core.tags.currency"}}" maxlength="3" pattern="[A-Za-z]{3}" {{if $ro}}disabled{{end}}
+           hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+  </span>
+  {{else}}
+  <input name="v.{{$f.Code}}" value="{{$f.Value}}" {{if $ro}}disabled{{end}}
+         {{if eq $f.DataType "INTEGER"}}type="number" step="1"{{else if eq $f.DataType "DATE"}}type="date"{{else if eq $f.DataType "TIMESTAMP"}}type="datetime-local"{{else}}type="text" maxlength="1000"{{end}}
+         hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
+  {{if eq $f.DataType "TIMESTAMP"}}<small class="muted">UTC</small>{{end}}
+  {{end}}
+  {{with $f.Error}}<small class="error">{{t .}}</small>{{end}}
+</label>
+{{end}}
