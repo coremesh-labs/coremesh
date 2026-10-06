@@ -50,10 +50,10 @@
     <a href="{{$.URL}}/{{pathEscape $.ID}}" hx-get="{{$.URL}}/{{pathEscape $.ID}}"
        hx-target="#main-content" hx-push-url="true">{{.Label}}</a>
     {{end}}
-    {{with .Has.update}}
+    {{if not (locked $.Record)}}{{with .Has.update}}
     <a href="{{$.URL}}/{{pathEscape $.ID}}/edit" hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=row"
        hx-target="#modal">{{.Label}}</a>
-    {{end}}
+    {{end}}{{end}}
     {{template "end-button" (endBtn $.Ctx $.Record "row" "link danger")}}
   {{end}}</td>
 </tr>

@@ -106,6 +106,14 @@ Soll = Haben), gibt es `Entity.ReadOnly` (kein generisches create/update; ein Ag
 dann nur `getAggregate`) und `Entity.Actions` (eigene Actions mit `metamodel.ActionConfig`,
 etwa `post` oder `reverse` mit `Record: true`).
 
+## Konsolenbefehle
+
+`r.Command(metamodel.CommandDefinition{…})` meldet einen Befehl für die Console an:
+`console <modul>:<name> --param=wert` ruft `Object.Action` des Moduls auf. Das Ziel muss ein
+eigenes Object oder ein eigener Service mit dieser Route sein (`NewPlugin` prüft das).
+Parameter mit `File: true` liest die CLI als lokale Datei ein. So lassen sich Ladevorgänge
+bauen, etwa Kontenrahmen oder Kurse im Plugin `ledger` von coremesh-erp.
+
 ## Aggregate (Master-Detail)
 
 Enthält das Metamodell eines Objects Relationen (`SectionDefinition.Relation`), registriert

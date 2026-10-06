@@ -163,9 +163,14 @@ Actions: []metamodel.ActionConfig{
   ihren `Name` angesprochen.
 - `custom`-Actions mit `Record: true` gelten einem Datensatz (z. B. „Stornieren …“): Sie
   stehen in der Detailansicht und bekommen dessen id. Alle anderen stehen in der Übersicht.
+- `custom`-Actions mit `Confirm` und **ohne** `Fields` brauchen kein Formular: Detailansicht
+  und Zeilen eingebetteter Tabellen zeigen einen Knopf, der nach der Sicherheitsabfrage
+  direkt ausführt (z. B. „Buchen“ einer Vorerfassung, „Entfernen“ einer Position).
 - `ActionConfig.Fields` beschränkt das Formular einer `custom`-Action auf diese Felder (in
   dieser Reihenfolge), sonst erscheinen alle editierbaren Felder. Ausgewertet werden beim
   Absenden ebenfalls nur diese Felder.
+- Liefert ein Modul `"_locked": true` im Datensatz (z. B. eine gebuchte Vorerfassung), blendet
+  die Oberfläche Bearbeiten, Beenden und Aktionen je Datensatz aus. Prüfen muss weiterhin das Modul.
 - In der Detailansicht stehen unter „Allgemein“ nur Felder, die der Datensatz liefert.
   Reine Eingabefelder einer `custom`-Action (virtuell, ohne Wert) erscheinen dort nicht.
 - Der Catalog hat beim Registrieren bereits geprüft, dass jede `ActionConfig.Name` eine echte

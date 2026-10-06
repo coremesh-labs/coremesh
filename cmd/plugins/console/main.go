@@ -26,7 +26,7 @@ import (
 
 const (
 	name    = "console"
-	version = "0.1.0"
+	version = "0.2.0"
 
 	maxMessage = 64 << 20 // max. Größe einer gRPC-Nachricht (CLI <-> Plugin)
 )

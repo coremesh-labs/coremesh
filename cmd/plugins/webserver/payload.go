@@ -386,3 +386,9 @@ func actionDef(d metamodel.ObjectDefinition, keys []string) metamodel.ObjectDefi
 	}
 	return d
 }
+
+// recordActionCtx sind die Daten des Blocks record-action.
+type recordActionCtx struct {
+	URL, ID, Class string
+	Action         metamodel.ActionConfig
+}

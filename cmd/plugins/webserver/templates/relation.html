@@ -31,10 +31,11 @@
            hx-target="#modal" title="{{t "core.relation.edit_linked"}}">✎</a>{{end}}{{end}}</td>
       {{end}}
       <td class="actions">
-        {{with .Rel.Child.Has.update}}
+        {{if not (locked .Row)}}{{with .Rel.Child.Has.update}}
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
            hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>
         {{end}}
+        {{range .Rel.Child.RecordActions}}{{template "record-action" (recordAction $.Rel.Child.ActionURL $.ID . "link")}}{{end}}{{end}}
         {{template "end-button" (endBtn .Rel.Child .Row "refresh" "link danger")}}
       </td>
     </tr>

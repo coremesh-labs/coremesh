@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/url"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
@@ -99,4 +101,47 @@ func TestTagEditorReference(t *testing.T) {
 	if sc := h.find("schema").Payload.(tagservice.GetRequest); sc.EntityID != "p1" {
 		t.Fatalf("Schema ohne Datensatz (Bedingungen): %+v", sc)
 	}
+}
+
+// TestDirectRecordAction: custom-Action mit Confirm und ohne Fields – Knopf in der
+// Detailansicht, Ausführung ohne Formular mit der id des Datensatzes.
+func TestDirectRecordAction(t *testing.T) {
+	orig := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = orig })
+	d := orig
+	d.Actions = append(slices.Clone(orig.Actions), metamodel.ActionConfig{Name: "lock", Kind: metamodel.KindCustom, Label: "Sperren",
+		Record: true, Confirm: "Kunde sperren?"})
+	mdDefs["Customer"] = d
+
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustContain(t, b, `hx-post="/action/crm/Customer/lock" hx-vals='{"_id": "c1"}'`, `hx-confirm="Kunde sperren?"`, ">Sperren</button>")
+	mustNotContain(t, b, `href="/action/crm/Customer/lock`)
+
+	w := do(s, "POST", "/action/crm/Customer/lock", url.Values{"_id": {"c1"}}, true)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "gesperrt") {
+		t.Fatalf("Ausführung: %d %s", w.Code, w.Body.String())
+	}
+	p := h.find("lock").Payload.(map[string]any)
+	if p["id"] != "c1" || len(p["data"].(map[string]any)) != 0 {
+		t.Fatalf("Payload: %v", p)
+	}
+}
+
+// TestLockedRecord: "_locked" blendet Bearbeiten und Aktionen je Datensatz aus.
+func TestLockedRecord(t *testing.T) {
+	orig := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = orig })
+	d := orig
+	d.Actions = append(slices.Clone(orig.Actions), metamodel.ActionConfig{Name: "lock", Kind: metamodel.KindCustom, Label: "Sperren",
+		Record: true, Confirm: "Kunde sperren?"})
+	mdDefs["Customer"] = d
+	if !locked(record{"_locked": true}) || locked(record{}) {
+		t.Fatal("locked")
+	}
+	s, _ := newMDServer(t)
+	lockedCustomer.Store(true)
+	t.Cleanup(func() { lockedCustomer.Store(false) })
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustNotContain(t, b, ">Sperren</button>", "/m/crm/Customer/c1/edit")
 }

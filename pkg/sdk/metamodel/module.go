@@ -24,6 +24,28 @@ type ModuleDefinition struct {
 	// Services sind Objects des Moduls ohne Metamodell (z. B. Tags): nur über die
 	// JSON-API /api/v1/<Name>/<Object>/<Action> erreichbar, nicht in der Navigation.
 	Services []string `json:"services,omitempty"`
+	// Commands sind Konsolenbefehle des Moduls: `console <modul>:<befehl> --param=wert`
+	// ruft Object.Action mit den Parametern auf (z. B. ledger:load-coa).
+	Commands []CommandDefinition `json:"commands,omitempty"`
+}
+
+// CommandDefinition ist ein Konsolenbefehl eines Moduls.
+type CommandDefinition struct {
+	Name        string         `json:"name"`   // kebab-case, z. B. "load-coa"
+	Object      string         `json:"object"` // eigenes Object oder eigener Service
+	Action      string         `json:"action"`
+	Description string         `json:"description,omitempty"`
+	Params      []CommandParam `json:"params,omitempty"`
+}
+
+// CommandParam ist ein Parameter eines Konsolenbefehls. File: Der Wert ist ein
+// lokaler Dateipfad; die CLI liest die Datei und sendet ihren Inhalt (JSON
+// geparst, sonst als Text) – so laden Befehle Daten vom Rechner des Benutzers.
+type CommandParam struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	File        bool   `json:"file,omitempty"`
 }
 
 // ModuleObject ordnet ein Business-Object einem Modul zu.
@@ -34,6 +56,11 @@ type ModuleObject struct {
 }
 
 var moduleRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
+var (
+	commandRe = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+	paramRe   = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
+)
 
 // ValidModuleName: Kleinbuchstaben, Ziffern und "-", beginnt mit einem Buchstaben.
 func ValidModuleName(name string) bool {
@@ -69,6 +96,21 @@ func (m ModuleDefinition) Validate(defined map[string]bool) error {
 			add("Modul %s: Service %q ungültig oder auch als Object eingetragen", m.Name, s)
 		}
 		seen[s] = true
+	}
+	cmds := map[string]bool{}
+	for _, c := range m.Commands {
+		switch {
+		case !commandRe.MatchString(c.Name) || cmds[c.Name]:
+			add("Modul %s: Befehl %q ungültig (kebab-case) oder doppelt", m.Name, c.Name)
+		case !seen[c.Object]:
+			add("Modul %s: Befehl %s ruft %s – kein Object oder Service des Moduls", m.Name, c.Name, c.Object)
+		}
+		cmds[c.Name] = true
+		for _, p := range c.Params {
+			if !paramRe.MatchString(p.Name) {
+				add("Modul %s: Befehl %s: Parameter %q ungültig", m.Name, c.Name, p.Name)
+			}
+		}
 	}
 	return errors.Join(errs...)
 }

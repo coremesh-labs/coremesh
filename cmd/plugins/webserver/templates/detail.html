@@ -17,14 +17,11 @@
       {{if .Has.list}}
       <a class="btn" href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true">{{t "core.app.back"}}</a>
       {{end}}
-      {{with .Has.update}}
+      {{if not (locked $.Record)}}{{with .Has.update}}
       <a class="btn primary" href="{{$.URL}}/{{pathEscape $.ID}}/edit"
          hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=detail" hx-target="#modal">{{.Label}}</a>
       {{end}}
-      {{range .RecordActions}}
-      <a class="btn" href="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}"
-         hx-get="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}" hx-target="#modal">{{.Label}}</a>
-      {{end}}
+      {{range .RecordActions}}{{template "record-action" (recordAction $.ActionURL $.ID . "btn")}}{{end}}{{end}}
       {{template "end-button" (endBtn $.Ctx $.Record "detail" "btn danger")}}
     </div>
     {{end}}
