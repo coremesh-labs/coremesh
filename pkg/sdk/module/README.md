@@ -101,6 +101,11 @@ gemeinsame Engine [`pkg/sdk/crud`](../crud): `crud.NewSet(entities…).Register(
 in `RegisterRoutes` und `set.Bind(env.DB)` in `Initialize`. Sie wird von `partner` und `tag`
 genutzt.
 
+Für Objects, deren Datensätze nur über eigene Logik entstehen dürfen (z. B. Buchungsbelege mit
+Soll = Haben), gibt es `Entity.ReadOnly` (kein generisches create/update; ein Aggregat bietet
+dann nur `getAggregate`) und `Entity.Actions` (eigene Actions mit `metamodel.ActionConfig`,
+etwa `post` oder `reverse` mit `Record: true`).
+
 ## Aggregate (Master-Detail)
 
 Enthält das Metamodell eines Objects Relationen (`SectionDefinition.Relation`), registriert

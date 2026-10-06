@@ -45,7 +45,7 @@ func main() {
 }
 
 func run() error {
-	configDir := flag.String("config", "configs", "Verzeichnis mit den *.yaml-Konfigurationsdateien")
+	configDir := flag.String("config", "configs", "Verzeichnis(se) mit den *.yaml-Konfigurationsdateien, kommagetrennt (z. B. configs,../coremesh-erp/configs)")
 	call := flag.String("call", "", "nach dem Start einen Aufruf <Object>.<action> ausführen und beenden")
 	payload := flag.String("payload", "null", "JSON-Payload für -call")
 	tenant := flag.String("tenant", "", "Mandant für -call")
@@ -63,7 +63,7 @@ func run() error {
 	defer stop()
 
 	// 1. Konfiguration
-	cfg, files, err := config.LoadDir(*configDir)
+	cfg, files, err := config.LoadDirs(strings.Split(*configDir, ",")...)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func run() error {
 	log.Info("3/4 Core-Plugins gestartet, Schema aktiviert", "ergebnis", resp.Payload)
 
 	// 4. Domain-Plugins
-	res := resolver.New(cfg.Host.PluginDir, cfg.Resolver.Download, log.With("component", "resolver"))
+	res := resolver.New(cfg.Host.PluginDir, cfg.Resolver.Download, log.With("component", "resolver"), cfg.Host.ExtraPluginDirs...)
 	if err := h.StartExternal(ctx, res); err != nil {
 		return err
 	}

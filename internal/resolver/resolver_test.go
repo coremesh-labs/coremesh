@@ -141,3 +141,19 @@ func TestDownload(t *testing.T) {
 		}
 	})
 }
+
+func TestFindInExtraDirs(t *testing.T) {
+	main, extra := t.TempDir(), t.TempDir()
+	r := New(main, config.Download{}, slog.New(slog.DiscardHandler), extra)
+	bin := BinaryName("ledger", "0.1.0", r.goos, r.goarch)
+	if err := os.MkdirAll(filepath.Join(extra, "le"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(extra, "le", bin)
+	if err := os.WriteFile(want, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := r.Find("ledger", "0.1.0"); err != nil || got != want {
+		t.Fatalf("Find: %q %v", got, err)
+	}
+}

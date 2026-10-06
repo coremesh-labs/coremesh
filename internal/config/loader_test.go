@@ -84,3 +84,23 @@ func TestLoadDirErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadDirsAppendsRepositories: ein zweites Verzeichnis (z. B. coremesh-erp)
+// ergänzt Plugins und Suchpfade des ersten.
+func TestLoadDirsAppendsRepositories(t *testing.T) {
+	core := writeFiles(t, map[string]string{"01-system.yaml": "host: { plugin_dir: ./bin/plugins }\nplugins:\n  tag: { version: 0.2.0 }\n"})
+	erp := writeFiles(t, map[string]string{"10-erp.yaml": "host: { extra_plugin_dirs: [../erp/bin/plugins] }\nplugins:\n  ledger: { version: 0.1.0 }\n"})
+	cfg, files, err := LoadDirs(core, " "+erp+" ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 || cfg.Host.PluginDir != "./bin/plugins" || len(cfg.Host.ExtraPluginDirs) != 1 {
+		t.Fatalf("Host: %+v, Dateien %v", cfg.Host, files)
+	}
+	if _, ok := cfg.Plugins["ledger"]; !ok || len(cfg.Plugins) != 2 {
+		t.Fatalf("Plugins: %v", cfg.Plugins)
+	}
+	if _, _, err := LoadDirs(core, filepath.Join(core, "fehlt")); err == nil {
+		t.Fatal("fehlendes Verzeichnis nicht gemeldet")
+	}
+}
