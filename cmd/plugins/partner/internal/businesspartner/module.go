@@ -14,6 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/metamodel"
 	"github.com/camel/coremesh/pkg/sdk/module"
 )
 
@@ -55,19 +56,26 @@ func (m *Module) Descriptor() module.Descriptor {
 	}
 }
 
-// RegisterRoutes meldet je Entität die CRUD-Actions mit Metamodell an.
+// RegisterRoutes meldet je Entität die Actions mit Metamodell an. Statt
+// delete gibt es je nach Lebenszyklus expire (Zeitscheibe) oder deactivate
+// (Status-Flag); Entitäten ohne beides (immutable) haben keine Ende-Action.
 func (m *Module) RegisterRoutes(r *module.Router) {
 	for _, e := range m.order {
 		section := e.Section
 		if section == "" {
 			section = "Partnerdaten"
 		}
-		r.Object(e.Object).Section(section).Describe(e.definition()).
+		o := r.Object(e.Object).Section(section).Describe(e.definition()).
 			Handle("list", payloadOnly(e.list)).
 			Handle("get", payloadOnly(e.get)).
 			Handle("create", payloadOnly(e.create)).
-			Handle("update", payloadOnly(e.update)).
-			Handle("delete", payloadOnly(e.delete))
+			Handle("update", payloadOnly(e.update))
+		switch e.lifecycle().Kind() {
+		case metamodel.LifecycleTimeSlice:
+			o.Handle("expire", payloadOnly(e.expire))
+		case metamodel.LifecycleStatus:
+			o.Handle("deactivate", payloadOnly(e.deactivate))
+		}
 	}
 }
 

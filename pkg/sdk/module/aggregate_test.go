@@ -35,36 +35,62 @@ var crud = []metamodel.ActionConfig{
 	{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 	{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
 	{Name: "update", Kind: metamodel.KindUpdate, Label: "Ändern"},
-	{Name: "delete", Kind: metamodel.KindDelete, Label: "Löschen"},
 }
 
+// Account endet über ein Status-Flag, Contact über die Zeitscheibe.
 func (m *memCRM) RegisterRoutes(r *Router) {
-	account := metamodel.ObjectDefinition{Name: "Account", Title: "Konto", Actions: crud,
-		Fields: []metamodel.FieldDefinition{{Key: "name", Label: "Name", Type: metamodel.TypeText}},
+	account := metamodel.ObjectDefinition{Name: "Account", Title: "Konto",
+		Actions: append(slices.Clone(crud), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren"}),
+		Fields: []metamodel.FieldDefinition{
+			{Key: "name", Label: "Name", Type: metamodel.TypeText},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean},
+		},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
 		Sections: []metamodel.SectionDefinition{
 			{Key: "base", Title: "Stammdaten", Fields: []string{"name"}},
 			{Key: "contacts", Title: "Kontakte", Relation: &metamodel.Relation{Object: "Contact", ForeignKey: "account_id"}},
 		}}
-	contact := metamodel.ObjectDefinition{Name: "Contact", Title: "Kontakt", Actions: crud,
+	contact := metamodel.ObjectDefinition{Name: "Contact", Title: "Kontakt",
+		Actions: append(slices.Clone(crud), metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden"}),
 		Fields: []metamodel.FieldDefinition{
 			{Key: "account_id", Label: "Konto", Type: metamodel.TypeText},
 			{Key: "email", Label: "E-Mail", Type: metamodel.TypeText},
-		}}
+			{Key: "valid_from", Label: "Gültig ab", Type: metamodel.TypeDate},
+			{Key: "valid_to", Label: "Gültig bis", Type: metamodel.TypeDate},
+		},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleTimeSlice, ValidFrom: "valid_from", ValidTo: "valid_to"}}
 	for _, d := range []metamodel.ObjectDefinition{account, contact} {
 		obj := d.Name
-		r.Object(obj).Describe(d).
+		o := r.Object(obj).Describe(d).
 			Handle("list", func(ctx context.Context, req sdk.Request) (sdk.Response, error) { return m.list(obj, req) }).
 			Handle("get", func(ctx context.Context, req sdk.Request) (sdk.Response, error) { return m.get(obj, req) }).
 			Handle("create", func(ctx context.Context, req sdk.Request) (sdk.Response, error) { return m.write(obj, "", req) }).
 			Handle("update", func(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 				return m.write(obj, fmt.Sprint(req.Payload.(map[string]any)["id"]), req)
-			}).
-			Handle("delete", func(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+			})
+		end := func(field string, value func(map[string]any) (any, error)) HandlerFunc {
+			return func(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+				p := req.Payload.(map[string]any)
+				v, err := value(p)
+				if err != nil {
+					return sdk.Response{}, err
+				}
 				m.mu.Lock()
 				defer m.mu.Unlock()
-				delete(m.rows[obj], fmt.Sprint(req.Payload.(map[string]any)["id"]))
+				m.rows[obj][fmt.Sprint(p["id"])][field] = v
 				return sdk.Response{}, nil
-			})
+			}
+		}
+		if obj == "Account" {
+			o.Handle("deactivate", end("active", func(map[string]any) (any, error) { return false, nil }))
+		} else {
+			o.Handle("expire", end("valid_to", func(p map[string]any) (any, error) {
+				if p["valid_to"] == "" {
+					return nil, fmt.Errorf("%w: valid_to fehlt", sdk.ErrInvalidArgument)
+				}
+				return p["valid_to"], nil
+			}))
+		}
 	}
 }
 
@@ -199,11 +225,11 @@ func TestAggregateCascadeSave(t *testing.T) {
 	first := contacts(out)[0].(map[string]any)["id"]
 	second := contacts(out)[1].(map[string]any)["id"]
 
-	// Ändern, Löschen, Anlegen in einem Aufruf.
+	// Beenden (Enddatum), Ändern, Anlegen in einem Aufruf – gelöscht wird nichts.
 	out, err = agg(t, p, ctx, ActionSaveAggregate, map[string]any{
 		"id": id, "data": map[string]any{"name": "ACME AG"},
 		"relations": map[string]any{"contacts": map[string]any{
-			"delete": []any{first},
+			"expire": []any{map[string]any{"id": first, "valid_to": "2026-12-31"}},
 			"update": []any{map[string]any{"id": second, "data": map[string]any{"email": "info@acme.ch"}}},
 			"create": []any{map[string]any{"email": "neu@acme.ch"}},
 		}},
@@ -213,9 +239,10 @@ func TestAggregateCascadeSave(t *testing.T) {
 	}
 	var emails []string
 	for _, c := range contacts(out) {
-		emails = append(emails, c.(map[string]any)["email"].(string))
+		c := c.(map[string]any)
+		emails = append(emails, fmt.Sprint(c["email"], "|", c["valid_to"]))
 	}
-	if out["record"].(map[string]any)["name"] != "ACME AG" || strings.Join(emails, ",") != "info@acme.ch,neu@acme.ch" {
+	if out["record"].(map[string]any)["name"] != "ACME AG" || strings.Join(emails, ",") != "a@acme.ch|2026-12-31,info@acme.ch|<nil>,neu@acme.ch|<nil>" {
 		t.Fatalf("Batch: %v", out)
 	}
 
@@ -228,7 +255,7 @@ func TestAggregateCascadeSave(t *testing.T) {
 		t.Fatalf("Fehler erwartet: %v", err)
 	}
 	out, _ = agg(t, p, ctx, ActionGetAggregate, map[string]any{"id": id})
-	if out["record"].(map[string]any)["name"] != "ACME AG" || len(contacts(out)) != 2 {
+	if out["record"].(map[string]any)["name"] != "ACME AG" || len(contacts(out)) != 3 {
 		t.Fatalf("Rollback: %v", out)
 	}
 }
@@ -243,12 +270,17 @@ func TestAggregateGuards(t *testing.T) {
 
 	// Kontakte eines anderen Masters lassen sich über das Aggregat nicht ändern.
 	_, err := agg(t, p, ctx, ActionSaveAggregate, map[string]any{"id": bID,
-		"relations": map[string]any{"contacts": map[string]any{"delete": []any{foreign}}}})
+		"relations": map[string]any{"contacts": map[string]any{"expire": []any{map[string]any{"id": foreign, "valid_to": "2026-12-31"}}}}})
 	if !errors.Is(err, sdk.ErrInvalidArgument) || !strings.Contains(err.Error(), "gehört nicht zu") {
 		t.Fatalf("fremdes Unter-Object: %v", err)
 	}
 	if _, err := agg(t, p, ctx, ActionSaveAggregate, map[string]any{"id": bID, "relations": map[string]any{"gibtsnicht": map[string]any{}}}); !errors.Is(err, sdk.ErrInvalidArgument) {
 		t.Fatalf("unbekannte Relation: %v", err)
+	}
+	// Physisches Löschen gibt es nicht – auch nicht im Aggregat.
+	_, err = agg(t, p, ctx, ActionSaveAggregate, map[string]any{"id": bID, "relations": map[string]any{"contacts": map[string]any{"delete": []any{foreign}}}})
+	if !errors.Is(err, sdk.ErrInvalidArgument) || !strings.Contains(err.Error(), `"expire" (Enddatum)`) {
+		t.Fatalf("delete im Aggregat: %v", err)
 	}
 	if _, err := agg(t, p, ctx, ActionSaveAggregate, map[string]any{}); !errors.Is(err, sdk.ErrInvalidArgument) {
 		t.Fatalf("ohne id und data: %v", err)

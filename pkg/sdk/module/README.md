@@ -95,7 +95,7 @@ dann bleibt seine eigene Implementierung.
 | Action | Payload | Antwort |
 |---|---|---|
 | `getAggregate` | `{"id": "…"}` | `{"record": {…}, "relations": {"<section>": [{…}], …}}` |
-| `saveAggregate` | `{"id"?, "data"?, "relations": {"<section>": {"create": [{…}], "update": [{"id", "data"}], "delete": ["id"]}}}` | wie `getAggregate`, Stand nach dem Speichern |
+| `saveAggregate` | `{"id"?, "data"?, "relations": {"<section>": {"create": [{…}], "update": [{"id", "data"}], "expire": [{"id", "valid_to"}], "deactivate": ["id"]}}}` | wie `getAggregate`, Stand nach dem Speichern |
 
 So verarbeitet `saveAggregate` die Änderungen:
 
@@ -103,7 +103,7 @@ So verarbeitet `saveAggregate` die Änderungen:
 InTx(env.DB)                                   ← eine Transaktion der Moduldatenbank
 ├── Master: create (ohne id) oder update (mit data)
 └── je Relation, in der Reihenfolge der Abschnitte:
-    ├── delete  → Prüfung: gehört das Unter-Object zum Master?
+    ├── expire / deactivate → Ende nach Lifecycle (gehört das Unter-Object zum Master?)
     ├── update  → Fremdschlüssel bleibt auf den Master gesetzt
     └── create  → Fremdschlüssel = id des Masters (auch bei Neuanlage)
 Fehler irgendwo → Rollback von allem; Erfolg → Commit, dann getAggregate
@@ -118,9 +118,13 @@ Beispiel `PartnerContact.create`. Daraus folgt dreierlei:
   Buchungskreis-Zwang.
 - Die Transaktion geht automatisch auf die aufgerufenen Actions über (Tx-Weitergabe des Hosts).
 
+**Kein Löschen:** `delete` im Aggregat wird abgelehnt. Unter-Objects enden nach ihrem
+Lebenszyklus (`metamodel.Lifecycle`): Typ timeslice mit `expire` und Enddatum, Typ status mit
+`deactivate`. Ein immutable Unter-Object endet gar nicht.
+
 **Voraussetzungen:** Unter-Objects gehören zum selben Modul (`NewPlugin` prüft das). Sie
 bieten Actions der Kinds `list` (Filter auf den Fremdschlüssel), `item`, `create`, `update`
-und `delete`. Der Master bietet `item`, `create` und `update`.
+sowie je nach Lifecycle `expire` oder `deactivate`. Der Master bietet `item`, `create` und `update`.
 
 ## Kapselung
 

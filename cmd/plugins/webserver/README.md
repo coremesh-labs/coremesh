@@ -26,6 +26,7 @@ Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──�
 7. [Rendering: HTMX-Fragment oder ganze Seite](#7-rendering-htmx-fragment-oder-ganze-seite)
 8. [HTMX-Swaps im Detail](#8-htmx-swaps-im-detail)
 8b. [Master-Detail und Lookups](#master-detail-und-lookups)
+8c. [Lebenszyklus statt Löschen](#lebenszyklus-statt-löschen)
 9. [Fehlerbehandlung](#9-fehlerbehandlung)
 10. [Templates und Blöcke überschreiben](#10-templates-und-blöcke-überschreiben)
 11. [Konfiguration](#11-konfiguration) und [Anmeldung und Sicherheit](#anmeldung-und-sicherheit)
@@ -90,8 +91,9 @@ Danach wird die Antwort gerendert: bei HTMX-Anfragen nur das Fragment, sonst die
 | `GET /m/{module}/{object}/{id}` | `item` | `{id}` | `<section id="detail">` | Seite |
 | `GET /m/{module}/{object}/{id}/edit` | `item` + (`update`) | `{id}` | Formular mit Werten im Dialog | Seite mit Formular |
 | `PUT /m/{module}/{object}/{id}` | `update` | `{id, data}` | Zeile oder Detail + Dialog zu + Toast | – |
-| `DELETE /m/{module}/{object}/{id}` | `delete` | `{id}` | Zeile entfernt + Toast | – |
-| `POST /m/{module}/{object}/{id}` | `update`/`delete` | wie PUT/DELETE, gesteuert über `_method` | wie PUT/DELETE | `303` → Detail/Liste |
+| `DELETE /m/{module}/{object}/{id}` | – | – | immer **405**, siehe [Lebenszyklus](#lebenszyklus-statt-löschen) | – |
+| `GET/POST /m/{module}/{object}/{id}/end` | `expire` / `deactivate` | `{id, valid_to}` / `{id}` | Dialog bzw. Zeile/Detail + Toast | Seite / `303` |
+| `POST /m/{module}/{object}/{id}` | `update` | wie PUT, gesteuert über `_method` (DELETE → 405) | wie PUT | `303` → Detail |
 | `GET /action/{module}/{object}/{name}` | `custom` | – (nur Metamodell) | Formular der Action im Dialog | Seite mit Formular |
 | `POST /action/{module}/{object}/{name}` | `custom` | `{id?, data}` | Ergebnis im Dialog + Toast | Seite mit Ergebnis |
 | `GET /api/v1/{module}` | – | `Catalog.ListActions` je Object | JSON, siehe [API](#json-api) | |
@@ -173,7 +175,8 @@ einhalten, funktionieren ohne Anpassung mit dem WebServer.
 | `item` | `{"id": "<id>"}` | `{id}` aus dem Pfad |
 | `create` | `{"data": {<feld>: <wert>, …}}` | Formular, siehe [Abschnitt 5](#5-formulardaten--payload) |
 | `update` | `{"id": "<id>", "data": {…}}` | Pfad + Formular |
-| `delete` | `{"id": "<id>"}` | Pfad |
+| `expire` | `{"id": "<id>", "valid_to": "JJJJ-MM-TT"}` | Pfad + Datum aus dem Ende-Dialog |
+| `deactivate` | `{"id": "<id>"}` | Pfad |
 | `custom` | `{"id": "<id>", "data": {…}}` | `id` optional (aus `?id=` bzw. `_id`), Formular |
 
 **Beispiel:** `GET /m/businesspartner/BusinessPartner?q=acme&page=2&tag=a&tag=b` führt zu
@@ -192,7 +195,7 @@ WebServer reicht sie nur durch.
 |---|---|
 | `list` | `[record, …]` **oder** `{"items": [record, …]}` (dort ist Platz für z. B. `"total"`) |
 | `item`, `create`, `update` | `record` |
-| `delete` | beliebig (wird ignoriert) |
+| `expire`, `deactivate` | geänderter Datensatz (für Zeile bzw. Detail) |
 | `custom` | beliebig. Ein String-Feld `"message"` wird als Text gezeigt, sonst das JSON. |
 
 Ein **record** ist ein JSON-Objekt mit den Feldern aus dem Metamodell. Der Schlüssel
@@ -419,6 +422,32 @@ stehen in [`pkg/sdk/module`](../../../pkg/sdk/module/README.md#aggregate-master-
 eigenes Frontend erkennt daran, wo es einen Lookup-Dialog oder eine eingebettete Tabelle
 braucht.
 
+## Lebenszyklus statt Löschen
+
+Physisch gelöscht wird im System nichts. Wie ein Datensatz endet, steht im Metamodell
+(`ObjectDefinition.Lifecycle`):
+
+| Typ | Erkennung | Oberfläche | Action | Backend |
+|---|---|---|---|---|
+| **A `timeslice`** | Zeitscheibe (`valid_from`/`valid_to`) | „Beenden …“ öffnet einen Dialog mit Datumswähler. Das Feld ist leer, Pflicht und frühestens „gültig ab“. | Kind `expire`, `{id, valid_to}` | setzt `valid_to` auf das gewählte Datum, nie automatisch auf heute; rückwirkend erlaubt |
+| **B `status`** | Status-Flag (z. B. `is_active`) | „Inaktivieren“ öffnet eine Bestätigung. Bereits inaktive Datensätze zeigen „Inaktiv“. | Kind `deactivate`, `{id}` | setzt das Flag auf `false` |
+| **C `immutable`** | weder noch | kein Button | – | `DELETE`, `/end` und `…/delete` per API antworten mit **405** |
+
+```
+GET  /m/{module}/{object}/{id}/end?view=row|detail|refresh   Dialog je Typ
+POST /m/{module}/{object}/{id}/end                           valid_to (Typ A) bzw. Bestätigung (Typ B)
+DELETE /m/{module}/{object}/{id}                             immer 405, mit Hinweis auf den richtigen Weg
+```
+
+Der Button ist eine Komponente (Block `end-button`, `lifecycle.html`) für Tabellenzeilen,
+Detailansicht und eingebettete Abschnitte. Die Antwort ersetzt die Zeile, die Detailansicht
+oder lädt die Abschnitte neu (`refresh`).
+
+Fehler des Moduls, zum Beispiel ein Enddatum vor dem Beginn, erscheinen im Dialog (422).
+
+Die Metadaten unter `GET /api/v1/{module}/{object}` enthalten
+`"lifecycle": {"type", "end_action", "valid_from", "valid_to", "status_field"}`.
+
 ## 9. Fehlerbehandlung
 
 | Fehler des Moduls (`errors.Is`) | HTTP-Status |
@@ -453,6 +482,7 @@ bleiben.
 | `form.html` | `form`, `form-buttons`, `field`, `lookup-field` | `view` bzw. `fieldCtx` |
 | `detail.html` | `detail`, `detail-toolbar`, `detail-section`, `section-fields` | `view` |
 | `relation.html` | `relation`, `relation-toolbar`, `relation-row` | `relationView` bzw. `relRow` |
+| `lifecycle.html` | `end-button`, `end`, `end-timeslice`, `end-status` | `endBtn` bzw. `view` |
 | `lookup.html` | `lookup`, `lookup-rows` | `lookupView` |
 | `fragments.html` | `created`, `updated`, `modal-close`, `toast`, `result`, `home`, `error` | je Block |
 
@@ -621,6 +651,6 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
   strikte CSP möglich.
 - **htmx kommt per CDN** (unpkg, Version 2.0.4). Für den Betrieb ohne Internet: Block
   `head` überschreiben und die Datei über `static_dir` lokal ausliefern.
-- **Löschen ohne JavaScript** geht nur aus der Detailansicht (Formular mit `_method=DELETE`).
+- **Kein Reaktivieren:** Inaktivierte Geschäftspartner lassen sich in der Oberfläche nicht wieder aktivieren (das Flag ist schreibgeschützt). Benutzer in `iam` schon (Feld „Aktiv“ im Formular).
 - **Blättern und Sortieren** werden nur als URL-Parameter durchgereicht. Bedienelemente dafür
   folgen, sobald sich eine Konvention etwa für `total` etabliert hat.

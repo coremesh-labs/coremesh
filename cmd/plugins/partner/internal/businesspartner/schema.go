@@ -85,6 +85,11 @@ table "partner__bp" {
     type    = boolean
     default = false
   }
+  # Status-Flag (Lebenszyklus status): false = inaktiviert. Seit 0.4.0.
+  column "is_active" {
+    type    = boolean
+    default = true
+  }
   primary_key { columns = [column.id] }
   index "partner__bp_search" { columns = [column.search_term] }
 }

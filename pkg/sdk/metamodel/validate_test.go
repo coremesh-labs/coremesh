@@ -16,12 +16,14 @@ func partner() ObjectDefinition {
 			{Key: "kind", Label: "Art", Type: TypeSelect, Editable: true, Options: []Option{
 				{Value: "customer", Label: "Kunde"}, {Value: "supplier", Label: "Lieferant"},
 			}},
+			{Key: "active", Label: "Aktiv", Type: TypeBoolean, Listable: true},
 		},
 		Actions: []ActionConfig{
 			{Name: "list", Kind: KindList, Label: "Übersicht"},
 			{Name: "get", Kind: KindItem, Label: "Anzeigen"},
-			{Name: "delete", Kind: KindDelete, Label: "Löschen", Confirm: "Wirklich löschen?"},
+			{Name: "deactivate", Kind: KindDeactivate, Label: "Inaktivieren", Confirm: "Wirklich inaktivieren?"},
 		},
+		Lifecycle: Lifecycle{Type: LifecycleStatus, StatusField: "active"},
 	}
 }
 
@@ -58,6 +60,14 @@ func TestValidateErrors(t *testing.T) {
 		"steht schon": func(d *ObjectDefinition) {
 			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Fields: []string{"email"}}, {Key: "b", Title: "B", Fields: []string{"email"}}}
 		},
+		"kind delete gibt es nicht": func(d *ObjectDefinition) {
+			d.Actions[2] = ActionConfig{Name: "delete", Kind: "delete", Label: "Löschen"}
+		},
+		"passt nicht zum Lifecycle":   func(d *ObjectDefinition) { d.Actions[2].Kind = KindExpire },
+		"status_field":                func(d *ObjectDefinition) { d.Lifecycle.StatusField = "email" },
+		"valid_to":                    func(d *ObjectDefinition) { d.Lifecycle = Lifecycle{Type: LifecycleTimeSlice, ValidFrom: "x"} },
+		"keine Felder angeben":        func(d *ObjectDefinition) { d.Lifecycle = Lifecycle{Type: LifecycleImmutable, StatusField: "active"} },
+		"lifecycle: unbekannter type": func(d *ObjectDefinition) { d.Lifecycle.Type = "soft" },
 		"relation braucht": func(d *ObjectDefinition) {
 			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Relation: &Relation{Object: "Contact"}}}
 		},

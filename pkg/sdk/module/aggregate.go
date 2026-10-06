@@ -16,13 +16,16 @@ import (
 //	  → {"record": {…}, "relations": {"<section>": [{…}, …], …}}
 //
 //	saveAggregate {"id"?: "…", "data"?: {…},
-//	               "relations": {"<section>": {"create": [{…}], "update": [{"id": "…", "data": {…}}], "delete": ["…"]}}}
+//	               "relations": {"<section>": {"create": [{…}], "update": [{"id": "…", "data": {…}}],
+//	                                           "expire": [{"id": "…", "valid_to": "JJJJ-MM-TT"}], "deactivate": ["…"]}}}
 //	  → wie getAggregate (Stand nach dem Speichern)
 //
 // saveAggregate speichert Master und Unter-Objects atomar in einer
 // Transaktion der Moduldatenbank (Cascade Save). Ohne id wird der Master
 // angelegt, und neue Unter-Objects erhalten seine id als Fremdschlüssel.
-// Je Relation gilt die Reihenfolge delete → update → create.
+// Je Relation gilt die Reihenfolge expire → deactivate → update → create.
+// Physisches Löschen gibt es nicht: Unter-Objects enden je nach Lifecycle
+// über expire (Zeitscheibe) bzw. deactivate (Status-Flag).
 //
 // Jeder Teilschritt läuft über den Dispatcher (env.Services) mit den
 // normalen Actions der Objects: Berechtigungen gelten je Object.Action, die
@@ -143,7 +146,13 @@ type relationOps struct {
 		ID   string         `json:"id"`
 		Data map[string]any `json:"data"`
 	} `json:"update"`
-	Delete []string `json:"delete"`
+	// Ende eines Unter-Objects je nach Lifecycle – physisches Löschen gibt es nicht.
+	Expire []struct {
+		ID      string `json:"id"`
+		ValidTo string `json:"valid_to"`
+	} `json:"expire"` // timeslice: Gültigkeit zum gewählten Datum beenden
+	Deactivate []string `json:"deactivate"` // status: inaktivieren
+	Delete     []string `json:"delete"`     // nur zur Fehlermeldung
 }
 
 func (a *aggregate) save(ctx context.Context, req sdk.Request) (sdk.Response, error) {
@@ -201,12 +210,23 @@ func (a *aggregate) save(ctx context.Context, req sdk.Request) (sdk.Response, er
 
 func (a *aggregate) apply(ctx context.Context, rr relationRoute, masterID string, ops relationOps) error {
 	fk := rr.rel.ForeignKey
-	for i, childID := range ops.Delete {
-		if err := a.owned(ctx, rr, masterID, childID); err != nil {
-			return fmt.Errorf("delete[%d]: %w", i, err)
+	if len(ops.Delete) > 0 {
+		return fmt.Errorf("%w: delete gibt es nicht – %s endet über %s", sdk.ErrInvalidArgument, rr.child.name, endHint(rr.child))
+	}
+	for i, e := range ops.Expire {
+		if err := a.owned(ctx, rr, masterID, e.ID); err != nil {
+			return fmt.Errorf("expire[%d]: %w", i, err)
 		}
-		if _, err := a.call(ctx, rr.child, metamodel.KindDelete, map[string]any{"id": childID}); err != nil {
-			return fmt.Errorf("delete[%d]: %w", i, err)
+		if _, err := a.call(ctx, rr.child, metamodel.KindExpire, map[string]any{"id": e.ID, "valid_to": e.ValidTo}); err != nil {
+			return fmt.Errorf("expire[%d]: %w", i, err)
+		}
+	}
+	for i, childID := range ops.Deactivate {
+		if err := a.owned(ctx, rr, masterID, childID); err != nil {
+			return fmt.Errorf("deactivate[%d]: %w", i, err)
+		}
+		if _, err := a.call(ctx, rr.child, metamodel.KindDeactivate, map[string]any{"id": childID}); err != nil {
+			return fmt.Errorf("deactivate[%d]: %w", i, err)
 		}
 	}
 	for i, u := range ops.Update {
@@ -249,4 +269,15 @@ func clone(m map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+// endHint beschreibt, wie ein Datensatz des Objects enden kann.
+func endHint(o *ObjectRoutes) string {
+	switch o.def.Lifecycle.Kind() {
+	case metamodel.LifecycleTimeSlice:
+		return `"expire" (Enddatum)`
+	case metamodel.LifecycleStatus:
+		return `"deactivate"`
+	}
+	return "nichts (immutable: weder löschen noch deaktivieren)"
 }

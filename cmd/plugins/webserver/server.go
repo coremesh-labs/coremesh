@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -185,6 +184,8 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, err error) {
 
 func errStatus(err error) int {
 	switch {
+	case errors.Is(err, errMethodNotAllowed):
+		return http.StatusMethodNotAllowed
 	case errors.Is(err, sdk.ErrNotFound), errors.Is(err, sdk.ErrUnimplemented):
 		return http.StatusNotFound
 	case errors.Is(err, sdk.ErrInvalidArgument):
@@ -466,34 +467,17 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "updated", v, "", "")
 }
 
-// DELETE /m/{module}/{object}/{id}
+// DELETE /m/{module}/{object}/{id}: Physisches Löschen gibt es nicht – immer
+// 405. Die Meldung nennt den Weg, den der Lebenszyklus des Objects vorsieht
+// (siehe lifecycle.go).
 func (s *server) delete(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	act, err := need(oc, metamodel.KindDelete)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if _, err := s.call(r, oc.Object, act.Name, map[string]any{"id": r.PathValue("id")}); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	switch {
-	case !isHTMX(r):
-		http.Redirect(w, r, oc.URL, http.StatusSeeOther)
-	case r.FormValue("_view") == "detail":
-		// Aus der Detailansicht: zurück zur Übersicht.
-		loc, _ := json.Marshal(map[string]string{"path": oc.URL, "target": "#main-content"})
-		w.Header().Set("HX-Location", string(loc))
-		w.WriteHeader(http.StatusOK)
-	default:
-		// Aus der Tabelle: Zeile durch "nichts" ersetzen + Toast.
-		s.render(w, r, http.StatusOK, "toast", &toast{Level: "success", Message: oc.Def.Title + " gelöscht"}, "", "")
-	}
+	w.Header().Set("Allow", "GET, PUT, POST")
+	s.fail(w, r, deleteNotAllowed(oc))
 }
 
 // POST /m/{module}/{object}/{id} mit _method=PUT|DELETE – für Formulare ohne JavaScript.

@@ -43,6 +43,7 @@ type field struct {
 type ref struct {
 	Table, Column, Label string
 	TimeSliced           bool
+	ActiveField          string   // Ziel mit Status-Flag: nur aktive Datensätze sind gültige Verweise
 	Object               string   // Ziel-Object, z. B. "PartnerAddressRole"
 	LabelFields          []string // Spalten des Ziels für den lesbaren Text
 }
@@ -66,6 +67,7 @@ type entity struct {
 	Keys                       []string // Primärschlüssel
 	Surrogate                  bool     // Keys[0] = generierte id
 	TimeSlice                  bool     // valid_from/valid_to
+	StatusField                string   // Status-Flag (boolean, true = aktiv); leer = keins
 	Fields                     []field
 	Order                      string   // ORDER BY
 	Filters                    []string // erlaubte Filter in list (Query-Parameter)
@@ -76,12 +78,11 @@ type entity struct {
 	Sections   []metamodel.SectionDefinition
 
 	// Hooks
-	validate     func(ctx context.Context, rec record, old record) error // nach Typprüfung, in der Transaktion
-	afterCreate  func(ctx context.Context, rec record) error             // in der Transaktion
-	beforeDelete func(ctx context.Context, rec record) error             // in der Transaktion
-	listScope    func(ctx context.Context) (where string, args []any, none bool, err error)
-	checkRecord  func(ctx context.Context, action string, rec record) error // Zugriff je Datensatz
-	decorate     func(ctx context.Context, rec record) error                // virtuelle Felder füllen
+	validate    func(ctx context.Context, rec record, old record) error // nach Typprüfung, in der Transaktion
+	afterCreate func(ctx context.Context, rec record) error             // in der Transaktion
+	listScope   func(ctx context.Context) (where string, args []any, none bool, err error)
+	checkRecord func(ctx context.Context, action string, rec record) error // Zugriff je Datensatz
+	decorate    func(ctx context.Context, rec record) error                // virtuelle Felder füllen
 }
 
 func (e *entity) field(key string) *field {
@@ -420,6 +421,10 @@ func (m *Module) checkRef(ctx context.Context, r *ref, value, at string) error {
 		sql += " AND valid_from <= ? AND valid_to >= ?"
 		args = append(args, at, at)
 	}
+	if r.ActiveField != "" {
+		sql += " AND " + r.ActiveField + " = ?"
+		args = append(args, true)
+	}
 	res, err := m.db.Query(ctx, sql, args...)
 	if err != nil {
 		return err
@@ -427,6 +432,9 @@ func (m *Module) checkRef(ctx context.Context, r *ref, value, at string) error {
 	if len(res.Rows) == 0 {
 		if r.TimeSliced {
 			return invalid("%s %q gibt es nicht oder ist am %s nicht gültig", r.Label, value, at)
+		}
+		if r.ActiveField != "" {
+			return invalid("%s %q gibt es nicht oder ist inaktiv", r.Label, value)
 		}
 		return invalid("%s %q gibt es nicht", r.Label, value)
 	}
@@ -440,6 +448,9 @@ func (e *entity) create(ctx context.Context, payload any) (sdk.Response, error) 
 	}
 	if e.Surrogate {
 		rec[e.Keys[0]] = newID()
+	}
+	if e.StatusField != "" { // neue Datensätze sind aktiv
+		rec[e.StatusField] = true
 	}
 	err = e.m.db.InTx(ctx, nil, func(ctx context.Context) error {
 		if err := e.check(ctx, rec, nil); err != nil {
@@ -540,33 +551,6 @@ func (e *entity) update(ctx context.Context, payload any) (sdk.Response, error) 
 	return sdk.Response{Payload: saved}, nil
 }
 
-func (e *entity) delete(ctx context.Context, payload any) (sdk.Response, error) {
-	key, err := e.parseID(idOf(payload))
-	if err != nil {
-		return sdk.Response{}, err
-	}
-	err = e.m.db.InTx(ctx, nil, func(ctx context.Context) error {
-		rec, err := e.load(ctx, key)
-		if err != nil {
-			return err
-		}
-		if e.checkRecord != nil {
-			if err := e.checkRecord(ctx, "delete", rec); err != nil {
-				return err
-			}
-		}
-		if e.beforeDelete != nil {
-			if err := e.beforeDelete(ctx, rec); err != nil {
-				return err
-			}
-		}
-		w, args := e.keyWhere(key)
-		_, err = e.m.db.Exec(ctx, "DELETE FROM "+e.Table+" WHERE "+w, args...)
-		return err
-	})
-	return sdk.Response{}, err
-}
-
 func idOf(payload any) string {
 	m, _ := payload.(map[string]any)
 	return str(m["id"])
@@ -588,21 +572,13 @@ func (e *entity) definition() metamodel.ObjectDefinition {
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 		{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
 		{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
-		{Name: "delete", Kind: metamodel.KindDelete, Label: "Löschen", Confirm: e.Title + " wirklich löschen?"},
+	}
+	d.Lifecycle = e.lifecycle()
+	switch d.Lifecycle.Kind() {
+	case metamodel.LifecycleTimeSlice:
+		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"})
+	case metamodel.LifecycleStatus:
+		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: e.Title + " inaktivieren?"})
 	}
 	return d
-}
-
-// inUse lehnt ab, wenn value in einer der Tabellen.Spalten verwendet wird.
-func (m *Module) inUse(ctx context.Context, what, value string, uses ...[2]string) error {
-	for _, u := range uses {
-		res, err := m.db.Query(ctx, "SELECT COUNT(*) FROM "+u[0]+" WHERE "+u[1]+" = ?", value)
-		if err != nil {
-			return err
-		}
-		if n, _ := strconv.Atoi(str(res.Rows[0][0])); n > 0 {
-			return fmt.Errorf("%w: %s %q wird noch verwendet (%d× in %s)", sdk.ErrFailedPrecondition, what, value, n, u[0])
-		}
-	}
-	return nil
 }

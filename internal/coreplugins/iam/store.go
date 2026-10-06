@@ -246,20 +246,6 @@ func (p *Plugin) setUserRoles(ctx context.Context, tx *sql.Tx, userID string, na
 	return nil
 }
 
-func (p *Plugin) deleteUser(ctx context.Context, tx *sql.Tx, id string) error {
-	if _, err := tx.ExecContext(ctx, p.q(`DELETE FROM iam__user_roles WHERE user_id = ?`), id); err != nil {
-		return err
-	}
-	res, err := tx.ExecContext(ctx, p.q(`DELETE FROM iam__users WHERE id = ?`), id)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: Benutzer %q", sdk.ErrNotFound, id)
-	}
-	return nil
-}
-
 // userPermissions: Berechtigungen aller Rollen eines aktiven Benutzers.
 func (p *Plugin) userPermissions(ctx context.Context, q database.Querier, userID string) ([]permission, error) {
 	res, err := database.Query(ctx, q, p.q(`
@@ -365,25 +351,6 @@ func (p *Plugin) saveRole(ctx context.Context, tx *sql.Tx, r roleRow, insert boo
 	return nil
 }
 
-func (p *Plugin) deleteRole(ctx context.Context, tx *sql.Tx, id string) error {
-	for _, stmt := range []string{
-		`DELETE FROM iam__user_roles WHERE role_id = ?`,
-		`DELETE FROM iam__role_permissions WHERE role_id = ?`,
-	} {
-		if _, err := tx.ExecContext(ctx, p.q(stmt), id); err != nil {
-			return err
-		}
-	}
-	res, err := tx.ExecContext(ctx, p.q(`DELETE FROM iam__roles WHERE id = ?`), id)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: Rolle %q", sdk.ErrNotFound, id)
-	}
-	return nil
-}
-
 // isUnique erkennt Verletzungen eindeutiger Indizes (SQLite, PostgreSQL).
 func isUnique(err error) bool {
 	m := strings.ToLower(err.Error())
@@ -457,31 +424,6 @@ func (p *Plugin) saveCompanyCode(ctx context.Context, cc companyCode, insert boo
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("%w: Buchungskreis %q", sdk.ErrNotFound, cc.ID)
-	}
-	return nil
-}
-
-// deleteCompanyCode lehnt ab, solange eine Rolle den Buchungskreis nutzt.
-func (p *Plugin) deleteCompanyCode(ctx context.Context, id string) error {
-	res, err := database.Query(ctx, p.pool(), p.q(`
-		SELECT DISTINCT r.name FROM iam__role_permissions rp JOIN iam__roles r ON r.id = rp.role_id
-		WHERE rp.company_code = ? ORDER BY r.name`), id)
-	if err != nil {
-		return err
-	}
-	if len(res.Rows) > 0 {
-		var roles []string
-		for _, r := range res.Rows {
-			roles = append(roles, s(r[0]))
-		}
-		return fmt.Errorf("%w: Buchungskreis %s wird noch in Rollen verwendet: %s", sdk.ErrFailedPrecondition, id, strings.Join(roles, ", "))
-	}
-	del, err := p.pool().ExecContext(ctx, p.q(`DELETE FROM iam__company_codes WHERE id = ?`), id)
-	if err != nil {
-		return err
-	}
-	if n, _ := del.RowsAffected(); n == 0 {
-		return fmt.Errorf("%w: Buchungskreis %q", sdk.ErrNotFound, id)
 	}
 	return nil
 }

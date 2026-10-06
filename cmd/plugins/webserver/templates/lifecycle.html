@@ -1,0 +1,51 @@
+{{/*
+  Lebenszyklus statt Löschen (siehe lifecycle.go).
+  Blöcke: end-button, end, end-timeslice, end-status.
+
+  end-button – Daten: endBtn {URL, ID, View, Class, Action, Inactive}.
+    timeslice → „Beenden …“ öffnet den Datumsdialog
+    status    → „Inaktivieren“ öffnet die Bestätigung; bereits inaktiv: Hinweis
+    immutable → nichts (Action nil)
+
+  end – Dialog, Daten: view {Mode "end", EndKind, EndDate, EndMin, Action,
+    FormTitle, FormAction, Target, ViewParam, FormError}.
+    Ziel der Antwort: Tabellenzeile, #detail oder (Master-Detail) #modal.
+*/}}
+{{define "end-button"}}
+{{if .Action}}
+  {{if .Inactive}}<span class="badge inactive" title="Bereits inaktiv">Inaktiv</span>
+  {{else}}<a class="{{.Class}}" href="{{.URL}}/{{pathEscape .ID}}/end"
+     hx-get="{{.URL}}/{{pathEscape .ID}}/end?view={{.View}}" hx-target="#modal">{{.Action.Label}}</a>{{end}}
+{{end}}
+{{end}}
+
+{{define "end"}}
+{{if .Modal}}<dialog open class="modal end-dialog"><article>{{end}}
+<h2>{{.FormTitle}}</h2>
+{{with .FormError}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+<form method="post" action="{{.FormAction}}"
+  {{if .Modal}}hx-post="{{.FormAction}}" hx-target="{{.Target}}" hx-swap="{{if eq .ViewParam "refresh"}}innerHTML{{else}}outerHTML{{end}}"{{end}}>
+  <input type="hidden" name="_view" value="{{.ViewParam}}">
+  {{if eq .EndKind "timeslice"}}{{block "end-timeslice" .}}
+  <p>Der Eintrag gilt ab {{with .EndMin}}<strong>{{.}}</strong>{{else}}seinem Beginn{{end}}.
+     Zu welchem Datum soll die Gültigkeit enden? Rückwirkende und künftige Daten sind möglich.</p>
+  <label class="field">
+    <span>Gültigkeit beenden am <abbr title="Pflichtfeld">*</abbr></span>
+    <input type="date" name="valid_to" value="{{.EndDate}}" {{with .EndMin}}min="{{.}}"{{end}} required autofocus>
+  </label>
+  {{end}}{{else}}{{block "end-status" .}}
+  <p>{{with .Action.Confirm}}{{.}}{{else}}{{.Def.Title}} inaktivieren?{{end}}</p>
+  <p class="muted">Der Datensatz bleibt erhalten und wird als inaktiv gekennzeichnet.</p>
+  {{end}}{{end}}
+  <footer>
+    <button type="submit" class="btn {{if eq .EndKind "status"}}danger{{else}}primary{{end}}">
+      {{if eq .EndKind "timeslice"}}Gültigkeit beenden{{else}}Inaktivieren{{end}}</button>
+    {{if .Modal}}
+    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">Abbrechen</button>
+    {{else}}
+    <a class="btn" href="{{.CancelURL}}">Abbrechen</a>
+    {{end}}
+  </footer>
+</form>
+{{if .Modal}}</article></dialog>{{end}}
+{{end}}

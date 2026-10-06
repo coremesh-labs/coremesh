@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +27,6 @@ var actions = []metamodel.ActionConfig{
 	{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 	{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
 	{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
-	{Name: "delete", Kind: metamodel.KindDelete, Label: "Löschen"},
 }
 
 var mdDefs = map[string]metamodel.ObjectDefinition{
@@ -41,8 +42,13 @@ var mdDefs = map[string]metamodel.ObjectDefinition{
 				Columns: []string{"kind_code", "address_id", "value"}}},
 			{Key: "archive", Title: "Archiv", Collapsed: true, Fields: []string{"note"}},
 		}},
-	"CustomerContact": {Name: "CustomerContact", Title: "Kontakt", Actions: actions,
+	// Typ A: Zeitscheibe – „Beenden …“ mit Datumsdialog.
+	"CustomerContact": {Name: "CustomerContact", Title: "Kontakt",
+		Actions:   append(slices.Clone(actions), metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"}),
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleTimeSlice, ValidFrom: "valid_from", ValidTo: "valid_to"},
 		Fields: []metamodel.FieldDefinition{
+			{Key: "valid_from", Label: "Gültig ab", Type: metamodel.TypeDate},
+			{Key: "valid_to", Label: "Gültig bis", Type: metamodel.TypeDate},
 			{Key: "customer_id", Label: "Kunde", Type: metamodel.TypeText, Editable: true},
 			{Key: "kind_code", Label: "Art", Type: metamodel.TypeText, Listable: true, Editable: true,
 				Lookup: &metamodel.Lookup{Object: "ContactKind", ValueField: "code", LabelFields: []string{"description"}}},
@@ -55,6 +61,7 @@ var mdDefs = map[string]metamodel.ObjectDefinition{
 			{Key: "code", Label: "Code", Type: metamodel.TypeText, Listable: true},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeText, Listable: true},
 		}},
+	// Typ C: weder Zeitscheibe noch Status-Flag – kein Ende möglich.
 	"Address": {Name: "Address", Title: "Adressen", Actions: actions,
 		Fields: []metamodel.FieldDefinition{{Key: "city", Label: "Ort", Type: metamodel.TypeText, Listable: true, Editable: true}}},
 }
@@ -83,8 +90,16 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{
 			"id": "k1", "customer_id": "c1", "kind_code": "MAIL", "address_id": "a1", "value": "info@muster.ch",
 			"_labels": map[string]any{"kind_code": "E-Mail", "address_id": "Zürich"}}}}}, nil
+	case "Address.get":
+		return sdk.Response{Payload: map[string]any{"id": "a1", "city": "Zürich"}}, nil
+	case "CustomerContact.expire":
+		h.fakeHost.record(ctx, req)
+		if p["valid_to"] == "1999-01-01" {
+			return sdk.Response{}, fmt.Errorf("%w: Enddatum liegt vor dem Beginn", sdk.ErrInvalidArgument)
+		}
+		return sdk.Response{Payload: map[string]any{"id": "k1", "valid_to": p["valid_to"]}}, nil
 	case "CustomerContact.get":
-		return sdk.Response{Payload: map[string]any{"id": "k1", "customer_id": "c1", "kind_code": "MAIL", "value": "info@muster.ch",
+		return sdk.Response{Payload: map[string]any{"id": "k1", "customer_id": "c1", "valid_from": "2026-01-01", "kind_code": "MAIL", "value": "info@muster.ch",
 			"_labels": map[string]any{"kind_code": "E-Mail"}}}, nil
 	case "CustomerContact.create", "CustomerContact.update":
 		h.fakeHost.record(ctx, req)
@@ -153,7 +168,7 @@ func TestRelationSection(t *testing.T) {
 		`hx-get="/m/crm/Address/a1/edit?view=refresh"`, // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
-		`hx-delete="/m/crm/CustomerContact/k1?_view=refresh"`,
+		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`, // Typ A: Beenden …
 	)
 	mustNotContain(t, b, "/m/crm/ContactKind/MAIL/edit") // Kataloge (ValueField code): kein Bearbeiten-Link
 	if w := do(s, "GET", "/m/crm/Customer/c1/rel/gibtsnicht", nil, true); w.Code != 404 {
@@ -239,5 +254,70 @@ func TestAPIObjectMetadata(t *testing.T) {
 	}
 	if len(out.Lookups) != 2 || out.Lookups[0].Field != "kind_code" || out.Lookups[0].Object != "ContactKind" || !out.Aggregate {
 		t.Fatalf("Metadaten: %s", w.Body.String())
+	}
+}
+
+// TestLifecycleUI: Ende-Komponente je Typ – Datumsdialog (A), kein Button und
+// 405 (C). Typ B prüft TestDeleteAndCustomAction.
+func TestLifecycleUI(t *testing.T) {
+	s, h := newMDServer(t)
+
+	// Typ A: Datumsdialog, nie mit Tagesdatum vorbelegt; frühestens gültig ab.
+	dlg := do(s, "GET", "/m/crm/CustomerContact/k1/end?view=refresh", nil, true).Body.String()
+	mustContain(t, dlg, "Gültigkeit beenden – Kontakt", `<input type="date" name="valid_to" value="" min="2026-01-01" required autofocus>`,
+		`hx-post="/m/crm/CustomerContact/k1/end" hx-target="#modal" hx-swap="innerHTML"`)
+
+	w := do(s, "POST", "/m/crm/CustomerContact/k1/end", url.Values{"_view": {"refresh"}}, true)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "Bitte das Enddatum wählen") {
+		t.Fatalf("ohne Datum: %d", w.Code)
+	}
+	w = do(s, "POST", "/m/crm/CustomerContact/k1/end", url.Values{"_view": {"refresh"}, "valid_to": {"1999-01-01"}}, true)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "vor dem Beginn") || w.Header().Get("HX-Retarget") != "#modal" {
+		t.Fatalf("Fehler des Moduls: %d %s", w.Code, w.Body.String())
+	}
+	w = do(s, "POST", "/m/crm/CustomerContact/k1/end", url.Values{"_view": {"refresh"}, "valid_to": {"2026-03-31"}}, true)
+	if w.Code != 200 || w.Header().Get("HX-Trigger") != "coremesh-changed" || !strings.Contains(w.Body.String(), "beendet zum 2026-03-31") {
+		t.Fatalf("expire: %d %v", w.Code, w.Header())
+	}
+	if p := h.find("expire").Payload.(map[string]any); p["id"] != "k1" || p["valid_to"] != "2026-03-31" {
+		t.Fatalf("Payload: %v", p)
+	}
+
+	// Typ C: kein Button, /end und DELETE antworten mit 405.
+	detail := do(s, "GET", "/m/crm/Address/a1", nil, true).Body.String()
+	mustNotContain(t, detail, "/end", "Löschen", "Inaktivieren", "Beenden")
+	for _, tc := range []struct{ method, path string }{
+		{"GET", "/m/crm/Address/a1/end"}, {"POST", "/m/crm/Address/a1/end"}, {"DELETE", "/m/crm/Address/a1"},
+	} {
+		if w := do(s, tc.method, tc.path, url.Values{}, true); w.Code != 405 || !strings.Contains(w.Body.String(), "weder gelöscht noch deaktiviert") {
+			t.Errorf("%s %s: %d", tc.method, tc.path, w.Code)
+		}
+	}
+}
+
+func TestLifecycleAPI(t *testing.T) {
+	s, _ := newMDServer(t)
+	tok, _ := testTokens.Load(s)
+	call := func(method, path, body string) (int, map[string]any) {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set("Cookie", sessionCookie+"="+tok.(string))
+		if body != "" {
+			r.Header.Set("Content-Type", "application/json")
+		}
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		var out map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		return w.Code, out
+	}
+	if code, out := call("POST", "/api/v1/crm/Address/delete", `{"id":"a1"}`); code != 405 || !strings.Contains(out["error"].(string), "weder gelöscht noch deaktiviert") {
+		t.Fatalf("delete per API: %d %v", code, out)
+	}
+	for obj, want := range map[string]string{"CustomerContact": "timeslice|expire", "Address": "immutable|"} {
+		_, out := call("GET", "/api/v1/crm/"+obj, "")
+		lc := out["lifecycle"].(map[string]any)
+		if got := lc["type"].(string) + "|" + lc["end_action"].(string); got != want {
+			t.Errorf("%s: lifecycle %s, erwartet %s", obj, got, want)
+		}
 	}
 }

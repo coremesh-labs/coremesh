@@ -96,7 +96,8 @@ var funcs = template.FuncMap{
 	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
 	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
 	"pathEscape": url.PathEscape,
-	"domID":      func(id string) string { return hex.EncodeToString([]byte(id)) },
+	"domID":      domID,
+	"endBtn":     newEndBtn,
 	"json": func(v any) string {
 		b, _ := json.MarshalIndent(v, "", "  ")
 		return string(b)
@@ -172,3 +173,6 @@ func scalar(v any) string {
 	}
 	return fmt.Sprint(v)
 }
+
+// domID macht aus einer id einen gültigen Teil einer DOM-ID.
+func domID(id string) string { return hex.EncodeToString([]byte(id)) }

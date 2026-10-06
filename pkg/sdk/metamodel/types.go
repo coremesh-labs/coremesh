@@ -19,6 +19,9 @@ type ObjectDefinition struct {
 	// des Objects oder eingebettete Unter-Objekte (Relation). Felder ohne
 	// Abschnitt erscheinen in einem vorangestellten Abschnitt „Allgemein“.
 	Sections []SectionDefinition `json:"sections,omitempty"`
+	// Lifecycle bestimmt, ob und wie ein Datensatz enden kann (kein
+	// physisches Löschen). Leer = immutable.
+	Lifecycle Lifecycle `json:"lifecycle"`
 }
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).
@@ -113,8 +116,11 @@ const (
 	KindItem   ActionKind = "item"   // Detail: liefert einen Datensatz (Payload {id})
 	KindCreate ActionKind = "create" // Neuanlage aus Formulardaten
 	KindUpdate ActionKind = "update" // Änderung aus Formulardaten (inkl. id)
-	KindDelete ActionKind = "delete" // Löschen (Payload {id})
-	KindCustom ActionKind = "custom" // sonstige Aktion (Button)
+	// Physisches Löschen gibt es nicht. Wie ein Datensatz endet, bestimmt der
+	// Lebenszyklus des Objects (siehe Lifecycle):
+	KindExpire     ActionKind = "expire"     // Typ timeslice: Gültigkeit beenden (Payload {id, valid_to})
+	KindDeactivate ActionKind = "deactivate" // Typ status: inaktivieren (Payload {id})
+	KindCustom     ActionKind = "custom"     // sonstige Aktion (Button)
 )
 
 // DescribeRequest ist der Payload von Catalog.Describe.
@@ -129,4 +135,49 @@ type DescribeResponse struct {
 	// Module dieses Plugins. Jedes Object, das in der Oberfläche erscheinen
 	// soll, gehört zu genau einem Modul (siehe ModuleDefinition).
 	Modules []ModuleDefinition `json:"modules,omitempty"`
+}
+
+// LifecycleType unterscheidet, wie ein Datensatz eines Objects endet.
+// Physisches Löschen ist im System nicht vorgesehen.
+type LifecycleType string
+
+const (
+	// LifecycleTimeSlice: Datensätze mit Zeitscheibe (ValidFrom/ValidTo). Sie
+	// enden, indem der Benutzer ein Enddatum wählt (Action vom Kind expire,
+	// Payload {id, valid_to}) – nie automatisch mit dem Tagesdatum.
+	LifecycleTimeSlice LifecycleType = "timeslice"
+	// LifecycleStatus: Datensätze mit Status-Flag. Sie werden nach Bestätigung
+	// inaktiviert (Action vom Kind deactivate, Payload {id}: Flag = false).
+	LifecycleStatus LifecycleType = "status"
+	// LifecycleImmutable: weder Zeitscheibe noch Status-Flag. Datensätze
+	// können weder gelöscht noch deaktiviert werden.
+	LifecycleImmutable LifecycleType = "immutable"
+)
+
+// Lifecycle beschreibt den Lebenszyklus eines Objects.
+type Lifecycle struct {
+	Type        LifecycleType `json:"type"`                   // timeslice | status | immutable (leer = immutable)
+	ValidFrom   string        `json:"valid_from,omitempty"`   // timeslice: Feld „gültig ab“ (TypeDate)
+	ValidTo     string        `json:"valid_to,omitempty"`     // timeslice: Feld „gültig bis“ (TypeDate)
+	StatusField string        `json:"status_field,omitempty"` // status: Feld (TypeBoolean), true = aktiv
+}
+
+// Kind liefert den Typ; ein leerer Lebenszyklus ist immutable.
+func (l Lifecycle) Kind() LifecycleType {
+	if l.Type == "" {
+		return LifecycleImmutable
+	}
+	return l.Type
+}
+
+// EndAction liefert das Kind der Action, mit der ein Datensatz endet
+// (expire bzw. deactivate), oder "" bei immutable.
+func (l Lifecycle) EndAction() ActionKind {
+	switch l.Kind() {
+	case LifecycleTimeSlice:
+		return KindExpire
+	case LifecycleStatus:
+		return KindDeactivate
+	}
+	return ""
 }

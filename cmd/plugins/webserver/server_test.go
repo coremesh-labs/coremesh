@@ -42,9 +42,11 @@ var partnerDef = metamodel.ObjectDefinition{
 		{Name: "Item", Kind: metamodel.KindItem, Label: "Anzeigen"},
 		{Name: "Create", Kind: metamodel.KindCreate, Label: "Neu"},
 		{Name: "Update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
-		{Name: "Delete", Kind: metamodel.KindDelete, Label: "Löschen", Confirm: "Wirklich löschen?"},
+		{Name: "Deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: "Partner inaktivieren?"},
 		{Name: "Notify", Kind: metamodel.KindCustom, Label: "Benachrichtigen"},
 	},
+	// Typ B: Status-Flag active – „Inaktivieren“ statt Löschen.
+	Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
 }
 
 // crmModule bündelt Partner; Fremd ist ein Object außerhalb des Moduls.
@@ -72,7 +74,7 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 		return sdk.Response{Payload: crmModule}, nil
 	case "Catalog.ListActions":
 		return sdk.Response{Payload: map[string]any{"object": "Partner", "actions": []any{
-			map[string]any{"action": "List"}, map[string]any{"action": "Delete"}}}}, nil
+			map[string]any{"action": "List"}, map[string]any{"action": "Deactivate"}}}}, nil
 	case "Catalog.ListModules":
 		return sdk.Response{Payload: map[string]any{"modules": []any{crmModule}}}, nil
 	case "Catalog.ListObjects":
@@ -91,8 +93,13 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 			rec[k] = v
 		}
 		return sdk.Response{Payload: rec}, nil
-	case "Partner.Delete":
-		return sdk.Response{}, nil
+	case "Partner.Deactivate":
+		inactive := map[string]any{}
+		for k, v := range acme {
+			inactive[k] = v
+		}
+		inactive["active"] = false
+		return sdk.Response{Payload: inactive}, nil
 	case "Partner.Notify":
 		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt"}}, nil
 	}
@@ -315,7 +322,7 @@ func TestDetailEditUpdate(t *testing.T) {
 	s, h := newTestServer(t, "")
 
 	detail := do(s, "GET", "/m/crm/Partner/p%2F1", nil, true).Body.String()
-	mustContain(t, detail, `<section id="detail"`, "<dt>Mitarbeitende</dt><dd>42</dd>", `hx-delete="/m/crm/Partner/p%2F1"`)
+	mustContain(t, detail, `<section id="detail"`, "<dt>Mitarbeitende</dt><dd>42</dd>", `hx-get="/m/crm/Partner/p%2F1/end?view=detail"`)
 	if req := h.last(); req.Action != "Item" || req.Payload.(map[string]any)["id"] != "p/1" {
 		t.Fatalf("Item-Aufruf: %+v", req)
 	}
@@ -347,13 +354,20 @@ func TestDetailEditUpdate(t *testing.T) {
 
 func TestDeleteAndCustomAction(t *testing.T) {
 	s, h := newTestServer(t, "")
+	// Physisches Löschen gibt es nicht: 405 mit Hinweis auf den Lebenszyklus.
 	w := do(s, "DELETE", "/m/crm/Partner/p%2F1", nil, true)
-	mustContain(t, w.Body.String(), "gelöscht")
-	mustNotContain(t, w.Body.String(), "<tr")
+	if w.Code != 405 || !strings.Contains(w.Body.String(), "nicht gelöscht, sondern inaktiviert") {
+		t.Fatalf("DELETE: %d %s", w.Code, w.Body.String())
+	}
 
-	w = do(s, "DELETE", "/m/crm/Partner/p%2F1?_view=detail", nil, true)
-	if !strings.Contains(w.Header().Get("HX-Location"), `"/m/crm/Partner"`) {
-		t.Fatalf("Delete aus Detail: HX-Location %q", w.Header().Get("HX-Location"))
+	// Typ B: Bestätigungsdialog, dann deactivate; die Zeile zeigt „Inaktiv“.
+	dlg := do(s, "GET", "/m/crm/Partner/p%2F1/end?view=row", nil, true).Body.String()
+	mustContain(t, dlg, "Partner inaktivieren?", `hx-post="/m/crm/Partner/p%2F1/end" hx-target="#row-702f31" hx-swap="outerHTML"`)
+	mustNotContain(t, dlg, `type="date"`)
+	w = do(s, "POST", "/m/crm/Partner/p%2F1/end", url.Values{"_view": {"row"}}, true)
+	mustContain(t, w.Body.String(), `<tr id="row-702f31">`, `class="badge inactive"`, "Geschäftspartner inaktiviert")
+	if p := h.find("Deactivate").Payload.(map[string]any); p["id"] != "p/1" {
+		t.Fatalf("deactivate: %v", p)
 	}
 
 	form := do(s, "GET", "/action/crm/Partner/Notify?id=p1", nil, true).Body.String()

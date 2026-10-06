@@ -15,7 +15,7 @@ var (
 
 var (
 	fieldTypes  = map[FieldType]bool{TypeText: true, TypeTextarea: true, TypeNumber: true, TypeDate: true, TypeSelect: true, TypeEmail: true, TypeBoolean: true, TypePassword: true}
-	actionKinds = map[ActionKind]bool{KindList: true, KindItem: true, KindCreate: true, KindUpdate: true, KindDelete: true, KindCustom: true}
+	actionKinds = map[ActionKind]bool{KindList: true, KindItem: true, KindCreate: true, KindUpdate: true, KindExpire: true, KindDeactivate: true, KindCustom: true}
 )
 
 // Validate prüft eine Definition auf Vollständigkeit und Eindeutigkeit.
@@ -90,14 +90,20 @@ func (d ObjectDefinition) Validate() error {
 			add("%s: name doppelt", where)
 		}
 		names[a.Name] = true
-		if !actionKinds[a.Kind] {
+		switch {
+		case a.Kind == "delete":
+			add("%s: kind delete gibt es nicht – physisches Löschen ist nicht vorgesehen (Lifecycle: expire bzw. deactivate)", where)
+		case !actionKinds[a.Kind]:
 			add("%s: unbekannter kind %q", where, a.Kind)
+		case (a.Kind == KindExpire || a.Kind == KindDeactivate) && a.Kind != d.Lifecycle.EndAction():
+			add("%s: kind %s passt nicht zum Lifecycle %s", where, a.Kind, d.Lifecycle.Kind())
 		}
 		if a.Label == "" {
 			add("%s: label fehlt", where)
 		}
 	}
 
+	checkLifecycle(d, add)
 	if d.TitleField != "" && !keys[d.TitleField] {
 		add("title_field %q ist kein Feld", d.TitleField)
 	}
@@ -139,4 +145,33 @@ func (d ObjectDefinition) Validate() error {
 		return fmt.Errorf("Object %s: %w", d.Name, errors.Join(errs...))
 	}
 	return nil
+}
+
+// checkLifecycle prüft Typ und Felder des Lebenszyklus.
+func checkLifecycle(d ObjectDefinition, add func(string, ...any)) {
+	l := d.Lifecycle
+	field := func(key string, want FieldType, what string) {
+		i := slices.IndexFunc(d.Fields, func(f FieldDefinition) bool { return f.Key == key })
+		switch {
+		case key == "":
+			add("lifecycle %s: %s fehlt", l.Type, what)
+		case i < 0:
+			add("lifecycle %s: %s %q ist kein Feld", l.Type, what, key)
+		case d.Fields[i].Type != want:
+			add("lifecycle %s: %s %q muss type %s haben", l.Type, what, key, want)
+		}
+	}
+	switch l.Kind() {
+	case LifecycleTimeSlice:
+		field(l.ValidFrom, TypeDate, "valid_from")
+		field(l.ValidTo, TypeDate, "valid_to")
+	case LifecycleStatus:
+		field(l.StatusField, TypeBoolean, "status_field")
+	case LifecycleImmutable:
+		if l.ValidFrom != "" || l.ValidTo != "" || l.StatusField != "" {
+			add("lifecycle immutable: keine Felder angeben")
+		}
+	default:
+		add("lifecycle: unbekannter type %q (timeslice, status, immutable)", l.Type)
+	}
 }

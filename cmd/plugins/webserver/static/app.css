@@ -118,3 +118,8 @@ dialog.lookup-dialog input[type=search] { width: 100%; margin-bottom: .75rem; }
 .lookup-table { max-height: 55vh; overflow: auto; }
 tr.pick { cursor: pointer; }
 tr.pick:hover, tr.pick:focus { background: var(--bg); outline: none; }
+
+/* --- Lebenszyklus: Beenden / Inaktivieren statt Löschen --- */
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem; }
+.badge.inactive { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+dialog.end-dialog input[type=date] { max-width: 14rem; }

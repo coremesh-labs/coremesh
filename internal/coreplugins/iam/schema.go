@@ -146,7 +146,6 @@ var crud = func(object string) []metamodel.ActionConfig {
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 		{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
 		{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
-		{Name: "delete", Kind: metamodel.KindDelete, Label: "Löschen", Confirm: object + " wirklich löschen?"},
 	}
 }
 
@@ -163,7 +162,10 @@ var (
 			{Key: "password", Label: "Passwort (bei Bearbeitung leer = unverändert)", Type: metamodel.TypePassword, Editable: true},
 			{Key: "created_at", Label: "Angelegt", Type: metamodel.TypeText, Listable: true},
 		},
-		Actions: crud("Benutzer"),
+		// Lebenszyklus status: Benutzer werden inaktiviert, nie gelöscht.
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Benutzer"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Inaktivieren", Confirm: "Benutzer inaktivieren? Er kann sich danach nicht mehr anmelden."}),
 	}
 	roleDef = metamodel.ObjectDefinition{
 		Name: "Role", Title: "Rollen", Icon: "icon-shield",

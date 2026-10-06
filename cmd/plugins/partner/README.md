@@ -55,8 +55,8 @@ und zwar **nur fehlende Zeilen**. Geänderte Beschreibungen im Bestand bleiben e
 
 ## Aufrufe
 
-Jedes Object bietet `list`, `get`, `create`, `update` und `delete` nach den
-Konventionen des WebServers: `{data}`, `{id, data}`, `{id}`, `{query}`.
+Jedes Object bietet `list`, `get`, `create` und `update`, dazu je nach Lebenszyklus `expire`
+oder `deactivate` (siehe unten). Konventionen des WebServers: `{data}`, `{id, data}`, `{id}`, `{query}`.
 
 - **Filter in `list`:** zum Beispiel `bp_id`, `role_code`, `company_code` oder
   `category_code`, je nach Object.
@@ -86,7 +86,8 @@ je Buchungskreis auf, im Format `1000;140000;NT30` (Buchungskreis;Abstimmkonto;Z
 - Der Code ist nach dem Anlegen fest.
 - **Nur eine** Adressrolle darf `is_main` tragen, und **pro Kategorie** nur ein
   Kommunikationstyp.
-- Ein Katalogeintrag, der noch verwendet wird, lässt sich nicht löschen (`409`).
+- Katalogeinträge werden nicht gelöscht. Einträge mit Gültigkeit enden über ein Enddatum;
+  Verweise prüfen die Gültigkeit am Stichtag.
 
 **Kommunikation nach Kategorie**
 
@@ -106,8 +107,7 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
   einen Buchungskreis mitgeben (`company_codes`). Rolle und Buchungskreisdaten entstehen
   in einer Transaktion. Bei anderen Rollen sind Buchungskreise nicht erlaubt.
 - **Buchungskreisdaten** gibt es nur für Finanzrollen, die der Partner hat.
-- Der **letzte** Buchungskreis einer noch gültigen Finanzrolle lässt sich nicht löschen.
-  Endet die letzte Zuordnung einer Rolle, werden ihre Buchungskreisdaten mit gelöscht.
+- Buchungskreisdaten sind immutable: Sie bleiben, auch wenn die Finanzrolle endet.
 - **Buchungskreise kommen aus `iam`:** Unbekannte Buchungskreise werden abgelehnt.
 - **Berechtigungen je Buchungskreis:** Lesen und Schreiben ist auf die Buchungskreise
   beschränkt, die die Rollen des Benutzers für `PartnerCompanyCode.<action>` erlauben
@@ -120,9 +120,22 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
   Großbuchstaben.
 - **BIC:** 8 oder 11 Zeichen.
 - **Land:** ISO-2.
-- **Löschen eines Partners:** entfernt seine Rollen, Adresszuordnungen, Kontakte,
-  Bankverbindungen und Buchungskreisdaten. Die Adressen selbst bleiben, sie sind
-  wiederverwendbar.
+- **Inaktivieren eines Partners:** Rollen, Adresszuordnungen, Kontakte, Bankverbindungen und
+  Buchungskreisdaten bleiben erhalten (Historie).
+
+## Lebenszyklus: Beenden und Inaktivieren statt Löschen
+
+Physisch gelöscht wird nichts. Der Typ folgt aus der Entität (`lifecycle.go`):
+
+| Typ | Objects | Action |
+|---|---|---|
+| **A** Zeitscheibe | `PartnerRole`, `PartnerAddress` (Zuordnung mit Adressrolle), `PartnerContact`, `PartnerBankDetail`, Kataloge mit Gültigkeit: `PartnerAddressRole`, `PartnerCommType`, `PartnerRoleType` | `expire {id, valid_to}`: Enddatum Pflicht, nicht vor `valid_from`, rückwirkend erlaubt |
+| **B** Status-Flag | `BusinessPartner` (`is_active`, seit 0.4.0) | `deactivate {id}`. Das Flag ist schreibgeschützt (nur über `deactivate`), Beziehungen bleiben erhalten. Neue Verweise auf einen inaktiven Partner werden abgelehnt. |
+| **C** immutable | `PartnerAddressData` (Adressdetails), `PartnerCommCategory`, `PartnerCompanyCode` | keine; `delete` gibt es nicht |
+
+Die Kataloge **Adressrollen, Kommunikationstypen und Rollentypen haben eine Zeitscheibe** und
+sind deshalb Typ A, nicht C. Ein Katalog ohne Gültigkeit wie die Kommunikationskategorien ist
+Typ C. Die Regel richtet sich allein nach den Metadaten.
 
 ## Detailansicht, Lookups und Aggregat
 
@@ -182,7 +195,7 @@ Seeds ein und prüft unter anderem:
 - Zeitscheiben,
 - Kommunikation nach Kategorie, IBAN, Land,
 - Katalogeinträge in Verwendung,
-- das Löschen eines Partners samt Beziehungen,
+- Lebenszyklus: Enddatum (Pflicht, nicht vor Beginn), Inaktivieren, kein `delete`,
 - Finanzrollen mit Buchungskreis-Zwang, Rollback bei Fehlern und Sicht je Buchungskreis,
 - die Gültigkeit aller 11 Metamodelle und das Modul (Gruppen, ein `schema`-Block).
 - Labels, Lookup-Metadaten und Suche in Katalogen,

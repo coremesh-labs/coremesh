@@ -18,7 +18,8 @@ import (
 //	item    {"id": "<id>"}                    → record
 //	create  {"data": {<Felder>}}              → record (mit "id")
 //	update  {"id": "<id>", "data": {<Felder>}} → record
-//	delete  {"id": "<id>"}                    → beliebig
+//	expire      {"id": "<id>", "valid_to": "JJJJ-MM-TT"} → record (Typ timeslice)
+//	deactivate  {"id": "<id>"}                    → record (Typ status)
 //	custom  {"id"?: "<id>", "data": {<Felder>}} → beliebig; "message" wird angezeigt
 //
 // Ein record ist ein JSON-Objekt; der Schlüssel "id" identifiziert ihn.
@@ -220,7 +221,12 @@ type view struct {
 	ActionID   string // id für custom-Actions
 	FormFields []fieldCtx
 	FormError  string
-	Locked     string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
+
+	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
+	EndKind string // timeslice | status
+	EndDate string // vorgeschlagenes/eingegebenes Enddatum (nie automatisch heute)
+	EndMin  string // frühestes Enddatum (gültig ab)
+	Locked  string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
 
 	// Ergebnisse
 	Action  metamodel.ActionConfig

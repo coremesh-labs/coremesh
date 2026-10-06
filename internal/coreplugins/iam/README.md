@@ -83,9 +83,9 @@ aber immer der Dispatcher, unabhängig davon, über welchen Weg eine Anfrage kom
 | `Account.ChangePassword {current, new}` | eigenes Passwort | jeder angemeldete Benutzer |
 | `Account.Check {object, action, company_code}` | → `{allowed}`: darf der Benutzer das im Buchungskreis? | jeder angemeldete Benutzer, v. a. Module (`sdk.CheckAccess`) |
 | `Account.Granted {object, action}` | → `{all, company_codes}`: in welchen Buchungskreisen? | jeder angemeldete Benutzer, v. a. Module (`sdk.GrantedCompanyCodes`) |
-| `User.list/get/create/update/delete` | Benutzerverwaltung | mit Berechtigung, z. B. `User.*` |
-| `Role.list/get/create/update/delete` | Rollenverwaltung | mit Berechtigung, z. B. `Role.*` |
-| `CompanyCode.list/get/create/update/delete` | Buchungskreise (`code`, `description`) | mit Berechtigung, z. B. `CompanyCode.*` |
+| `User.list/get/create/update/deactivate` | Benutzerverwaltung. Lebenszyklus **status** (`active`): inaktivieren statt löschen | mit Berechtigung, z. B. `User.*` |
+| `Role.list/get/create/update` | Rollenverwaltung. **immutable**: kein Löschen | mit Berechtigung, z. B. `Role.*` |
+| `CompanyCode.list/get/create/update` | Buchungskreise (`code`, `description`). **immutable** | mit Berechtigung, z. B. `CompanyCode.*` |
 
 Die Payloads folgen den Konventionen des WebServers (`{data}`, `{id, data}` …):
 
@@ -123,9 +123,8 @@ default:       // … WHERE company_code IN (g.CompanyCodes…)
   setzt ihn aus der ursprünglichen Anfrage. Trägt ein Modul einen anderen Benutzer ein,
   wird das überschrieben (Test `TestCheckAccessUsesTrustedUser`).
 - **System-Anfragen** ohne Benutzer dürfen alles, wie im Dispatcher.
-- **Buchungskreise verwalten:** Ein Buchungskreis, der in einer Rolle vorkommt, lässt sich
-  nicht löschen (`409`, mit den betroffenen Rollen). Seine Nummer ist nicht änderbar,
-  nur die Beschreibung.
+- **Buchungskreise verwalten:** Buchungskreise sind immutable und werden nie gelöscht. Die
+  Nummer ist nicht änderbar, nur die Beschreibung.
 - **Upgrade von 0.1.0:** Bestehende Berechtigungen erhalten `company_code = *` und
   gelten weiter in allen Buchungskreisen.
 
@@ -135,9 +134,9 @@ Jede Änderung läuft in einer Transaktion. Danach muss **mindestens ein aktiver
 mit `*.*`** übrig bleiben, sonst wird die Änderung zurückgerollt (`409`). Abgelehnt
 werden damit:
 
-- die Rolle Administrator löschen oder ihr `*.*` entziehen,
+- der Rolle Administrator `*.*` entziehen,
 - dem letzten Administrator die Rolle nehmen oder ihn deaktivieren,
-- sich selbst löschen oder deaktivieren.
+- sich selbst inaktivieren (`User.deactivate` oder Feld „Aktiv“).
 
 ## Erster Start
 
@@ -177,7 +176,7 @@ plugins:
 - **Keine Mandanten-Trennung bei Rollen:** Rollen gelten global. Ein Benutzer hat einen
   Mandanten, ob ein Modul Daten danach filtert, entscheidet das Modul über
   `CallFromContext(ctx).TenantID`.
-- **Keine Verbote:** Ausnahmen wie „alles außer `User.delete`“ brauchen eine
+- **Keine Verbote:** Ausnahmen wie „alles außer `User.deactivate`“ brauchen eine
   passende Rolle ohne diese Action.
 - **Auswahlfelder:** Rollen und Berechtigungen werden als Textfeld bearbeitet. Ein Feldtyp
   für Mehrfachauswahl mit dynamischen Optionen im Metamodell wäre komfortabler.

@@ -30,7 +30,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.2.0"
+	Version = "0.3.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -66,9 +66,9 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Description: "Benutzer, Rollen und Berechtigungen",
 		Capabilities: []sdk.Capability{
 			{Object: "Account", Actions: []string{"Authenticate", "Me", "ChangePassword", "Check", "Granted"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung"},
-			{Object: "User", Actions: []string{"list", "get", "create", "update", "delete"}, Description: "Benutzerverwaltung"},
-			{Object: "Role", Actions: []string{"list", "get", "create", "update", "delete"}, Description: "Rollen und Berechtigungen"},
-			{Object: "CompanyCode", Actions: []string{"list", "get", "create", "update", "delete"}, Description: "Buchungskreise"},
+			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
+			{Object: "Role", Actions: []string{"list", "get", "create", "update"}, Description: "Rollen und Berechtigungen"},
+			{Object: "CompanyCode", Actions: []string{"list", "get", "create", "update"}, Description: "Buchungskreise"},
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
 		},
@@ -129,8 +129,8 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.userSave(ctx, req.Payload, true)
 	case "User.update":
 		return p.userSave(ctx, req.Payload, false)
-	case "User.delete":
-		return p.userDelete(ctx, req.Payload)
+	case "User.deactivate":
+		return p.userDeactivate(ctx, req.Payload)
 
 	case "Role.list":
 		return p.roleList(ctx)
@@ -140,8 +140,6 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.roleSave(ctx, req.Payload, true)
 	case "Role.update":
 		return p.roleSave(ctx, req.Payload, false)
-	case "Role.delete":
-		return p.roleDelete(ctx, req.Payload)
 
 	case "CompanyCode.list":
 		return p.ccList(ctx)
@@ -151,8 +149,6 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.ccSave(ctx, req.Payload, true)
 	case "CompanyCode.update":
 		return p.ccSave(ctx, req.Payload, false)
-	case "CompanyCode.delete":
-		return p.ccDelete(ctx, req.Payload)
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
 }
@@ -356,15 +352,31 @@ func (p *Plugin) userSave(ctx context.Context, payload any, create bool) (sdk.Re
 	return sdk.Response{Payload: userRecord(*saved)}, nil
 }
 
-func (p *Plugin) userDelete(ctx context.Context, payload any) (sdk.Response, error) {
+// userDeactivate inaktiviert einen Benutzer (Lebenszyklus status: active =
+// false). Physisch gelöscht wird nichts; die Zuordnungen bleiben erhalten.
+// Wie bei jeder Änderung muss ein aktiver Administrator (*.*) bleiben.
+func (p *Plugin) userDeactivate(ctx context.Context, payload any) (sdk.Response, error) {
 	id, err := idParam(payload)
 	if err != nil {
 		return sdk.Response{}, err
 	}
 	if id == sdk.CallFromContext(ctx).UserID {
-		return sdk.Response{}, fmt.Errorf("%w: Sie können sich nicht selbst löschen", sdk.ErrFailedPrecondition)
+		return sdk.Response{}, fmt.Errorf("%w: Sie können sich nicht selbst inaktivieren", sdk.ErrFailedPrecondition)
 	}
-	return sdk.Response{}, p.inTx(ctx, func(tx *sql.Tx) error { return p.deleteUser(ctx, tx, id) })
+	err = p.inTx(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, p.q(`UPDATE iam__users SET active = 0 WHERE id = ?`), id)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("%w: Benutzer %q", sdk.ErrNotFound, id)
+		}
+		return nil
+	})
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	return p.userGet(ctx, payload)
 }
 
 // --- Role (Verwaltung) -----------------------------------------------------------
@@ -432,14 +444,6 @@ func (p *Plugin) roleSave(ctx context.Context, payload any, create bool) (sdk.Re
 		return sdk.Response{}, err
 	}
 	return sdk.Response{Payload: roleRecord(*saved)}, nil
-}
-
-func (p *Plugin) roleDelete(ctx context.Context, payload any) (sdk.Response, error) {
-	id, err := idParam(payload)
-	if err != nil {
-		return sdk.Response{}, err
-	}
-	return sdk.Response{}, p.inTx(ctx, func(tx *sql.Tx) error { return p.deleteRole(ctx, tx, id) })
 }
 
 // --- Erster Start ------------------------------------------------------------------
@@ -651,16 +655,4 @@ func (p *Plugin) ccSave(ctx context.Context, payload any, create bool) (sdk.Resp
 	}
 	p.invalidate()
 	return sdk.Response{Payload: ccRecord(c)}, nil
-}
-
-func (p *Plugin) ccDelete(ctx context.Context, payload any) (sdk.Response, error) {
-	id, err := idParam(payload)
-	if err != nil {
-		return sdk.Response{}, err
-	}
-	if err := p.deleteCompanyCode(ctx, id); err != nil {
-		return sdk.Response{}, err
-	}
-	p.invalidate()
-	return sdk.Response{}, nil
 }
