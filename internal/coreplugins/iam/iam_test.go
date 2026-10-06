@@ -16,6 +16,7 @@ import (
 	"github.com/camel/coremesh/internal/coreplugins/dbschema"
 	"github.com/camel/coremesh/internal/database"
 	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/metamodel"
 )
 
 type nopHost struct{ sdk.Host }
@@ -205,10 +206,6 @@ func TestLockoutProtection(t *testing.T) {
 	adminRole := roles["items"].([]any)[0].(map[string]any)
 
 	cases := map[string]func() error{
-		"Admin-Rolle löschen": func() error {
-			_, err := call(t, p, ctx, "Role", "delete", map[string]any{"id": adminRole["id"]})
-			return err
-		},
 		"*.* entziehen": func() error {
 			_, err := call(t, p, ctx, "Role", "update", map[string]any{"id": adminRole["id"], "data": map[string]any{"name": AdminRole, "permissions": "User.*"}})
 			return err
@@ -221,8 +218,8 @@ func TestLockoutProtection(t *testing.T) {
 			_, err := call(t, p, ctx, "User", "update", map[string]any{"id": adminID, "data": map[string]any{"username": "admin", "roles": AdminRole, "active": false}})
 			return err
 		},
-		"sich selbst löschen": func() error {
-			_, err := call(t, p, ctx, "User", "delete", map[string]any{"id": adminID})
+		"sich selbst inaktivieren (deactivate)": func() error {
+			_, err := call(t, p, ctx, "User", "deactivate", map[string]any{"id": adminID})
 			return err
 		},
 	}
@@ -274,5 +271,36 @@ func TestChangePassword(t *testing.T) {
 	}
 	if _, err := call(t, p, context.Background(), "Account", "Authenticate", map[string]any{"username": "admin", "password": "neues-passwort-1"}); err != nil {
 		t.Fatalf("Anmeldung mit neuem Passwort: %v", err)
+	}
+}
+
+// TestLifecycle: Benutzer werden inaktiviert (Status-Flag), Rollen und
+// Buchungskreise sind immutable – gelöscht wird nichts.
+func TestLifecycle(t *testing.T) {
+	p, adminID := setup(t)
+	ctx := as(adminID)
+	u, err := call(t, p, ctx, "User", "create", map[string]any{"data": map[string]any{"username": "weg", "password": "weg-passwort-12", "active": true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := call(t, p, ctx, "User", "deactivate", map[string]any{"id": u["id"]})
+	if err != nil || got["active"] != false {
+		t.Fatalf("deactivate: %v %v", got, err)
+	}
+	if _, err := call(t, p, context.Background(), "Account", "Authenticate", map[string]any{"username": "weg", "password": "weg-passwort-12"}); err == nil {
+		t.Fatal("inaktiver Benutzer kann sich anmelden")
+	}
+	for _, obj := range []string{"User", "Role", "CompanyCode"} {
+		if _, err := call(t, p, ctx, obj, "delete", map[string]any{"id": "x"}); !errors.Is(err, sdk.ErrUnimplemented) {
+			t.Errorf("%s.delete: %v", obj, err)
+		}
+	}
+	for _, d := range []metamodel.ObjectDefinition{userDef, roleDef, companyCodeDef} {
+		if err := d.Validate(); err != nil {
+			t.Error(err)
+		}
+	}
+	if userDef.Lifecycle.Kind() != metamodel.LifecycleStatus || roleDef.Lifecycle.Kind() != metamodel.LifecycleImmutable {
+		t.Fatal("Lifecycle")
 	}
 }

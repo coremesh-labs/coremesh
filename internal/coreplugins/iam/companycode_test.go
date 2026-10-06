@@ -130,8 +130,9 @@ func TestCompanyCodeIntegrity(t *testing.T) {
 	if _, err := call(t, p, ctx, "Role", "create", map[string]any{"data": map[string]any{"name": "R2", "permissions": "Partner.*@1000"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := call(t, p, ctx, "CompanyCode", "delete", map[string]any{"id": "1000"}); !errors.Is(err, sdk.ErrFailedPrecondition) || !strings.Contains(err.Error(), "R2") {
-		t.Fatalf("Buchungskreis in Verwendung: %v", err)
+	// Buchungskreise sind immutable: kein Löschen, keine Deaktivierung.
+	if _, err := call(t, p, ctx, "CompanyCode", "delete", map[string]any{"id": "1000"}); !errors.Is(err, sdk.ErrUnimplemented) {
+		t.Fatalf("Buchungskreis löschen: %v", err)
 	}
 	for name, data := range map[string]map[string]any{
 		"doppelt":  {"code": "1000"},

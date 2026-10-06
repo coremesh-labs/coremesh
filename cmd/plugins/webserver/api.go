@@ -87,6 +87,15 @@ func (s *server) apiCall(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	resp, err := s.call(r, object, action, payload)
+	if errors.Is(err, sdk.ErrUnimplemented) {
+		// Object gehört zum Modul, die Action gibt es aber nicht – z. B. delete:
+		// physisches Löschen ist nicht vorgesehen.
+		if oc, derr := s.definition(r, object); derr == nil && action == "delete" {
+			err = deleteNotAllowed(oc)
+		} else {
+			err = fmt.Errorf("%w: %s.%s", errMethodNotAllowed, object, action)
+		}
+	}
 	if err != nil {
 		s.apiError(w, r, err)
 		return
@@ -162,6 +171,9 @@ func (s *server) apiObject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"module": mod.Name, "object": object, "definition": oc.Def,
 		"lookups": lookups, "relations": relations, "actions": actions,
+		// Lebenszyklus: timeslice (expire) | status (deactivate) | immutable (kein Ende).
+		"lifecycle": map[string]any{"type": oc.Def.Lifecycle.Kind(), "end_action": endActionName(oc),
+			"valid_from": oc.Def.Lifecycle.ValidFrom, "valid_to": oc.Def.Lifecycle.ValidTo, "status_field": oc.Def.Lifecycle.StatusField},
 		"aggregate": slices.Contains(actions, "getAggregate"),
 	})
 }

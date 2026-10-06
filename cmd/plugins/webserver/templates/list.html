@@ -53,10 +53,7 @@
     <a href="{{$.URL}}/{{pathEscape $.ID}}/edit" hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=row"
        hx-target="#modal">{{.Label}}</a>
     {{end}}
-    {{with .Has.delete}}
-    <button type="button" class="link danger" hx-delete="{{$.URL}}/{{pathEscape $.ID}}"
-            hx-target="closest tr" hx-swap="outerHTML" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
-    {{end}}
+    {{template "end-button" (endBtn $.Ctx $.Record "row" "link danger")}}
   {{end}}</td>
 </tr>
 {{end}}

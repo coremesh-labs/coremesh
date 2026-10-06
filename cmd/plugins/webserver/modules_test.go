@@ -104,7 +104,7 @@ func TestModuleAPI(t *testing.T) {
 		{"POST", "/api/v1/crm/Partner/Item", "text/plain", `{"id":"p/1"}`, false, 415},   // CSRF-Schutz
 		{"POST", "/api/v1/crm/Partner/Item", "application/json", `{kaputt`, false, 422},  // ungültiges JSON
 		{"POST", "/api/v1/crm/Fremd/List", "application/json", `{}`, false, 404},         // fremdes Object
-		{"POST", "/api/v1/crm/Partner/Gibtsnicht", "application/json", `{}`, false, 404}, // keine Route
+		{"POST", "/api/v1/crm/Partner/Gibtsnicht", "application/json", `{}`, false, 405}, // keine Route
 		{"GET", "/api/v1/gibtsnicht", "", "", false, 404},                                // unbekanntes Modul
 		{"GET", "/api/v1/crm/Partner/List", "", "", false, 404},                          // nur POST
 	} {

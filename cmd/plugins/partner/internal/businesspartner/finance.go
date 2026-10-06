@@ -97,29 +97,6 @@ func (m *Module) partnerRole() *entity {
 			}
 			return nil
 		},
-		// Endet die letzte Zuordnung einer Finanzrolle, gehen ihre
-		// Buchungskreisdaten mit – sofern der Benutzer darauf zugreifen darf.
-		beforeDelete: func(ctx context.Context, rec record) error {
-			res, err := m.db.Query(ctx, "SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ? AND valid_from <> ?",
-				rec["bp_id"], rec["role_code"], rec["valid_from"])
-			if err != nil {
-				return err
-			}
-			if n, _ := strconv.Atoi(str(res.Rows[0][0])); n > 0 {
-				return nil
-			}
-			ccs, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
-			if err != nil {
-				return err
-			}
-			for _, r := range ccs.Rows {
-				if err := requireCompanyCode(ctx, "delete", str(r[0])); err != nil {
-					return err
-				}
-			}
-			_, err = m.db.Exec(ctx, "DELETE FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
-			return err
-		},
 		decorate: func(ctx context.Context, rec record) error {
 			res, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ? ORDER BY company_code",
 				rec["bp_id"], rec["role_code"])
@@ -263,23 +240,6 @@ func (m *Module) partnerCompanyCode() *entity {
 				marks[i], args[i] = "?", cc
 			}
 			return "company_code IN (" + strings.Join(marks, ", ") + ")", args, false, nil
-		},
-		// Buchungskreis-Zwang: Der letzte Eintrag einer noch gültigen
-		// Finanzrolle bleibt.
-		beforeDelete: func(ctx context.Context, rec record) error {
-			res, err := m.db.Query(ctx, `SELECT
-				(SELECT COUNT(*) FROM partner__company_codes WHERE bp_id = ? AND role_code = ?),
-				(SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ? AND valid_to >= ?)`,
-				rec["bp_id"], rec["role_code"], rec["bp_id"], rec["role_code"], today())
-			if err != nil {
-				return err
-			}
-			ccs, _ := strconv.Atoi(str(res.Rows[0][0]))
-			active, _ := strconv.Atoi(str(res.Rows[0][1]))
-			if ccs <= 1 && active > 0 {
-				return fmt.Errorf("%w: letzter Buchungskreis der aktiven Finanzrolle %s – erst die Rolle beenden", sdk.ErrFailedPrecondition, str(rec["role_code"]))
-			}
-			return nil
 		},
 	}
 	return e

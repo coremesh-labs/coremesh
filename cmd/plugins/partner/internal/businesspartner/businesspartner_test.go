@@ -298,8 +298,9 @@ func TestBusinessPartnerAndContacts(t *testing.T) {
 	_, err = e.do("PartnerAddressData", "create", data("street", "x", "zip_code", "1", "city", "y", "country", "Schweiz"))
 	expect(t, err, sdk.ErrInvalidArgument, "Land")
 	e.must("PartnerAddress", "create", data("bp_id", id, "address_id", addr["id"], "address_role_code", "MAIN", "is_default", true))
+	// Kein physisches Löschen: Adressen (immutable) haben keine Ende-Action.
 	_, err = e.do("PartnerAddressData", "delete", map[string]any{"id": addr["id"]})
-	expect(t, err, sdk.ErrFailedPrecondition, "verwendete Adresse löschen")
+	expect(t, err, sdk.ErrUnimplemented, "Adresse löschen")
 
 	b := e.must("PartnerBankDetail", "create", data("bp_id", id, "iban", "ch93 0076 2011 6238 5295 7", "bic", "ubswchzh80a"))
 	if b["iban"] != "CH9300762011623852957" || b["bic"] != "UBSWCHZH80A" {
@@ -308,14 +309,33 @@ func TestBusinessPartnerAndContacts(t *testing.T) {
 	_, err = e.do("PartnerBankDetail", "create", data("bp_id", id, "iban", "CH9400762011623852957"))
 	expect(t, err, sdk.ErrInvalidArgument, "IBAN-Prüfziffer")
 
-	// Katalog in Verwendung, Löschen des Partners räumt Beziehungen ab.
+	// Lebenszyklus statt Löschen.
 	_, err = e.do("PartnerCommType", "delete", map[string]any{"id": "MOBILE"})
-	expect(t, err, sdk.ErrFailedPrecondition, "verwendeter Kommunikationstyp")
-	e.must("BusinessPartner", "delete", map[string]any{"id": id})
-	if n := len(e.items("PartnerContact", map[string]any{"bp_id": id})); n != 0 {
-		t.Fatalf("Kontakte nach Löschen: %d", n)
+	expect(t, err, sdk.ErrUnimplemented, "Katalog löschen")
+
+	// Zeitscheibe (Adresszuordnung): Enddatum ist Pflicht, nie automatisch heute.
+	pa := e.items("PartnerAddress", map[string]any{"bp_id": id})[0]
+	_, err = e.do("PartnerAddress", "expire", map[string]any{"id": pa["id"]})
+	expect(t, err, sdk.ErrInvalidArgument, "Enddatum fehlt")
+	_, err = e.do("PartnerAddress", "expire", map[string]any{"id": pa["id"], "valid_to": "2000-01-01"})
+	expect(t, err, sdk.ErrInvalidArgument, "Enddatum vor Beginn")
+	if ended := e.must("PartnerAddress", "expire", map[string]any{"id": pa["id"], "valid_to": "2026-12-31"}); ended["valid_to"] != "2026-12-31" {
+		t.Fatalf("expire: %v", ended)
 	}
-	e.must("PartnerAddressData", "delete", map[string]any{"id": addr["id"]}) // jetzt frei
+
+	// Status-Flag (Partner): inaktivieren, Beziehungen bleiben, keine neuen Verweise.
+	if bp := e.must("BusinessPartner", "deactivate", map[string]any{"id": id}); bp["is_active"] != false {
+		t.Fatalf("deactivate: %v", bp)
+	}
+	if n := len(e.items("PartnerContact", map[string]any{"bp_id": id})); n == 0 {
+		t.Fatal("Kontakte nach Inaktivieren weg")
+	}
+	_, err = e.do("PartnerContact", "create", data("bp_id", id, "comm_type_code", "MOBILE", "value", "+41 79 000 00 00"))
+	expect(t, err, sdk.ErrInvalidArgument, "Verweis auf inaktiven Partner")
+	_, err = e.do("BusinessPartner", "update", map[string]any{"id": id, "data": row("is_active", true)})
+	if got := e.must("BusinessPartner", "get", map[string]any{"id": id}); got["is_active"] != false {
+		t.Fatalf("Status-Flag per update geändert: %v (%v)", got, err)
+	}
 }
 
 func TestFinanceRolesAndCompanyCodes(t *testing.T) {
@@ -357,14 +377,12 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "TENANT"))
 	expect(t, err, sdk.ErrInvalidArgument, "keine Finanzrolle")
 
-	// Buchungskreis-Zwang: letzter Eintrag der aktiven Rolle bleibt.
+	// Buchungskreisdaten haben weder Zeitscheibe noch Status-Flag: immutable.
 	_, err = e.do(ccObject, "delete", map[string]any{"id": cc[0]["id"]})
-	expect(t, err, sdk.ErrFailedPrecondition, "letzter Buchungskreis")
+	expect(t, err, sdk.ErrUnimplemented, "Buchungskreisdaten löschen")
 	e.must(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "DEBITOR", "payment_terms", "NT10", "posting_block", "true"))
-	e.must(ccObject, "delete", map[string]any{"id": cc[0]["id"]})
 
 	// Sicht und Änderungen nur in erlaubten Buchungskreisen.
-	e.must(ccObject, "create", data("bp_id", id, "company_code", "1000", "role_code", "DEBITOR"))
 	e.h.granted["list"] = []string{"2000"}
 	if got := e.items(ccObject, map[string]any{"bp_id": id}); len(got) != 1 || got[0]["company_code"] != "2000" || got[0]["posting_block"] != true {
 		t.Fatalf("gefilterte Liste: %v", got)
@@ -373,10 +391,12 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 	_, err = e.do(ccObject, "update", map[string]any{"id": id + "|1000|DEBITOR", "data": row("payment_terms", "NT60")})
 	expect(t, err, sdk.ErrPermissionDenied, "Änderung in fremdem Buchungskreis")
 
-	// Rolle beenden: letzte Zuordnung → Buchungskreisdaten werden mit gelöscht.
-	e.must("PartnerRole", "delete", map[string]any{"id": role["id"]})
+	// Rolle beenden (Zeitscheibe): Enddatum setzen, Buchungskreisdaten bleiben.
+	if ended := e.must("PartnerRole", "expire", map[string]any{"id": role["id"], "valid_to": "2026-06-30"}); ended["valid_to"] != "2026-06-30" {
+		t.Fatalf("Rolle beenden: %v", ended)
+	}
 	e.h.granted["list"] = []string{"*"}
-	if n := len(e.items(ccObject, map[string]any{"bp_id": id})); n != 0 {
+	if n := len(e.items(ccObject, map[string]any{"bp_id": id})); n != 2 {
 		t.Fatalf("Buchungskreisdaten nach Rollenende: %d", n)
 	}
 }
@@ -512,5 +532,41 @@ func TestAggregate(t *testing.T) {
 	expect(t, err, sdk.ErrInvalidArgument, "ungültige E-Mail im Aggregat")
 	if n := len(e.items("BusinessPartner", map[string]any{"q": "Fehler AG"})); n != 0 {
 		t.Fatalf("Rollback: %d Partner", n)
+	}
+}
+
+// TestLifecycleTypes: Jede Entität hat genau einen Lebenszyklus, abgeleitet
+// aus Zeitscheibe bzw. Status-Flag; nur passende Ende-Actions sind Routen.
+func TestLifecycleTypes(t *testing.T) {
+	p := newPlugin(t)
+	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	got := map[string]metamodel.LifecycleType{}
+	for _, d := range resp.Payload.(metamodel.DescribeResponse).Objects {
+		got[d.Name] = d.Lifecycle.Kind()
+	}
+	want := map[string]metamodel.LifecycleType{
+		"BusinessPartner":     metamodel.LifecycleStatus,
+		"PartnerAddress":      metamodel.LifecycleTimeSlice, // Zuordnung Partner ↔ Adresse mit Rolle
+		"PartnerRole":         metamodel.LifecycleTimeSlice,
+		"PartnerContact":      metamodel.LifecycleTimeSlice,
+		"PartnerBankDetail":   metamodel.LifecycleTimeSlice,
+		"PartnerAddressRole":  metamodel.LifecycleTimeSlice, // Katalog mit Zeitscheibe
+		"PartnerAddressData":  metamodel.LifecycleImmutable, // Adressdetails
+		"PartnerCommCategory": metamodel.LifecycleImmutable, // Katalog ohne Zeitscheibe
+		"PartnerCompanyCode":  metamodel.LifecycleImmutable,
+	}
+	for obj, w := range want {
+		if got[obj] != w {
+			t.Errorf("%s: %s, erwartet %s", obj, got[obj], w)
+		}
+	}
+	m, _ := p.Manifest(context.Background())
+	for _, c := range m.Capabilities {
+		if slices.Contains(c.Actions, "delete") {
+			t.Errorf("%s bietet delete an", c.Object)
+		}
+		if got[c.Object] == metamodel.LifecycleImmutable && (slices.Contains(c.Actions, "expire") || slices.Contains(c.Actions, "deactivate")) {
+			t.Errorf("%s ist immutable, bietet aber eine Ende-Action an: %v", c.Object, c.Actions)
+		}
 	}
 }

@@ -25,14 +25,7 @@
       <a class="btn" href="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}"
          hx-get="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}" hx-target="#modal">{{.Label}}</a>
       {{end}}
-      {{with .Has.delete}}
-      <form class="inline" method="post" action="{{$.URL}}/{{pathEscape $.ID}}"
-            hx-delete="{{$.URL}}/{{pathEscape $.ID}}" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>
-        <input type="hidden" name="_method" value="DELETE">
-        <input type="hidden" name="_view" value="detail">
-        <button type="submit" class="btn danger">{{.Label}}</button>
-      </form>
-      {{end}}
+      {{template "end-button" (endBtn $.Ctx $.Record "detail" "btn danger")}}
     </div>
     {{end}}
   </header>

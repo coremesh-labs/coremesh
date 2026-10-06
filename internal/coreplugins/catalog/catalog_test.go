@@ -118,7 +118,7 @@ func TestRegisterRejectsForeignObjectsAndActions(t *testing.T) {
 	foreign.Actions = []metamodel.ActionConfig{{Name: "list", Kind: metamodel.KindList, Label: "Übersicht"}}
 
 	unknownAction := partnerDef()
-	unknownAction.Actions = append(unknownAction.Actions, metamodel.ActionConfig{Name: "delete", Kind: metamodel.KindDelete, Label: "Löschen"})
+	unknownAction.Actions = append(unknownAction.Actions, metamodel.ActionConfig{Name: "archive", Kind: metamodel.KindCustom, Label: "Archivieren"})
 
 	foreignAction := partnerDef() // search gehört partner-search, nicht partner
 	foreignAction.Actions = append(foreignAction.Actions, metamodel.ActionConfig{Name: "search", Kind: metamodel.KindCustom, Label: "Suchen"})

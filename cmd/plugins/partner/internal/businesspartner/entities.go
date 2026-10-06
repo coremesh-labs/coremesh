@@ -23,7 +23,7 @@ var timeSliceFields = []field{
 func withTimeSlice(fs ...field) []field { return append(fs, timeSliceFields...) }
 
 var (
-	refBP          = &ref{Table: "partner__bp", Column: "id", Label: "Geschäftspartner", Object: "BusinessPartner", LabelFields: []string{"name1", "name2"}}
+	refBP          = &ref{Table: "partner__bp", Column: "id", Label: "Geschäftspartner", ActiveField: "is_active", Object: "BusinessPartner", LabelFields: []string{"name1", "name2"}}
 	refAddress     = &ref{Table: "partner__addresses", Column: "id", Label: "Adresse", Object: "PartnerAddressData", LabelFields: []string{"street", "house_no", "zip_code", "city", "country"}}
 	refAddressRole = &ref{Table: "partner__address_roles", Column: "code", Label: "Adressrolle", TimeSliced: true, Object: "PartnerAddressRole", LabelFields: []string{"description"}}
 	refCommCat     = &ref{Table: "partner__comm_categories", Column: "code", Label: "Kommunikationskategorie", Object: "PartnerCommCategory", LabelFields: []string{"description"}}
@@ -58,9 +58,6 @@ func (m *Module) addressRoleCatalog() *entity {
 			}
 			return m.uniqueMain(ctx, "partner__address_roles", "code", str(rec["code"]), "", nil, "Hauptanschrift")
 		},
-		beforeDelete: func(ctx context.Context, rec record) error {
-			return m.inUse(ctx, "Adressrolle", str(rec["code"]), [2]string{"partner__bp_addresses", "address_role_code"})
-		},
 	}
 }
 
@@ -71,9 +68,6 @@ func (m *Module) commCategoryCatalog() *entity {
 		Fields: []field{
 			{Key: "code", Label: "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
-		},
-		beforeDelete: func(ctx context.Context, rec record) error {
-			return m.inUse(ctx, "Kommunikationskategorie", str(rec["code"]), [2]string{"partner__comm_types", "category_code"})
 		},
 	}
 }
@@ -95,9 +89,6 @@ func (m *Module) commTypeCatalog() *entity {
 			}
 			return m.uniqueMain(ctx, "partner__comm_types", "code", str(rec["code"]), "category_code", rec["category_code"], "Haupttyp der Kategorie "+str(rec["category_code"]))
 		},
-		beforeDelete: func(ctx context.Context, rec record) error {
-			return m.inUse(ctx, "Kommunikationstyp", str(rec["code"]), [2]string{"partner__contacts", "comm_type_code"})
-		},
 	}
 }
 
@@ -111,10 +102,6 @@ func (m *Module) roleTypeCatalog() *entity {
 			field{Key: "is_debitor", Label: "Debitor (Finanzrolle)", Type: tBool, Listable: true},
 			field{Key: "is_creditor", Label: "Kreditor (Finanzrolle)", Type: tBool, Listable: true},
 		),
-		beforeDelete: func(ctx context.Context, rec record) error {
-			return m.inUse(ctx, "Rolle", str(rec["code"]),
-				[2]string{"partner__roles", "role_code"}, [2]string{"partner__company_codes", "role_code"})
-		},
 	}
 }
 
@@ -141,14 +128,14 @@ func (m *Module) uniqueMain(ctx context.Context, table, keyCol, key, groupCol st
 func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
-		Keys: []string{"id"}, Surrogate: true, Order: "search_term, name1",
+		Keys: []string{"id"}, Surrogate: true, Order: "search_term, name1", StatusField: "is_active",
 		Search: []string{"name1", "name2", "search_term"},
 		// Detailansicht im Stil von LeanIX: Stammdaten plus eingebettete
 		// Unter-Objects. Adressen sind n:m über die Zuordnung PartnerAddress
 		// (Rolle + Zeitscheibe) zu wiederverwendbaren PartnerAddressData.
 		TitleField: "name1",
 		Sections: []metamodel.SectionDefinition{
-			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2", "search_term", "is_blocked", "id"}},
+			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2", "search_term", "is_blocked", "is_active", "id"}},
 			{Key: "rollen", Title: "Rollen", Relation: &metamodel.Relation{Object: "PartnerRole", ForeignKey: "bp_id",
 				Columns: []string{"role_code", "company_codes", "valid_from", "valid_to"}}},
 			{Key: "adressen", Title: "Adressen", Relation: &metamodel.Relation{Object: "PartnerAddress", ForeignKey: "bp_id",
@@ -168,30 +155,12 @@ func (m *Module) businessPartner() *entity {
 			{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
 			{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
 			{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
+			// Status-Flag: nur über deactivate änderbar (Lebenszyklus status).
+			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
 		},
 		validate: func(_ context.Context, rec, _ record) error {
 			if rec["search_term"] == nil { // Matchcode aus Name 1
 				rec["search_term"] = strings.ToUpper(str(rec["name1"]))
-			}
-			return nil
-		},
-		// Löschen entfernt alle Beziehungen des Partners (Adressen selbst bleiben,
-		// sie sind wiederverwendbar). Buchungskreisdaten nur mit Zugriff darauf.
-		beforeDelete: func(ctx context.Context, rec record) error {
-			id := str(rec["id"])
-			res, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ?", id)
-			if err != nil {
-				return err
-			}
-			for _, r := range res.Rows {
-				if err := requireCompanyCode(ctx, "delete", str(r[0])); err != nil {
-					return err
-				}
-			}
-			for _, t := range []string{"partner__company_codes", "partner__roles", "partner__bp_addresses", "partner__contacts", "partner__bank_details"} {
-				if _, err := m.db.Exec(ctx, "DELETE FROM "+t+" WHERE bp_id = ?", id); err != nil {
-					return err
-				}
 			}
 			return nil
 		},
@@ -214,9 +183,6 @@ func (m *Module) address() *entity {
 			c, err := normalizeCountry(str(rec["country"]))
 			rec["country"] = c
 			return err
-		},
-		beforeDelete: func(ctx context.Context, rec record) error {
-			return m.inUse(ctx, "Adresse", str(rec["id"]), [2]string{"partner__bp_addresses", "address_id"})
 		},
 	}
 }

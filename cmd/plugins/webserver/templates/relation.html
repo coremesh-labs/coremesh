@@ -36,10 +36,7 @@
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
            hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>
         {{end}}
-        {{with .Rel.Child.Has.delete}}
-        <button type="button" class="link danger" hx-delete="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}?_view=refresh"
-                hx-target="closest tr" hx-swap="outerHTML" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
-        {{end}}
+        {{template "end-button" (endBtn .Rel.Child .Row "refresh" "link danger")}}
       </td>
     </tr>
     {{end}}{{end}}
