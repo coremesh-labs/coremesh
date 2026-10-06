@@ -1,0 +1,62 @@
+{{/*
+  Übersicht eines Objects (GET /ui/{object}).
+  Daten: view {Object, Def, Has, Custom, Rows}.
+  Blöcke: list, list-toolbar, table, row, row-actions.
+
+  Die Liste lädt sich nach einer custom-Action neu (Ereignis coremesh-changed).
+*/}}
+{{define "list"}}
+<section id="list" class="object-list"
+         hx-get="/ui/{{.Object}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
+  <header class="page-header">
+    <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}</h1>
+    {{block "list-toolbar" .}}
+    <div class="toolbar">
+      {{with .Has.create}}
+      <a class="btn primary" href="/ui/{{$.Object}}/new" hx-get="/ui/{{$.Object}}/new" hx-target="#modal">{{.Label}}</a>
+      {{end}}
+      {{range .Custom}}
+      <a class="btn" href="/action/{{$.Object}}/{{.Name}}" hx-get="/action/{{$.Object}}/{{.Name}}" hx-target="#modal">{{.Label}}</a>
+      {{end}}
+    </div>
+    {{end}}
+  </header>
+  {{template "table" .}}
+</section>
+{{end}}
+
+{{define "table"}}
+<table class="data">
+  <thead>
+    <tr>
+      {{range listable .Def}}<th>{{.Label}}</th>{{end}}
+      <th class="actions"><span class="sr-only">Aktionen</span></th>
+    </tr>
+  </thead>
+  <tbody id="rows">
+    {{range .Rows}}{{template "row" ($.Row .)}}{{end}}
+  </tbody>
+</table>
+{{if not .Rows}}<p class="empty">Keine Einträge.</p>{{end}}
+{{end}}
+
+{{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>". */}}
+{{define "row"}}
+<tr id="row-{{domID .ID}}">
+  {{range listable .Def}}<td>{{value $.Record .}}</td>{{end}}
+  <td class="actions">{{block "row-actions" .}}
+    {{with .Has.item}}
+    <a href="/ui/{{$.Object}}/{{pathEscape $.ID}}" hx-get="/ui/{{$.Object}}/{{pathEscape $.ID}}"
+       hx-target="#main-content" hx-push-url="true">{{.Label}}</a>
+    {{end}}
+    {{with .Has.update}}
+    <a href="/ui/{{$.Object}}/{{pathEscape $.ID}}/edit" hx-get="/ui/{{$.Object}}/{{pathEscape $.ID}}/edit?view=row"
+       hx-target="#modal">{{.Label}}</a>
+    {{end}}
+    {{with .Has.delete}}
+    <button type="button" class="link danger" hx-delete="/ui/{{$.Object}}/{{pathEscape $.ID}}"
+            hx-target="closest tr" hx-swap="outerHTML" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+    {{end}}
+  {{end}}</td>
+</tr>
+{{end}}

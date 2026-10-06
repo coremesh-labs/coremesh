@@ -1,0 +1,10 @@
+# Core-Plugin für das Datenbankschema (läuft im Host-Prozess).
+plugins:
+  dbschema:
+    kind: internal
+    settings:
+      database: main
+      migrations_dir: ./migrations
+      # prefix (Standard): Tabellen <modul>__* im Standard-Schema (SQLite + PostgreSQL)
+      # schema: eigenes DB-Schema mod_<modul> pro Modul (nur PostgreSQL)
+      isolation: prefix

@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package coremesh.plugin.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/camel/coremesh/internal/api/plugin/v1;pluginv1";
+
+// PluginService wird vom Plugin implementiert und vom Host aufgerufen.
+//
+// Lebenszyklus: GetManifest -> Configure -> Handle (beliebig oft).
+// Start, Health-Checks und Beenden der Prozesse übernimmt HashiCorp go-plugin.
+// Fehler werden als gRPC-Status gemeldet (z. B. InvalidArgument, NotFound,
+// PermissionDenied), nicht als Feld in den Antworten.
+//
+// Dispatcher-Match-Logik:
+//   Der Dispatcher leitet ein HandleRequest an genau das Plugin weiter, dessen
+//   Manifest eine Capability mit identischem `object` enthält, in deren
+//   `actions` die angefragte `action` vorkommt. Der Vergleich ist exakt und
+//   case-sensitiv; Wildcards gibt es nicht. Jedes Paar (object, action) darf
+//   host-weit nur einem Plugin gehören – meldet ein zweites Plugin dasselbe
+//   Paar, lehnt der Host dessen Registrierung ab. Findet sich kein Treffer,
+//   antwortet der Dispatcher mit gRPC-Status Unimplemented.
+service PluginService {
+  // GetManifest liefert Identität und Fähigkeiten. Wird direkt nach dem Start
+  // aufgerufen; der Dispatcher baut daraus seine (object, action)-Routingtabelle.
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+
+  // Configure übergibt die pluginspezifischen Einstellungen aus der Host-Config
+  // sowie die Broker-ID, unter der das Plugin den HostService erreicht.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Handle verarbeitet eine vom Dispatcher weitergeleitete (object, action).
+  rpc Handle(HandleRequest) returns (HandleResponse);
+}
+
+// Context begleitet jeden Aufruf über die Prozessgrenze hinweg.
+//
+// Die Felder werden ausschließlich vom Host gesetzt (aus Authentifizierung und
+// Routing). Plugins vertrauen diesen Werten und leiten Mandant oder Benutzer
+// niemals aus dem Payload ab.
+message Context {
+  // Korrelations-ID für Logging und Tracing. Ein Plugin gibt sie in der
+  // Antwort unverändert zurück.
+  string request_id = 1;
+  // Mandant, in dessen Namen der Aufruf erfolgt. Leer bei host-weiten
+  // Aufrufen (GetManifest, Configure).
+  string tenant_id = 2;
+  // Authentifizierter Benutzer. Leer bei System- und host-weiten Aufrufen.
+  string user_id = 3;
+  // Flexible Header, z. B. "locale", "traceparent". Schlüssel in
+  // Kleinbuchstaben; für die Fachlogik nicht vorgesehen – dafür ist der Payload da.
+  map<string, string> metadata = 4;
+  // Laufende Transaktionen dieser Aufrufkette: logischer Datenbankname ->
+  // tx_id (von HostService.BeginTx vergeben). Wird mit jedem Query, Exec und
+  // Dispatch mitgeschickt, sodass auch über Dispatch aufgerufene Plugins in
+  // derselben Transaktion arbeiten. Der Host prüft jede tx_id gegen
+  // request_id und Datenbank; unbekannte oder fremde IDs werden abgelehnt.
+  map<string, string> tx_ids = 5;
+}
+
+message Manifest {
+  // Eindeutiger Name, z. B. "partner-service". Erlaubt: [a-z0-9-].
+  string name = 1;
+  // Semantische Version des Plugins, z. B. "1.2.0".
+  string version = 2;
+  string description = 3;
+  // Business-Objects und Aktionen, die dieses Plugin bedient.
+  repeated Capability capabilities = 4;
+}
+
+// Capability beschreibt ein Business-Object und die darauf unterstützten
+// Aktionen. Jedes Paar (object, actions[i]) ist ein Routing-Eintrag im
+// Dispatcher.
+message Capability {
+  // Business-Object in PascalCase, z. B. "BusinessPartner", "SalesOrder".
+  string object = 1;
+  // Aktionen auf diesem Objekt in camelCase, z. B. ["get", "list", "create"].
+  // Muss mindestens einen Eintrag enthalten und darf keine Duplikate haben.
+  repeated string actions = 2;
+  string description = 3;
+}
+
+message GetManifestRequest {
+  // Nur request_id ist gesetzt.
+  Context context = 1;
+}
+
+message GetManifestResponse {
+  Manifest manifest = 1;
+}
+
+message ConfigureRequest {
+  // Nur request_id ist gesetzt.
+  Context context = 1;
+  // Abschnitt `plugins.<name>.settings` aus configs/host.yaml.
+  google.protobuf.Struct settings = 2;
+  // go-plugin GRPCBroker-ID für die Rückverbindung zum HostService.
+  uint32 host_service_broker_id = 3;
+}
+
+message ConfigureResponse {}
+
+message HandleRequest {
+  // Aufrufkontext (Korrelation, Mandant, Benutzer, Header).
+  Context context = 1;
+  // Business-Object, z. B. "BusinessPartner". Bildet zusammen mit `action`
+  // den Routing-Schlüssel des Dispatchers.
+  string object = 2;
+  // Aktion auf dem Business-Object, z. B. "get".
+  string action = 3;
+  // Fachliche Eingabedaten, frei strukturiert (Objekt, Liste, Skalar oder
+  // null). Das erwartete Schema legt das Plugin pro (object, action) fest;
+  // passt es nicht, antwortet das Plugin mit InvalidArgument.
+  google.protobuf.Value payload = 4;
+}
+
+message HandleResponse {
+  // Kontext der Anfrage; request_id unverändert, metadata darf das Plugin
+  // ergänzen. tenant_id und user_id ignoriert der Host in der Antwort.
+  Context context = 1;
+  // Fachliches Ergebnis, frei strukturiert.
+  google.protobuf.Value payload = 2;
+}

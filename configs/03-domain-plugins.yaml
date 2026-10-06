@@ -1,0 +1,12 @@
+# Domain-Plugins (eigene Prozesse via HashiCorp go-plugin).
+plugins:
+  hello:
+    version: 0.1.0
+    # sha256: "<64 hex>"   # Pflicht für Downloads; lokal empfohlen (Prüfung bei jedem Start)
+    args: []
+    env:                   # Umgebung des Hosts wird NICHT vererbt
+      TZ: Europe/Zurich
+    settings:
+      greeting: Grüezi
+    databases:
+      main: { access: write }   # write: Schema-Init (DDL) und INSERT

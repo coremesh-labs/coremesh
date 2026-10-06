@@ -1,0 +1,19 @@
+# Web-Frontend (externes Plugin, eigenes Go-Modul unter cmd/plugins/webserver).
+plugins:
+  webserver:
+    version: 0.3.0
+    # Ingress: darf eigene Wurzelanfragen starten (HTTP-Anfragen von außen).
+    ingress: true
+    # Session-Tabelle (webserver__sessions) via DBSchema.Init; Benutzer und Rollen: Plugin iam.
+    databases:
+      main: { access: write }
+    settings:
+      listen: 0.0.0.0:8080         # alle Netzwerkschnittstellen; 127.0.0.1:8080 = nur lokal
+      title: CoreMesh
+      tenant: demo                 # Mandant für Benutzer ohne eigenen Mandanten
+      session_ttl: 12h
+      # tls_cert: ./certs/server.crt  # beide gesetzt = HTTPS (dringend empfohlen im Netz)
+      # tls_key: ./certs/server.key
+      # cookie_secure: true         # hinter einem TLS-terminierenden Reverse Proxy
+      # templates_dir: ./web/templates
+      # static_dir: ./web/static

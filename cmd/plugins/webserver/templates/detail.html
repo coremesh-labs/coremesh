@@ -1,0 +1,38 @@
+{{/*
+  Detailansicht (GET /ui/{object}/{id}). Ziel für PUT aus dem Dialog: #detail.
+  Daten: view {Object, Def, Has, Custom, Record}.
+  Blöcke: detail, detail-toolbar.
+*/}}
+{{define "detail"}}
+<section id="detail" class="detail">
+  <header class="page-header">
+    <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}</h1>
+    {{block "detail-toolbar" .}}
+    <div class="toolbar">
+      {{if .Has.list}}
+      <a class="btn" href="/ui/{{.Object}}" hx-get="/ui/{{.Object}}" hx-target="#main-content" hx-push-url="true">Zurück</a>
+      {{end}}
+      {{with .Has.update}}
+      <a class="btn primary" href="/ui/{{$.Object}}/{{pathEscape $.ID}}/edit"
+         hx-get="/ui/{{$.Object}}/{{pathEscape $.ID}}/edit?view=detail" hx-target="#modal">{{.Label}}</a>
+      {{end}}
+      {{range .Custom}}
+      <a class="btn" href="/action/{{$.Object}}/{{.Name}}?id={{$.ID}}"
+         hx-get="/action/{{$.Object}}/{{.Name}}?id={{$.ID}}" hx-target="#modal">{{.Label}}</a>
+      {{end}}
+      {{with .Has.delete}}
+      <form class="inline" method="post" action="/ui/{{$.Object}}/{{pathEscape $.ID}}"
+            hx-delete="/ui/{{$.Object}}/{{pathEscape $.ID}}" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>
+        <input type="hidden" name="_method" value="DELETE">
+        <input type="hidden" name="_view" value="detail">
+        <button type="submit" class="btn danger">{{.Label}}</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </header>
+  <dl class="fields">
+    {{range .Def.Fields}}<dt>{{.Label}}</dt><dd>{{value $.Record .}}</dd>{{end}}
+  </dl>
+</section>
+{{end}}

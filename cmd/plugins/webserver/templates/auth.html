@@ -1,0 +1,66 @@
+{{/*
+  Anmeldung und Konto.
+  Blöcke: login (eigenständige Seite ohne Sidebar), password, user-menu.
+*/}}
+
+{{/* Daten: {AppTitle, Error, Username, Next}. Normales Formular ohne HTMX. */}}
+{{define "login"}}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anmelden · {{.AppTitle}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="login-page">
+  <main class="login-box">
+    <h1>{{.AppTitle}}</h1>
+    {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{.Next}}">
+      <label class="field"><span>Benutzername</span>
+        <input type="text" name="username" value="{{.Username}}" autocomplete="username" required autofocus>
+      </label>
+      <label class="field"><span>Passwort</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <footer><button type="submit" class="btn primary">Anmelden</button></footer>
+    </form>
+  </main>
+</body>
+</html>{{end}}
+
+{{/* Daten: {User, Error, Done}. */}}
+{{define "password"}}
+<section class="account">
+  <header class="page-header"><h1>Passwort ändern</h1></header>
+  {{if .Done}}
+  <p class="result-message" role="status">Das Passwort wurde geändert. Alle anderen Anmeldungen wurden beendet.</p>
+  {{else}}
+  {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+  <form method="post" action="/account/password" hx-post="/account/password" hx-target="#main-content" class="narrow">
+    <label class="field"><span>Aktuelles Passwort</span>
+      <input type="password" name="current_password" autocomplete="current-password" required>
+    </label>
+    <label class="field"><span>Neues Passwort (mind. 10 Zeichen)</span>
+      <input type="password" name="new_password" autocomplete="new-password" minlength="10" required>
+    </label>
+    <label class="field"><span>Neues Passwort wiederholen</span>
+      <input type="password" name="confirm_password" autocomplete="new-password" minlength="10" required>
+    </label>
+    <footer><button type="submit" class="btn primary">Passwort ändern</button></footer>
+  </form>
+  {{end}}
+</section>
+{{end}}
+
+{{/* Benutzermenü in der Sidebar. Daten: pageData. */}}
+{{define "user-menu"}}
+{{with .User}}
+<div class="user-menu">
+  <span class="user-name">{{.Name}}</span>
+  <a href="/account/password" hx-get="/account/password" hx-target="#main-content" hx-push-url="true">Passwort ändern</a>
+  <form method="post" action="/logout"><button type="submit" class="link">Abmelden</button></form>
+</div>
+{{end}}
+{{end}}
