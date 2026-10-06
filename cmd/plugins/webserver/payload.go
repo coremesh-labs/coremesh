@@ -115,7 +115,7 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 		}
 		if v == "" {
 			if f.Required {
-				errs[f.Key] = "Pflichtfeld"
+				errs[f.Key] = "core.validation.required"
 			}
 			data[f.Key] = nil
 			continue
@@ -124,25 +124,25 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 		case metamodel.TypeNumber:
 			n, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64)
 			if err != nil {
-				errs[f.Key] = "Zahl erwartet"
+				errs[f.Key] = "core.validation.number"
 				continue
 			}
 			data[f.Key] = n
 		case metamodel.TypeEmail:
 			if a, err := mail.ParseAddress(v); err != nil || a.Address != v {
-				errs[f.Key] = "Ungültige E-Mail-Adresse"
+				errs[f.Key] = "core.validation.email"
 				continue
 			}
 			data[f.Key] = v
 		case metamodel.TypeDate:
 			if _, err := time.Parse(time.DateOnly, v); err != nil {
-				errs[f.Key] = "Datum im Format JJJJ-MM-TT erwartet"
+				errs[f.Key] = "core.validation.date"
 				continue
 			}
 			data[f.Key] = v
 		case metamodel.TypeSelect:
 			if !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == v }) {
-				errs[f.Key] = "Ungültige Auswahl"
+				errs[f.Key] = "core.validation.option"
 				continue
 			}
 			data[f.Key] = v
@@ -157,6 +157,8 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 
 // objectCtx ist ein Business-Object mit Metamodell und den Actions je Kind.
 type objectCtx struct {
+	tr func(key string, args ...any) string // Framework-Texte in der Sprache der Anfrage (siehe T)
+
 	Module    string // Namensraum des Moduls
 	Object    string
 	URL       string // /m/{module}/{object}
@@ -234,6 +236,7 @@ type view struct {
 	ActionID   string // id für custom-Actions
 	FormFields []fieldCtx
 	FormError  string
+	History    bool // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
 	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
 	EndKind string // timeslice | status

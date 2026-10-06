@@ -117,8 +117,14 @@ func (d ObjectDefinition) Validate() error {
 		if s.Title == "" {
 			add("%s: title fehlt", where)
 		}
-		if (len(s.Fields) > 0) == (s.Relation != nil) {
-			add("%s: genau eines von fields und relation angeben", where)
+		kinds := 0
+		for _, set := range []bool{len(s.Fields) > 0, s.Relation != nil, s.Tags} {
+			if set {
+				kinds++
+			}
+		}
+		if kinds != 1 {
+			add("%s: genau eines von fields, relation und tags angeben", where)
 		}
 		for _, k := range s.Fields {
 			switch {
@@ -166,7 +172,15 @@ func checkLifecycle(d ObjectDefinition, add func(string, ...any)) {
 		field(l.ValidFrom, TypeDate, "valid_from")
 		field(l.ValidTo, TypeDate, "valid_to")
 	case LifecycleStatus:
-		field(l.StatusField, TypeBoolean, "status_field")
+		i := slices.IndexFunc(d.Fields, func(f FieldDefinition) bool { return f.Key == l.StatusField })
+		switch {
+		case l.InactiveValue == "":
+			field(l.StatusField, TypeBoolean, "status_field")
+		case i < 0 || d.Fields[i].Type != TypeSelect:
+			add("lifecycle status: status_field %q mit inactive_value muss type select haben", l.StatusField)
+		case !slices.ContainsFunc(d.Fields[i].Options, func(o Option) bool { return o.Value == l.InactiveValue }):
+			add("lifecycle status: inactive_value %q ist kein Wert von %s", l.InactiveValue, l.StatusField)
+		}
 	case LifecycleImmutable:
 		if l.ValidFrom != "" || l.ValidTo != "" || l.StatusField != "" {
 			add("lifecycle immutable: keine Felder angeben")

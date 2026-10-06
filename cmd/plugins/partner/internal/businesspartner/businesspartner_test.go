@@ -581,7 +581,7 @@ func TestValidFromInPrimaryKey(t *testing.T) {
 	if err := sqlite.EvalHCLBytes([]byte("schema \"main\" {}\n"+schemaHCL), &desired, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range m.order {
+	for _, e := range m.set.Entities() {
 		if !e.TimeSlice {
 			continue
 		}
@@ -612,7 +612,7 @@ func TestTimeSliceVersions(t *testing.T) {
 
 	e.must("PartnerRoleType", "expire", map[string]any{"id": "DEBITOR", "valid_to": "2029-12-31"})
 	next := e.must("PartnerRoleType", "create", data("code", "DEBITOR", "description", "Debitor neu", "is_debitor", true, "valid_from", "2030-01-01"))
-	if next["_id"] != "DEBITOR|2030-01-01" || next["id"] != "DEBITOR|2030-01-01" {
+	if next["_id"] != "DEBITOR|2030-01-01" || next["id"] != "DEBITOR" {
 		t.Fatalf("neue Zeitscheibe: %v", next)
 	}
 	if got := e.must("PartnerRoleType", "get", map[string]any{"id": "DEBITOR"}); got["description"] != "Debitor" {
@@ -713,5 +713,69 @@ func TestMigrationFrom040(t *testing.T) {
 	// Zweite Zeitscheibe desselben Codes ist jetzt möglich (Primärschlüssel mit valid_from).
 	if _, err := db.Exec(`INSERT INTO partner__role_types (code, description, valid_from, valid_to) VALUES ('DEBITOR', 'Debitor neu', '2030-01-01', '9999-12-31')`); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestTranslationsComplete: Jeder Text der Metamodelle hat eine Übersetzung in
+// de, en und zh-CN – und keine Datei enthält verwaiste Schlüssel.
+func TestTranslationsComplete(t *testing.T) {
+	p := newPlugin(t)
+	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	d := resp.Payload.(metamodel.DescribeResponse)
+	want := map[string]bool{}
+	for _, m := range d.Modules {
+		want[m.TitleKey], want[m.DescriptionKey] = true, true
+		for _, o := range m.Objects {
+			want[o.SectionKey] = true
+		}
+	}
+	for _, o := range d.Objects {
+		want[o.TitleKey] = true
+		for _, f := range o.Fields {
+			want[f.LabelKey] = true
+			for _, op := range f.Options {
+				want[op.LabelKey] = true
+			}
+		}
+		for _, s := range o.Sections {
+			want[s.TitleKey] = true
+		}
+	}
+	for _, loc := range metamodel.Locales {
+		dict := d.Translations[loc]
+		for k := range want {
+			if dict[k] == "" {
+				t.Errorf("%s: Übersetzung fehlt: %s", loc, k)
+			}
+		}
+		for k := range dict {
+			if !want[k] && !strings.Contains(k, ".actions.") {
+				t.Errorf("%s: verwaister Schlüssel: %s", loc, k)
+			}
+		}
+	}
+}
+
+// TestHistoryFilter: list liefert standardmäßig nur heute gültige Datensätze;
+// includeHistory=true auch beendete und künftige.
+func TestHistoryFilter(t *testing.T) {
+	e := setup(t)
+	id := e.newBP("Historie AG")
+	e.must("PartnerContact", "create", data("bp_id", id, "comm_type_code", "EMAIL_WORK", "value", "alt@h.ch", "valid_from", "2020-01-01", "valid_to", "2020-12-31"))
+	e.must("PartnerContact", "create", data("bp_id", id, "comm_type_code", "EMAIL_WORK", "value", "jetzt@h.ch", "valid_from", "2021-01-01"))
+	e.must("PartnerContact", "create", data("bp_id", id, "comm_type_code", "MOBILE", "value", "+41 79 000 00 00", "valid_from", "2099-01-01"))
+	values := func(q map[string]any) string {
+		var out []string
+		for _, r := range e.items("PartnerContact", q) {
+			out = append(out, str(r["value"]))
+		}
+		slices.Sort(out)
+		return strings.Join(out, ",")
+	}
+	if got := values(map[string]any{"bp_id": id}); got != "jetzt@h.ch" {
+		t.Fatalf("Standard: %s", got)
+	}
+	if got := values(map[string]any{"bp_id": id, "includeHistory": "true"}); got != "+41 79 000 00 00,alt@h.ch,jetzt@h.ch" {
+		t.Fatalf("mit Historie: %s", got)
 	}
 }

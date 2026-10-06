@@ -86,6 +86,7 @@ func NewPlugin(info Info, modules ...Module) *Plugin {
 		p.mounted = append(p.mounted, mt)
 	}
 	errs = append(errs, p.checkSchemas()...)
+	errs = append(errs, p.checkTranslations()...)
 	if len(errs) > 0 {
 		p.err = fmt.Errorf("Plugin %s: %w", info.Name, errors.Join(errs...))
 	}
@@ -282,11 +283,24 @@ func (p *Plugin) describe() metamodel.DescribeResponse {
 	for _, m := range p.mounted {
 		for _, o := range m.router.objects {
 			if o.def != nil {
-				out.Objects = append(out.Objects, *o.def)
+				out.Objects = append(out.Objects, metamodel.WithKeys(m.desc.Name, *o.def))
 			}
 		}
 		if md := m.router.definition(m.desc); len(md.Objects) > 0 {
 			out.Modules = append(out.Modules, md)
+		}
+		if tr, ok := m.mod.(Translator); ok {
+			for loc, dict := range tr.Translations() {
+				if out.Translations == nil {
+					out.Translations = metamodel.Translations{}
+				}
+				if out.Translations[loc] == nil {
+					out.Translations[loc] = map[string]string{}
+				}
+				for k, v := range dict {
+					out.Translations[loc][k] = v
+				}
+			}
 		}
 	}
 	return out

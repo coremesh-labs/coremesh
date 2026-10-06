@@ -30,11 +30,11 @@
   {{range .FormFields}}{{template "field" .}}{{end}}
   {{block "form-buttons" .}}
   <footer>
-    <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}Speichern{{end}}</button>
+    <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}{{t "core.app.save"}}{{end}}</button>
     {{if .Modal}}
-    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">Abbrechen</button>
+    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.cancel"}}</button>
     {{else}}
-    <a class="btn" href="{{.CancelURL}}">Abbrechen</a>
+    <a class="btn" href="{{.CancelURL}}">{{t "core.app.cancel"}}</a>
     {{end}}
   </footer>
   {{end}}
@@ -48,7 +48,7 @@
 {{define "field"}}
 {{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else}}
 <label class="field{{if .Error}} invalid{{end}}">
-  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="Pflichtfeld">*</abbr>{{end}}</span>
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
   {{if eq .Type "select"}}
   <select name="{{.Field.Key}}" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
     {{if not .Field.Required}}<option value=""></option>{{end}}
@@ -63,8 +63,8 @@
   <span class="lookup">
     <input type="text" name="{{.Field.Key}}" value="{{.Value}}" autocomplete="off" {{if .Field.Required}}required{{end}}
            oninput="var l=this.parentNode.querySelector('.lookup-label');if(l)l.textContent=''">
-    <button type="button" class="btn lookup-btn" title="Aus {{.Field.Lookup.Object}} auswählen"
-            hx-get="/lookup?from={{.Object}}&field={{.Field.Key}}" hx-target="#lookup" hx-swap="innerHTML">Auswählen …</button>
+    <button type="button" class="btn lookup-btn" title="{{t "core.lookup.select_from" .Field.Label}}"
+            hx-get="/lookup?from={{.Object}}&field={{.Field.Key}}" hx-target="#lookup" hx-swap="innerHTML">{{t "core.lookup.select"}}</button>
     <span class="lookup-label" data-lookup-label="{{.Field.Key}}">{{.Label}}</span>
   </span>
   {{end}}
@@ -73,7 +73,7 @@
          {{if eq .Type "number"}}step="any"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>
   {{with .Label}}<small class="lookup-label">{{.}}</small>{{end}}
   {{end}}
-  {{with .Error}}<small class="error">{{.}}</small>{{end}}
+  {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </label>
 {{end}}
 {{end}}

@@ -280,7 +280,7 @@ func TestForbiddenIs403(t *testing.T) {
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
-		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "keine Berechtigung") {
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Berechtigung") {
 			t.Errorf("%s %s: %d", tc.method, tc.path, w.Code)
 		}
 	}

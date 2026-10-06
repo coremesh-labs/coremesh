@@ -74,7 +74,7 @@ func (m *Module) partnerRole() *entity {
 			field{Key: "company_codes", Label: "Buchungskreise (bei Finanzrollen Pflicht, nur beim Anlegen: 1000;140000;NT30 je Zeile)",
 				Type: metamodel.TypeTextarea, Listable: true, Virtual: true},
 		),
-		afterCreate: func(ctx context.Context, rec record) error {
+		AfterCreate: func(ctx context.Context, rec record) error {
 			fin, err := m.financeRole(ctx, str(rec["role_code"]))
 			if err != nil {
 				return err
@@ -97,7 +97,7 @@ func (m *Module) partnerRole() *entity {
 			}
 			return nil
 		},
-		decorate: func(ctx context.Context, rec record) error {
+		Decorate: func(ctx context.Context, rec record) error {
 			res, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ? ORDER BY company_code",
 				rec["bp_id"], rec["role_code"])
 			if err != nil {
@@ -151,32 +151,21 @@ func parseCompanyCodes(v any) ([]record, error) {
 // insertCompanyCode legt einen Buchungskreis-Eintrag an (mit allen Prüfungen
 // der Entität PartnerCompanyCode).
 func (m *Module) insertCompanyCode(ctx context.Context, data record, skipRoleCheck bool) error {
-	e := m.byObject[ccObject]
-	rec, err := e.input(map[string]any{"data": data})
+	e := m.set.Entity(ccObject)
+	rec, err := e.Input(map[string]any{"data": data})
 	if err != nil {
 		return err
 	}
 	if skipRoleCheck {
-		rec["_role_assigned"] = true
+		rec["_role_assigned"] = true // Rolle entsteht im selben Aufruf; Insert schreibt nur Spalten
 	}
-	if err := e.check(ctx, rec, nil); err != nil {
+	if err := e.Insert(ctx, rec); err != nil {
+		if errors.Is(err, sdk.ErrAlreadyExists) {
+			return fmt.Errorf("%w: Buchungskreis %s für %s existiert bereits", sdk.ErrAlreadyExists, str(rec["company_code"]), str(rec["role_code"]))
+		}
 		return err
 	}
-	delete(rec, "_role_assigned")
-	if err := e.checkRecord(ctx, "create", rec); err != nil {
-		return err
-	}
-	if _, err := e.load(ctx, rec); err == nil {
-		return fmt.Errorf("%w: Buchungskreis %s für %s existiert bereits", sdk.ErrAlreadyExists, str(rec["company_code"]), str(rec["role_code"]))
-	}
-	cols := e.columns()
-	marks := make([]string, len(cols))
-	args := make([]any, len(cols))
-	for i, c := range cols {
-		marks[i], args[i] = "?", rec[c]
-	}
-	_, err = m.db.Exec(ctx, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...)
-	return err
+	return nil
 }
 
 // --- Buchungskreis-Ausprägung (Debitor / Kreditor) ---------------------------------------
@@ -196,7 +185,7 @@ func (m *Module) partnerCompanyCode() *entity {
 			{Key: "dunning_block", Label: "Mahnsperre", Type: tBool, Listable: true},
 			{Key: "posting_block", Label: "Buchungssperre", Type: tBool, Listable: true},
 		},
-		validate: func(ctx context.Context, rec, old record) error {
+		Validate: func(ctx context.Context, rec, old record) error {
 			if old != nil {
 				return nil // Schlüssel unverändert, Rolle bereits geprüft
 			}
@@ -222,11 +211,11 @@ func (m *Module) partnerCompanyCode() *entity {
 			}
 			return nil
 		},
-		checkRecord: func(ctx context.Context, action string, rec record) error {
+		CheckRecord: func(ctx context.Context, action string, rec record) error {
 			return requireCompanyCode(ctx, action, str(rec["company_code"]))
 		},
 		// Liste nur mit den Buchungskreisen, die der Benutzer sehen darf.
-		listScope: func(ctx context.Context) (string, []any, bool, error) {
+		ListScope: func(ctx context.Context) (string, []any, bool, error) {
 			g, err := sdk.GrantedCompanyCodes(ctx, ccObject, "list")
 			if err != nil || g.All {
 				return "", nil, false, err

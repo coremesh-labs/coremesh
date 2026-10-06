@@ -27,6 +27,8 @@ Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──�
 8. [HTMX-Swaps im Detail](#8-htmx-swaps-im-detail)
 8b. [Master-Detail und Lookups](#master-detail-und-lookups)
 8c. [Lebenszyklus statt Löschen](#lebenszyklus-statt-löschen)
+8d. [Mehrsprachigkeit](#mehrsprachigkeit-de-en-zh-cn) und [historische Einträge](#historische-einträge)
+8e. [Tags (TagEditor) und Services](#tags-tageditor-und-services)
 9. [Fehlerbehandlung](#9-fehlerbehandlung)
 10. [Templates und Blöcke überschreiben](#10-templates-und-blöcke-überschreiben)
 11. [Konfiguration](#11-konfiguration) und [Anmeldung und Sicherheit](#anmeldung-und-sicherheit)
@@ -454,6 +456,87 @@ Fehler des Moduls, zum Beispiel ein Enddatum vor dem Beginn, erscheinen im Dialo
 Die Metadaten unter `GET /api/v1/{module}/{object}` enthalten
 `"lifecycle": {"type", "end_action", "valid_from", "valid_to", "status_field"}`.
 
+## Mehrsprachigkeit (de, en, zh-CN)
+
+Unterstützt werden **Deutsch (`de`)**, **Englisch (`en`)** und **Chinesisch, Festland (`zh-CN`)**,
+in vereinfachter Schrift. Die Tags `zh`, `zh-Hans` und `zh-SG` werden auf `zh-CN` abgebildet;
+traditionelles Chinesisch (`zh-TW`, `zh-HK`) wird nicht unterstützt.
+
+### Zwei Übersetzungsebenen
+
+| Ebene | Wo | Schlüssel | Beispiele |
+|---|---|---|---|
+| **Framework** | WebServer: `i18n/de.json`, `en.json`, `zh-CN.json` | `core.…` | Speichern, Abbrechen, Ende-Dialog, Lookup, Validierung, Meldungen, Anmeldung, Standardtexte der Action-Kinds (`core.action.create` …) |
+| **Fachtexte** | jedes Modul (z. B. `internal/businesspartner/i18n/*.json`) | `<modul>.…` | Titel, Feld-Labels, Auswahlwerte, Abschnitte, Navigation |
+
+Fachtexte stehen im Metamodell als Übersetzungsschlüssel (`title_key`, `label_key`,
+`confirm_key`, `section_key` …). Das Modul-SDK setzt sie nach einer Konvention, zum Beispiel
+`businesspartner.BusinessPartner.fields.name1`; siehe `metamodel.WithKeys`. Das Modul liefert
+seine Texte mit `Catalog.Describe`. Der Catalog prüft den Namensraum: Ein Modul darf nur eigene
+Schlüssel setzen. Er liefert die Texte über `Catalog.Translations` zusammengeführt aus.
+
+Der WebServer übersetzt jedes Metamodell vor dem Rendern (`localizeDef`). Fehlt ein Schlüssel,
+gilt Deutsch, sonst der Originaltext. Actions ohne eigene Übersetzung erhalten den Standardtext
+ihres Kinds. Templates übersetzen mit `{{t "core.app.save"}}`; dafür hat jede Sprache ihre
+eigene Kopie der Templates.
+
+### Sprachaushandlung (Middleware)
+
+1. **Profil** des Benutzers: `iam`-Spalte `locale`, gesetzt über `PATCH /api/v1/user/profile`.
+2. **Sprachwähler** der Oberfläche (Benutzermenü, Anmeldeseite): `POST /locale` setzt das
+   Cookie `coremesh_lang`. Bei angemeldeten Benutzern wird die Wahl auch im Profil gespeichert.
+   „Automatisch“ löscht beides.
+3. **`Accept-Language`** des Browsers, mit q-Werten.
+4. **Standard** aus `settings.default_locale`, sonst `de`.
+
+Die Antwort trägt `Content-Language` und `<html lang="…">`.
+
+### Endpunkte
+
+| Endpunkt | Inhalt |
+|---|---|
+| `GET /api/v1/i18n/{lang}` | `{"locale", "locales", "translations": {…}}`: Core und alle Module, flach, mit Rückfall auf de |
+| `GET /api/v1/user/profile` | eigenes Profil (`Account.Me`, inkl. `locale`) |
+| `PATCH /api/v1/user/profile` | `{"locale": "en" \| "zh-CN" \| "de" \| ""}` (leer = automatisch) |
+| `POST /locale` | Sprachwähler (Formular `locale`, `next`) |
+
+Die Modulnamen `i18n` und `user` sind reserviert.
+
+**Was nicht übersetzt wird:**
+- **Datenwerte**, etwa Katalogbeschreibungen wie „Debitor“: Das sind Stammdaten. Mehrsprachige
+  Stammdaten bräuchten Texttabellen je Sprache wie bei SAP.
+- **Fehlermeldungen der Module**, etwa „Enddatum liegt vor dem Beginn“: Sie bleiben deutsch.
+  Für eine Übersetzung bräuchten sie Fehlercodes.
+
+## Historische Einträge
+
+Listen und eingebettete Abschnitte zeigen standardmäßig nur **heute gültige bzw. aktive**
+Datensätze. Bei Objects mit Zeitscheibe oder Status-Flag gibt es den Schalter
+`[ ] Inaktive / historische Einträge anzeigen` (Block `history-toggle`). Er lädt die Liste
+bzw. den Abschnitt mit `?includeHistory=true` neu. Der Parameter geht als
+`{"query": {"includeHistory": "true"}}` an die `list`-Action; die API reicht ihn ebenso durch.
+
+## Tags (TagEditor) und Services
+
+**Services** sind Objects eines Moduls ohne Metamodell, zum Beispiel `Tags` im Modul
+`tagmanagement`. Sie stehen in `ModuleDefinition.services`, sind nur über die JSON-API
+`/api/v1/<modul>/<Service>/<action>` erreichbar und erscheinen nicht in der Navigation.
+`GET /api/v1/<modul>` listet sie mit `"section": "service"` und den erlaubten Actions.
+
+**TagEditor.** Ein Abschnitt mit `Tags: true` im Metamodell (`SectionDefinition`) bettet den
+generischen Tag-Editor ein. Er wird lazy über den fachlichen Schlüssel `id` des Datensatzes
+geladen, nicht über `_id`:
+
+| Route | Zweck |
+|---|---|
+| `GET /tags/{entity}/{id}?effectiveDate=…&companyCode=…` | Editor als Fragment (`Tags.get`, Buchungskreise aus `CompanyCode.list`) |
+| `POST /tags/{entity}/{id}/preview` | Regeln neu auswerten, ohne zu speichern (`Tags.validate`) |
+| `POST /tags/{entity}/{id}` | speichern ab „Gültig ab“ (`Tags.set`) |
+
+Templates: `templates/tags.html` (Blöcke `tag-editor`, `tag-field`), überschreibbar wie alle
+Blöcke. Ablauf, Regeln und Buchungskreis-Logik beschreibt
+[`cmd/plugins/tag/README.md`](../tag/README.md#ui-tageditor-entitytype-entityid).
+
 ## 9. Fehlerbehandlung
 
 | Fehler des Moduls (`errors.Is`) | HTTP-Status |
@@ -483,12 +566,12 @@ bleiben.
 
 | Datei | Blöcke | Daten |
 |---|---|---|
-| `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-module`, `nav-item`, `content`, `footer`, `scripts` | `pageData` (`nav-module`: `navModule`, `nav-item`: `navItem`) |
+| `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-module`, `nav-item`, `content`, `footer`, `scripts` (Sprachwähler: `locale-switch` in `auth.html`) | `pageData` (`nav-module`: `navModule`, `nav-item`: `navItem`) |
 | `list.html` | `list`, `list-toolbar`, `table`, `row`, `row-actions` | `view` |
 | `form.html` | `form`, `form-buttons`, `field`, `lookup-field` | `view` bzw. `fieldCtx` |
 | `detail.html` | `detail`, `detail-toolbar`, `detail-section`, `section-fields` | `view` |
 | `relation.html` | `relation`, `relation-toolbar`, `relation-row` | `relationView` bzw. `relRow` |
-| `lifecycle.html` | `end-button`, `end`, `end-timeslice`, `end-status` | `endBtn` bzw. `view` |
+| `lifecycle.html` | `end-button`, `end`, `end-timeslice`, `end-status`, `history-toggle` | `endBtn` bzw. `view` |
 | `lookup.html` | `lookup`, `lookup-rows` | `lookupView` |
 | `fragments.html` | `created`, `updated`, `modal-close`, `toast`, `result`, `home`, `error` | je Block |
 
@@ -532,6 +615,8 @@ eingebetteten Dateien.
 | `pathEscape` | Wert für URL-Pfade kodieren |
 | `domID` | ID für DOM-Element-IDs |
 | `json` | Wert als JSON |
+| `t "core.…" args…` | Framework-Text in der Sprache der Anfrage |
+| `locale`, `locales` | aktuelle bzw. alle Sprachen |
 | `raw .Record "key"` | Rohwert eines Felds (z. B. Schlüssel für Links) |
 | `sectionCtx`, `relRow` | Daten für die Blöcke `detail-section` und `relation-row` |
 

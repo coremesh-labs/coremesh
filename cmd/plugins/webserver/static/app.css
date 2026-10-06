@@ -123,3 +123,21 @@ tr.pick:hover, tr.pick:focus { background: var(--bg); outline: none; }
 .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem; }
 .badge.inactive { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 dialog.end-dialog input[type=date] { max-width: 14rem; }
+
+/* --- Sprachwähler --- */
+.locale-switch select { font: inherit; font-size: .85rem; padding: .15rem .3rem; border: 1px solid var(--border);
+                        border-radius: var(--radius); background: var(--surface); color: var(--muted); }
+.login-box .locale-switch { margin-top: 1rem; text-align: right; }
+.history-toggle { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--muted); margin-right: auto; }
+.relation-toolbar { gap: .75rem; align-items: center; }
+
+/* --- TagEditor --- */
+.tag-toolbar { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; margin-bottom: .75rem; font-size: .9rem; }
+.tag-toolbar label { display: grid; gap: .2rem; color: var(--muted); }
+fieldset.tag-set { border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem 1rem 1rem; margin: 0 0 .75rem;
+                   display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .5rem 1rem; }
+fieldset.tag-set legend { font-weight: 600; padding: 0 .35rem; }
+.tag-money { display: grid; grid-template-columns: 1fr 5.5rem; gap: .4rem; }
+.tag-editor footer { display: flex; gap: 1rem; align-items: end; justify-content: flex-end; }
+.tag-valid-from { display: grid; gap: .2rem; font-size: .9rem; color: var(--muted); }
+.field .badge { margin-left: .35rem; font-weight: 400; }

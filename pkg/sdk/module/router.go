@@ -123,7 +123,9 @@ func (r *Router) definition(d Descriptor) metamodel.ModuleDefinition {
 	for _, o := range r.objects {
 		if o.def != nil {
 			md.Objects = append(md.Objects, metamodel.ModuleObject{Object: o.name, Section: o.section})
+		} else {
+			md.Services = append(md.Services, o.name) // ohne Metamodell: nur JSON-API
 		}
 	}
-	return md
+	return metamodel.ModuleKeys(md)
 }

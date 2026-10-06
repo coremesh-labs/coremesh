@@ -1,15 +1,15 @@
-package businesspartner
+package crud
 
 import (
 	"context"
 	"strings"
 )
 
-// withLabels ergänzt Datensätze um "_labels": {<feld>: <lesbarer Text>} für
+// WithLabels ergänzt Datensätze um "_labels": {<feld>: <lesbarer Text>} für
 // alle Verweise mit LabelFields – je Feld eine Abfrage für alle Datensätze
 // (kein N+1). Die Oberfläche zeigt den Text statt des Schlüssels, z. B.
 // „Hauptanschrift“ statt MAIN oder die Anschrift statt der Adress-ID.
-func (e *entity) withLabels(ctx context.Context, recs ...record) error {
+func (e *Entity) WithLabels(ctx context.Context, recs ...Record) error {
 	for i := range e.Fields {
 		f := &e.Fields[i]
 		if f.Ref == nil || len(f.Ref.LabelFields) == 0 {
@@ -18,7 +18,7 @@ func (e *entity) withLabels(ctx context.Context, recs ...record) error {
 		var values []any
 		seen := map[string]bool{}
 		for _, rec := range recs {
-			if v := str(rec[f.Key]); v != "" && !seen[v] {
+			if v := Str(rec[f.Key]); v != "" && !seen[v] {
 				seen[v] = true
 				values = append(values, v)
 			}
@@ -37,18 +37,18 @@ func (e *entity) withLabels(ctx context.Context, recs ...record) error {
 			// Mehrere Zeitscheiben je Schlüssel: Die zuletzt gelesene gewinnt – die
 			// heute gültige, sonst die jüngste.
 			sql += " ORDER BY CASE WHEN valid_from <= ? AND valid_to >= ? THEN 1 ELSE 0 END, valid_from"
-			values = append(values, today(), today())
+			values = append(values, Today(), Today())
 		}
-		res, err := e.m.db.Query(ctx, sql, values...)
+		res, err := e.DB().Query(ctx, sql, values...)
 		if err != nil {
 			return err
 		}
 		texts := map[string]string{}
 		for _, r := range res.Rows {
-			texts[str(r[0])] = strings.Join(strings.Fields(str(r[1])), " ")
+			texts[Str(r[0])] = strings.Join(strings.Fields(Str(r[1])), " ")
 		}
 		for _, rec := range recs {
-			if t := texts[str(rec[f.Key])]; t != "" {
+			if t := texts[Str(rec[f.Key])]; t != "" {
 				labels, _ := rec["_labels"].(map[string]any)
 				if labels == nil {
 					labels = map[string]any{}

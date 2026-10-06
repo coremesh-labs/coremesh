@@ -5,11 +5,11 @@
 
 {{/* Daten: {AppTitle, Error, Username, Next}. Normales Formular ohne HTMX. */}}
 {{define "login"}}<!doctype html>
-<html lang="de">
+<html lang="{{locale}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Anmelden · {{.AppTitle}}</title>
+  <title>{{t "core.auth.title"}} · {{.AppTitle}}</title>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="login-page">
@@ -18,14 +18,15 @@
     {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/login">
       <input type="hidden" name="next" value="{{.Next}}">
-      <label class="field"><span>Benutzername</span>
+      <label class="field"><span>{{t "core.auth.username"}}</span>
         <input type="text" name="username" value="{{.Username}}" autocomplete="username" required autofocus>
       </label>
-      <label class="field"><span>Passwort</span>
+      <label class="field"><span>{{t "core.auth.password"}}</span>
         <input type="password" name="password" autocomplete="current-password" required>
       </label>
-      <footer><button type="submit" class="btn primary">Anmelden</button></footer>
+      <footer><button type="submit" class="btn primary">{{t "core.auth.submit"}}</button></footer>
     </form>
+    {{template "locale-switch" .Path}}
   </main>
 </body>
 </html>{{end}}
@@ -33,25 +34,38 @@
 {{/* Daten: {User, Error, Done}. */}}
 {{define "password"}}
 <section class="account">
-  <header class="page-header"><h1>Passwort ändern</h1></header>
+  <header class="page-header"><h1>{{t "core.auth.change_password"}}</h1></header>
   {{if .Done}}
-  <p class="result-message" role="status">Das Passwort wurde geändert. Alle anderen Anmeldungen wurden beendet.</p>
+  <p class="result-message" role="status">{{t "core.auth.password_changed"}}</p>
   {{else}}
   {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
   <form method="post" action="/account/password" hx-post="/account/password" hx-target="#main-content" class="narrow">
-    <label class="field"><span>Aktuelles Passwort</span>
+    <label class="field"><span>{{t "core.auth.current_password"}}</span>
       <input type="password" name="current_password" autocomplete="current-password" required>
     </label>
-    <label class="field"><span>Neues Passwort (mind. 10 Zeichen)</span>
+    <label class="field"><span>{{t "core.auth.new_password"}}</span>
       <input type="password" name="new_password" autocomplete="new-password" minlength="10" required>
     </label>
-    <label class="field"><span>Neues Passwort wiederholen</span>
+    <label class="field"><span>{{t "core.auth.repeat_password"}}</span>
       <input type="password" name="confirm_password" autocomplete="new-password" minlength="10" required>
     </label>
-    <footer><button type="submit" class="btn primary">Passwort ändern</button></footer>
+    <footer><button type="submit" class="btn primary">{{t "core.auth.change_password"}}</button></footer>
   </form>
   {{end}}
 </section>
+{{end}}
+
+{{/* Sprachwähler (POST /locale): setzt das Cookie und – angemeldet – die Sprache im
+     Profil. "auto" = automatisch (Accept-Language, Standard). Daten: Rücksprungpfad. */}}
+{{define "locale-switch"}}
+<form class="locale-switch" method="post" action="/locale">
+  <input type="hidden" name="next" value="{{.}}">
+  <select name="locale" aria-label="{{t "core.locale.label"}}" onchange="this.form.submit()">
+    <option value="auto">{{t "core.locale.auto"}}</option>
+    {{range locales}}<option value="{{.}}" {{if eq . locale}}selected{{end}}>{{t (print "core.locale." .)}}</option>{{end}}
+  </select>
+  <noscript><button type="submit" class="link">OK</button></noscript>
+</form>
 {{end}}
 
 {{/* Benutzermenü in der Sidebar. Daten: pageData. */}}
@@ -59,8 +73,9 @@
 {{with .User}}
 <div class="user-menu">
   <span class="user-name">{{.Name}}</span>
-  <a href="/account/password" hx-get="/account/password" hx-target="#main-content" hx-push-url="true">Passwort ändern</a>
-  <form method="post" action="/logout"><button type="submit" class="link">Abmelden</button></form>
+  <a href="/account/password" hx-get="/account/password" hx-target="#main-content" hx-push-url="true">{{t "core.auth.change_password"}}</a>
+  {{template "locale-switch" $.Path}}
+  <form method="post" action="/logout"><button type="submit" class="link">{{t "core.auth.logout"}}</button></form>
 </div>
 {{end}}
 {{end}}

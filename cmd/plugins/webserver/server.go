@@ -41,12 +41,17 @@ type server struct {
 	views   *renderer
 	cfg     settings
 	auth    *authService
+	i18n    *translationService
 	mux     *http.ServeMux
 	handler http.Handler
 }
 
 func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) *server {
-	s := &server{host: host, views: views, cfg: cfg, auth: auth, mux: http.NewServeMux()}
+	tr, err := newTranslationService(host, cfg.DefaultLocale)
+	if err != nil {
+		panic(err) // eingebettete Dateien – Fehler nur beim Entwickeln
+	}
+	s := &server{host: host, views: views, cfg: cfg, auth: auth, i18n: tr, mux: http.NewServeMux()}
 	s.mux.HandleFunc("GET /login", s.loginForm)
 	s.mux.HandleFunc("POST /login", s.login)
 	s.mux.HandleFunc("POST /logout", s.logout)
@@ -56,11 +61,20 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("GET /{$}", s.home)
 	// Nur Module: je Modul ein gekapselter Sub-Router für Oberfläche, Actions und API.
 	s.mux.HandleFunc("GET /lookup", s.lookup)
+	// Mehrsprachigkeit: Sprachwähler, Wörterbuch, eigenes Profil (siehe i18n.go).
+	s.mux.HandleFunc("POST /locale", s.setLocale)
+	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
+	s.mux.HandleFunc("GET /tags/{entity}/{id}", s.tagEditorGet)
+	s.mux.HandleFunc("POST /tags/{entity}/{id}", s.tagEditorPost)
+	s.mux.HandleFunc("POST /tags/{entity}/{id}/preview", s.tagEditorPost)
+	s.mux.HandleFunc("GET /api/v1/i18n/{lang}", s.apiTranslations)
+	s.mux.HandleFunc("GET /api/v1/user/profile", s.apiProfile)
+	s.mux.HandleFunc("PATCH /api/v1/user/profile", s.apiProfile)
 	s.mountModule("/m", s.uiRoutes(), s.fail)
 	s.mountModule("/action", s.actionRoutes(), s.fail)
 	s.mountModule("/api/v1", s.apiRoutes(), s.apiError)
 	// Reihenfolge: Schutz-Header → CSRF-Prüfung → Anmeldung → Routen.
-	s.handler = securityHeaders(checkOrigin(s.requireAuth(s.mux)))
+	s.handler = securityHeaders(checkOrigin(s.requireAuth(s.localeMiddleware(s.mux))))
 	return s
 }
 
@@ -105,7 +119,7 @@ func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 		return objectCtx{}, fmt.Errorf("%w: Object %q", sdk.ErrNotFound, object)
 	}
 	if _, ok := mod.object(object); !ok {
-		return objectCtx{}, fmt.Errorf("%w: %s gehört nicht zu Modul %s", sdk.ErrNotFound, object, mod.Title)
+		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrNotFound, s.T(r, "core.error.not_in_module", object, mod.Title))
 	}
 	resp, err := s.call(r, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
 	if err != nil {
@@ -119,9 +133,9 @@ func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 		return objectCtx{}, err
 	}
 	if !def.Available {
-		return objectCtx{}, fmt.Errorf("%w: %s ist derzeit nicht verfügbar", sdk.ErrUnavailable, def.Definition.Title)
+		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.unavailable", def.Definition.Title))
 	}
-	return newObjectCtx(mod.Name, object, def.Definition).visibleFor(userFrom(r)), nil
+	return s.withLocale(r, newObjectCtx(mod.Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r))), nil
 }
 
 // need liefert die Action eines Kinds oder einen Fehler, wenn das Object sie nicht anbietet.
@@ -130,7 +144,7 @@ func need(oc objectCtx, kind metamodel.ActionKind) (*metamodel.ActionConfig, err
 		return a, nil
 	}
 	if oc.Denied[string(kind)] {
-		return nil, fmt.Errorf("%w: keine Berechtigung für %s (%s)", sdk.ErrPermissionDenied, oc.Def.Title, kind)
+		return nil, fmt.Errorf("%w: %s", sdk.ErrPermissionDenied, oc.T("core.error.no_permission", oc.Def.Title, oc.T("core.action."+string(kind))))
 	}
 	return nil, fmt.Errorf("%w: %s bietet keine Aktion vom Typ %s an", sdk.ErrUnimplemented, oc.Def.Title, kind)
 }
@@ -149,13 +163,13 @@ func (s *server) render(w http.ResponseWriter, r *http.Request, status int, frag
 	var buf bytes.Buffer
 	var err error
 	if isHTMX(r) {
-		err = s.views.fragment(&buf, fragment, data)
+		err = s.views.fragment(localeFrom(r), &buf, fragment, data)
 	} else {
-		err = s.views.page(&buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r, active), User: userFrom(r)})
+		err = s.views.page(localeFrom(r), &buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r, active), User: userFrom(r), Path: originalURI(r)})
 	}
 	if err != nil {
 		s.logError(r, "Template "+fragment, err)
-		http.Error(w, "Darstellungsfehler", http.StatusInternalServerError)
+		http.Error(w, s.T(r, "core.app.render_error"), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -171,7 +185,7 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	msg := err.Error()
 	if status == http.StatusInternalServerError {
-		msg = "Interner Fehler"
+		msg = s.T(r, "core.app.internal_error")
 	}
 	if isHTMX(r) {
 		w.Header().Set("HX-Retarget", "#toast-container")
@@ -179,11 +193,13 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		s.render(w, r, status, "toast", &toast{Level: "error", Message: msg}, "", "")
 		return
 	}
-	s.render(w, r, status, "error", map[string]any{"Status": status, "Message": msg}, "Fehler", "")
+	s.render(w, r, status, "error", map[string]any{"Status": status, "Message": msg}, s.T(r, "core.app.error"), "")
 }
 
 func errStatus(err error) int {
 	switch {
+	case errors.Is(err, errUnsupportedMedia):
+		return http.StatusUnsupportedMediaType
 	case errors.Is(err, errMethodNotAllowed):
 		return http.StatusMethodNotAllowed
 	case errors.Is(err, sdk.ErrNotFound), errors.Is(err, sdk.ErrUnimplemented):
@@ -235,7 +251,7 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "list", view{objectCtx: oc, Rows: rows}, oc.Def.Title, oc.Object)
+	s.render(w, r, http.StatusOK, "list", view{objectCtx: oc, Rows: rows, History: includeHistory(r)}, oc.Def.Title, oc.Object)
 }
 
 // GET /m/{module}/{object}/new
@@ -268,7 +284,7 @@ func (s *server) createView(r *http.Request, oc objectCtx, values, errs map[stri
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
 	v := view{
 		objectCtx: oc, Mode: "create", Modal: isHTMX(r), ViewParam: refreshParam(r), Locked: lockList,
-		FormTitle: oc.Def.Title + " – " + oc.Has["create"].Label, FormAction: oc.URL,
+		FormTitle: s.T(r, "core.form.title", oc.Def.Title, oc.Has["create"].Label), FormAction: oc.URL,
 		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "create", values, errs, formOpts{locked: locked}),
 	}
 	return v
@@ -326,10 +342,10 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if refreshParam(r) == "refresh" {
-		s.refreshed(w, r, oc.Def.Title+" angelegt")
+		s.refreshed(w, r, s.T(r, "core.toast.created", oc.Def.Title))
 		return
 	}
-	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: &toast{Level: "success", Message: oc.Def.Title + " angelegt"}}
+	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: &toast{Level: "success", Message: s.T(r, "core.toast.created", oc.Def.Title)}}
 	s.render(w, r, http.StatusOK, "created", v, "", "")
 }
 
@@ -410,7 +426,7 @@ func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, err
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
 	return view{
 		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target, Locked: lockList,
-		FormTitle:  oc.Def.Title + " – " + oc.Has["update"].Label,
+		FormTitle:  s.T(r, "core.form.title", oc.Def.Title, oc.Has["update"].Label),
 		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
 		FormFields: buildFields(oc.Def, "edit", values, errs, formOpts{labels: labelsOf(rec), locked: locked}),
 	}
@@ -457,13 +473,13 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	}
 	viewParam := r.PostForm.Get("_view")
 	if viewParam == "refresh" {
-		s.refreshed(w, r, oc.Def.Title+" gespeichert")
+		s.refreshed(w, r, s.T(r, "core.toast.saved", oc.Def.Title))
 		return
 	}
 	if viewParam != "row" {
 		viewParam = "detail"
 	}
-	v := view{objectCtx: oc, Record: rec, ViewParam: viewParam, Toast: &toast{Level: "success", Message: oc.Def.Title + " gespeichert"}}
+	v := view{objectCtx: oc, Record: rec, ViewParam: viewParam, Toast: &toast{Level: "success", Message: s.T(r, "core.toast.saved", oc.Def.Title)}}
 	s.render(w, r, http.StatusOK, "updated", v, "", "")
 }
 
@@ -515,7 +531,7 @@ func (s *server) loadAction(r *http.Request) (objectCtx, *metamodel.ActionConfig
 	act := oc.custom(r.PathValue("name"))
 	if act == nil {
 		if oc.Denied["custom:"+r.PathValue("name")] {
-			return oc, nil, fmt.Errorf("%w: keine Berechtigung für %s.%s", sdk.ErrPermissionDenied, oc.Object, r.PathValue("name"))
+			return oc, nil, fmt.Errorf("%w: %s", sdk.ErrPermissionDenied, s.T(r, "core.error.no_permission_action", oc.Object, r.PathValue("name")))
 		}
 		return oc, nil, fmt.Errorf("%w: %s bietet die Aktion %q nicht an", sdk.ErrUnimplemented, oc.Def.Title, r.PathValue("name"))
 	}
@@ -525,7 +541,7 @@ func (s *server) loadAction(r *http.Request) (objectCtx, *metamodel.ActionConfig
 func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string, values, errs map[string]string) view {
 	return view{
 		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
-		FormTitle: oc.Def.Title + " – " + act.Label, FormAction: oc.ActionURL + "/" + act.Name,
+		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name,
 		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "action", values, errs, formOpts{}),
 	}
 }
@@ -561,7 +577,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := view{objectCtx: oc, Action: *act, Result: resp.Payload, Modal: isHTMX(r),
-		Toast: &toast{Level: "success", Message: act.Label + " ausgeführt"}}
+		Toast: &toast{Level: "success", Message: s.T(r, "core.toast.executed", act.Label)}}
 	if m, ok := resp.Payload.(map[string]any); ok {
 		v.Message, _ = m["message"].(string)
 	}

@@ -30,11 +30,11 @@ var errMethodNotAllowed = errors.New("method not allowed")
 func deleteNotAllowed(oc objectCtx) error {
 	switch oc.Def.Lifecycle.Kind() {
 	case metamodel.LifecycleTimeSlice:
-		return fmt.Errorf("%w: %s wird nicht gelöscht, sondern zu einem Enddatum beendet", errMethodNotAllowed, oc.Def.Title)
+		return fmt.Errorf("%w: %s", errMethodNotAllowed, oc.T("core.lifecycle.timeslice", oc.Def.Title))
 	case metamodel.LifecycleStatus:
-		return fmt.Errorf("%w: %s wird nicht gelöscht, sondern inaktiviert", errMethodNotAllowed, oc.Def.Title)
+		return fmt.Errorf("%w: %s", errMethodNotAllowed, oc.T("core.lifecycle.status", oc.Def.Title))
 	}
-	return fmt.Errorf("%w: %s kann weder gelöscht noch deaktiviert werden", errMethodNotAllowed, oc.Def.Title)
+	return fmt.Errorf("%w: %s", errMethodNotAllowed, oc.T("core.lifecycle.immutable", oc.Def.Title))
 }
 
 // endAction liefert die Ende-Action des Objects oder einen Fehler (405 bei
@@ -65,8 +65,10 @@ func newEndBtn(oc objectCtx, rec record, view, class string) endBtn {
 	if kind := oc.Def.Lifecycle.EndAction(); kind != "" {
 		b.Action = oc.Has[string(kind)]
 	}
-	if f := oc.Def.Lifecycle.StatusField; oc.Def.Lifecycle.Kind() == metamodel.LifecycleStatus && rec[f] == false {
-		b.Inactive = true
+	if l := oc.Def.Lifecycle; l.Kind() == metamodel.LifecycleStatus {
+		// Boolean: false = inaktiv; Auswahlfeld: InactiveValue (z. B. DEPRECATED).
+		v := rec[l.StatusField]
+		b.Inactive = v == false || (l.InactiveValue != "" && scalar(v) == l.InactiveValue)
 	}
 	return b
 }
@@ -87,10 +89,10 @@ func (s *server) endView(r *http.Request, oc objectCtx, rec record, act *metamod
 		title += " " + t
 	}
 	if v.EndKind == string(metamodel.LifecycleTimeSlice) {
-		v.FormTitle = "Gültigkeit beenden – " + title
+		v.FormTitle = s.T(r, "core.end.title_timeslice", title)
 		v.EndMin = scalar(rec[oc.Def.Lifecycle.ValidFrom])
 	} else {
-		v.FormTitle = "Inaktivieren – " + title
+		v.FormTitle = s.T(r, "core.end.title_status", title)
 	}
 	return v
 }
@@ -130,15 +132,15 @@ func (s *server) end(w http.ResponseWriter, r *http.Request) {
 	id := recordID(rec)
 	v := s.endView(r, oc, rec, act, r.PostForm.Get("_view"))
 	payload := map[string]any{"id": id}
-	msg := oc.Def.Title + " inaktiviert"
+	msg := s.T(r, "core.toast.deactivated", oc.Def.Title)
 	if v.EndKind == string(metamodel.LifecycleTimeSlice) {
 		v.EndDate = r.PostForm.Get("valid_to")
 		if v.EndDate == "" {
-			s.endAgain(w, r, v, "Bitte das Enddatum wählen.")
+			s.endAgain(w, r, v, s.T(r, "core.end.date_missing"))
 			return
 		}
 		payload["valid_to"] = v.EndDate
-		msg = oc.Def.Title + " beendet zum " + v.EndDate
+		msg = s.T(r, "core.toast.expired", oc.Def.Title, v.EndDate)
 	}
 	resp, err := s.call(r, oc.Object, act.Name, payload)
 	if err != nil {
@@ -186,4 +188,21 @@ func endActionName(oc objectCtx) string {
 		}
 	}
 	return ""
+}
+
+// HasHistory: Das Object hat Zeitscheibe oder Status-Flag – Listen zeigen
+// standardmäßig nur gültige bzw. aktive Einträge und bieten den Schalter an.
+func (oc objectCtx) HasHistory() bool {
+	return oc.Def.Lifecycle.Kind() != metamodel.LifecycleImmutable
+}
+
+// includeHistory: ?includeHistory=true in der Anfrage.
+func includeHistory(r *http.Request) bool {
+	v := r.URL.Query().Get("includeHistory")
+	return v == "true" || v == "1" || v == "on"
+}
+
+type historyCtx struct {
+	URL, Target, Swap string
+	On                bool
 }

@@ -178,10 +178,11 @@ Abschnitten:
 | Kommunikation | `PartnerContact` | Kommunikationstyp → `PartnerCommType` |
 | Bankverbindungen (zugeklappt) | `PartnerBankDetail` | – |
 | Buchungskreisdaten (zugeklappt) | `PartnerCompanyCode` | Buchungskreis → `CompanyCode` aus `iam` (über Modulgrenzen, nur lesend) |
+| Merkmale (zugeklappt) | Tags aus dem [TagManagement](../tag/README.md) (`Tags: true`), je Buchungskreis | Auswahlwerte der Tags |
 
 **Lookups und Labels.** Jeder Verweis (`ref` in `entities.go`) mit `Object` und `LabelFields`
 erscheint im Metamodell als Lookup. Die Engine liefert in jedem Datensatz `"_labels"` mit dem
-lesbaren Text, je Feld mit einer einzigen Abfrage für alle Datensätze (`labels.go`). Die
+lesbaren Text, je Feld mit einer einzigen Abfrage für alle Datensätze. Die
 Kataloge unterstützen die Suche `q` über Code und Beschreibung.
 
 **Aggregat.** `BusinessPartner.getAggregate` und `BusinessPartner.saveAggregate` stellt
@@ -193,15 +194,27 @@ console --object BusinessPartner --action saveAggregate --param 'data={"type":"O
   --param 'relations={"adressen":{"create":[{"address_id":"…","address_role_code":"MAIN"}]},"kommunikation":{"create":[{"comm_type_code":"EMAIL_WORK","value":"info@neu.ch"}]}}'
 ```
 
+## Sprachen und Historie
+
+- **Übersetzungen:** `internal/businesspartner/i18n/de.json`, `en.json`, `zh-CN.json` enthalten
+  alle Titel, Feld-Labels, Auswahlwerte, Abschnitte und Navigationsgruppen. Die chinesischen
+  Fachbegriffe folgen der SAP-Terminologie: 业务伙伴, 公司代码, 统驭科目, 催款冻结.
+  `TestTranslationsComplete` stellt sicher, dass jeder Text in allen drei Sprachen vorliegt und
+  keine Datei verwaiste Schlüssel enthält. Katalogbeschreibungen wie „Debitor“ sind Daten und
+  bleiben einsprachig.
+- **Historie:** `list` liefert standardmäßig nur Datensätze, die heute gültig sind
+  (`valid_from <= heute <= valid_to`) bzw. aktiv. Mit `includeHistory=true` in der Query kommen
+  auch beendete und künftige Einträge. Das betrifft auch die Lookup-Dialoge und `getAggregate`.
+
 ## Aufbau des Codes
 
 | Datei | Inhalt |
 |---|---|
-| `main.go` | nur Verdrahtung: `module.NewPlugin(Info{partner, 0.2.0}, businesspartner.New())` |
+| `main.go` | nur Verdrahtung: `module.NewPlugin(Info{partner, 0.7.0}, businesspartner.New())` |
 | `internal/businesspartner/module.go` | das **BusinessPartnerModule**: Descriptor, RegisterRoutes, Initialize (DB, Services, Logger), Schema |
 | `schema.go` | Atlas-HCL aller Tabellen und Seeds |
-| `engine.go` | tabellengesteuerte CRUD-Engine: Typumwandlung, Schlüssel, Verweise, Zeitscheiben, Transaktionen, Metamodell |
-| `labels.go` | lesbare Texte der Verweise (`_labels`) für Oberfläche und API |
+| `crud.go` | Aliase auf die gemeinsame CRUD-Engine [`pkg/sdk/crud`](../../../pkg/sdk/crud) (Typumwandlung, Schlüssel, Verweise und `_labels`, Zeitscheiben, Lebenszyklus, Transaktionen, Metamodell). Sie stammt aus diesem Plugin und wird mit `tag` geteilt. |
+| `i18n/*.json` | Übersetzungen (de, en, zh-CN), eingebettet; `module.go` implementiert `module.Translator` |
 | `entities.go` | Kataloge, Partner, Adressen, Kommunikation, Bank |
 | `finance.go` | Rollenzuordnung, Buchungskreisdaten, Zugriff je Buchungskreis |
 | `validate.go` | Zeitscheiben, E-Mail, Telefon, URL, IBAN, BIC, Land |

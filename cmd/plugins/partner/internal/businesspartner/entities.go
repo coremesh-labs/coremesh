@@ -52,7 +52,7 @@ func (m *Module) addressRoleCatalog() *entity {
 			field{Key: "is_main", Label: "Hauptanschrift", Type: tBool, Listable: true},
 		),
 		// Nur eine Adressrolle darf die Hauptanschrift kennzeichnen.
-		validate: func(ctx context.Context, rec, _ record) error {
+		Validate: func(ctx context.Context, rec, _ record) error {
 			if !asBool(rec["is_main"]) {
 				return nil
 			}
@@ -83,7 +83,7 @@ func (m *Module) commTypeCatalog() *entity {
 			field{Key: "is_main", Label: "Haupttyp der Kategorie", Type: tBool, Listable: true},
 		),
 		// Pro Kategorie höchstens ein Haupt-Kommunikationstyp.
-		validate: func(ctx context.Context, rec, _ record) error {
+		Validate: func(ctx context.Context, rec, _ record) error {
 			if !asBool(rec["is_main"]) {
 				return nil
 			}
@@ -147,6 +147,9 @@ func (m *Module) businessPartner() *entity {
 				Columns: []string{"iban", "bic", "bank_name", "is_default", "valid_from", "valid_to"}}},
 			{Key: "buchungskreise", Title: "Buchungskreisdaten", Collapsed: true, Relation: &metamodel.Relation{Object: "PartnerCompanyCode", ForeignKey: "bp_id",
 				Columns: []string{"company_code", "role_code", "reconciliation_account", "payment_terms", "dunning_block", "posting_block"}}},
+			// Tags aus dem TagManagement (Plugin tag) – je nach Tag Sets für BusinessPartner
+			// und Buchungskreis. Fehlt das Plugin, zeigt der Abschnitt einen Hinweis.
+			{Key: "merkmale", Title: "Merkmale", Tags: true},
 		},
 		// Zeitscheibe seit 0.5.0 (Lebenszyklus timeslice): Ein Partner endet zu einem
 		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann
@@ -160,7 +163,7 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		),
-		validate: func(_ context.Context, rec, _ record) error {
+		Validate: func(_ context.Context, rec, _ record) error {
 			if rec["search_term"] == nil { // Matchcode aus Name 1
 				rec["search_term"] = strings.ToUpper(str(rec["name1"]))
 			}
@@ -181,7 +184,7 @@ func (m *Module) address() *entity {
 			{Key: "city", Label: "Ort", Type: tText, Required: true, Listable: true},
 			{Key: "country", Label: "Land (ISO-2)", Type: tText, Required: true, Listable: true},
 		},
-		validate: func(_ context.Context, rec, _ record) error {
+		Validate: func(_ context.Context, rec, _ record) error {
 			c, err := normalizeCountry(str(rec["country"]))
 			rec["country"] = c
 			return err
@@ -217,7 +220,7 @@ func (m *Module) partnerContact() *entity {
 			field{Key: "is_default", Label: "Standard", Type: tBool, Listable: true},
 		),
 		// Prüfung des Werts anhand der Kategorie des Kommunikationstyps.
-		validate: func(ctx context.Context, rec, _ record) error {
+		Validate: func(ctx context.Context, rec, _ record) error {
 			res, err := m.db.Query(ctx, "SELECT category_code FROM partner__comm_types WHERE code = ?", rec["comm_type_code"])
 			if err != nil {
 				return err
@@ -243,7 +246,7 @@ func (m *Module) partnerBankDetail() *entity {
 			field{Key: "account_holder", Label: "Kontoinhaber", Type: tText},
 			field{Key: "is_default", Label: "Standard", Type: tBool, Listable: true},
 		),
-		validate: func(_ context.Context, rec, _ record) error {
+		Validate: func(_ context.Context, rec, _ record) error {
 			iban, err := normalizeIBAN(str(rec["iban"]))
 			if err != nil {
 				return err

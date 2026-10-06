@@ -7,59 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
-
-	"github.com/camel/coremesh/pkg/sdk"
 )
-
-func invalid(format string, args ...any) error {
-	return fmt.Errorf("%w: "+format, append([]any{sdk.ErrInvalidArgument}, args...)...)
-}
-
-// --- Zeitscheiben -----------------------------------------------------------------
-
-func today() string { return time.Now().Format(time.DateOnly) }
-
-// parseDate akzeptiert JJJJ-MM-TT, auch mit Zeitanteil (RFC 3339) oder als
-// time.Time – so liefern SQL-Treiber DATE-Spalten.
-func parseDate(v any) (string, error) {
-	if t, ok := v.(time.Time); ok {
-		return t.Format(time.DateOnly), nil
-	}
-	s, _ := v.(string)
-	s = strings.TrimSpace(s)
-	if len(s) >= 10 {
-		s = s[:10]
-	}
-	if _, err := time.Parse(time.DateOnly, s); err != nil {
-		return "", invalid("Datum im Format JJJJ-MM-TT erwartet: %q", v)
-	}
-	return s, nil
-}
-
-// checkTimeSlice setzt Standardwerte (valid_from = heute, valid_to = 9999-12-31)
-// und prüft valid_from <= valid_to.
-func checkTimeSlice(rec record) error {
-	if rec["valid_from"] == nil {
-		rec["valid_from"] = today()
-	}
-	if rec["valid_to"] == nil {
-		rec["valid_to"] = dateMax
-	}
-	from, err := parseDate(rec["valid_from"])
-	if err != nil {
-		return err
-	}
-	to, err := parseDate(rec["valid_to"])
-	if err != nil {
-		return err
-	}
-	if from > to { // JJJJ-MM-TT ist lexikografisch sortierbar
-		return invalid("Zeitscheibe: gültig ab (%s) liegt nach gültig bis (%s)", from, to)
-	}
-	rec["valid_from"], rec["valid_to"] = from, to
-	return nil
-}
 
 // --- Kommunikation (nach Kategorie) -------------------------------------------------
 

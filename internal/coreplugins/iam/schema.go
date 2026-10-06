@@ -1,6 +1,11 @@
 package iam
 
-import "github.com/camel/coremesh/pkg/sdk/metamodel"
+import (
+	"embed"
+
+	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/camel/coremesh/pkg/sdk/module"
+)
 
 // schemaHCL: Tabellen des Moduls iam (Präfix iam__), über DBSchema.Init.
 // active ist integer (0/1) – portabel zwischen SQLite und PostgreSQL.
@@ -29,6 +34,11 @@ table "iam__users" {
   column "active" {
     type    = integer
     default = 1
+  }
+  # Sprache des Benutzers (BCP 47: de, en, zh-CN); leer = automatisch. Seit 0.4.0.
+  column "locale" {
+    type = text
+    null = true
   }
   column "created_at" {
     type = text
@@ -197,3 +207,11 @@ var adminModule = metamodel.ModuleDefinition{
 		{Object: "CompanyCode", Section: "Organisation"},
 	},
 }
+
+// Übersetzungen des Moduls admin (de, en, zh-CN) – Schlüssel nach der
+// Konvention von metamodel.WithKeys.
+//
+//go:embed i18n/*.json
+var i18nFiles embed.FS
+
+var translations = module.MustLoadTranslations(i18nFiles, "i18n")

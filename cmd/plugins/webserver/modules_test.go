@@ -131,7 +131,23 @@ func TestModuleAPIDescribe(t *testing.T) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	// Nur Actions, die der Benutzer aufrufen darf.
-	if out.Name != "crm" || len(out.Objects) != 1 || strings.Join(out.Objects[0].Actions, ",") != "List" {
+	if out.Name != "crm" || len(out.Objects) != 2 || strings.Join(out.Objects[0].Actions, ",") != "List" || out.Objects[1].Object != "Search" {
 		t.Fatalf("Modulbeschreibung: %+v", out)
 	}
+}
+
+// TestModuleServiceAPI: Services eines Moduls (Objects ohne Metamodell, z. B. Tags)
+// sind über die JSON-API erreichbar, aber nicht in der Navigation.
+func TestModuleServiceAPI(t *testing.T) {
+	s, _ := newTestServer(t, "")
+	r := httptest.NewRequest("POST", "/api/v1/crm/Search/run", strings.NewReader(`{}`))
+	r.Header.Set("Content-Type", "application/json")
+	tok, _ := testTokens.Load(s)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: tok.(string)})
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"hits": 1`) {
+		t.Fatalf("Service über API: %d %s", w.Code, w.Body.String())
+	}
+	mustNotContain(t, do(s, "GET", "/m/crm/Partner", nil, false).Body.String(), "/m/crm/Search")
 }

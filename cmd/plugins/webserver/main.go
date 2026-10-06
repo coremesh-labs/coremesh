@@ -18,16 +18,17 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.7.0"
+	version = "0.9.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
 type settings struct {
-	Listen       string `json:"listen"`        // Standard 127.0.0.1:8080; 0.0.0.0:8080 = alle Schnittstellen
-	Title        string `json:"title"`         // Anwendungstitel
-	Tenant       string `json:"tenant"`        // Mandant für Benutzer ohne eigenen Mandanten
-	TemplatesDir string `json:"templates_dir"` // *.html, die eingebettete Blöcke überschreiben
-	StaticDir    string `json:"static_dir"`    // Dateien, die eingebettete /static/-Dateien überschreiben
+	Listen        string `json:"listen"`         // Standard 127.0.0.1:8080; 0.0.0.0:8080 = alle Schnittstellen
+	Title         string `json:"title"`          // Anwendungstitel
+	Tenant        string `json:"tenant"`         // Mandant für Benutzer ohne eigenen Mandanten
+	DefaultLocale string `json:"default_locale"` // Standardsprache (de, en, zh-CN), wenn nichts anderes greift
+	TemplatesDir  string `json:"templates_dir"`  // *.html, die eingebettete Blöcke überschreiben
+	StaticDir     string `json:"static_dir"`     // Dateien, die eingebettete /static/-Dateien überschreiben
 
 	// Authentifizierung
 	Database     string `json:"database"`      // Datenbank der Benutzertabellen (Standard main)

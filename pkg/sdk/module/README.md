@@ -35,6 +35,7 @@ alles, was keine Fachlogik ist:
 | Routing `(Object, Action)` → Handler | Router |
 | `DBSchema.Init` | `SchemaProvider` der Module, zu einem Schema zusammengefasst |
 | `Catalog.Describe` | Metamodelle (`Describe`) und Module (`Descriptor` + Reihenfolge, `Section`) |
+| Übersetzungen | `Translator` der Module, Schlüssel nach Konvention, siehe [Übersetzungen](#übersetzungen-i18n) |
 | `getAggregate`, `saveAggregate` | Relationen im Metamodell, siehe [Aggregate](#aggregate-master-detail) |
 | Dependency Injection | `Env` je Modul in `Configure` |
 | Lebenszyklus | `Initialize` in Registrierungsreihenfolge, `Shutdown` rückwärts |
@@ -86,6 +87,20 @@ plugins:
 dann der Host aus `Configure` einspringt. Transaktionen (`InTx`) gibt es nur innerhalb
 einer Anfrage.
 
+## Services (Objects ohne Metamodell)
+
+Ein Object, das ohne `Describe(…)` registriert wird, ist ein **Service**. `Router.definition`
+trägt es in `ModuleDefinition.Services` ein. Der WebServer erreicht es nur über die JSON-API
+`/api/v1/<modul>/<Service>/<action>`, die Navigation zeigt es nicht. Berechtigungen gelten
+wie bei jedem Object je `Object.Action`. Beispiel: `Tags` im Modul `tagmanagement`. Andere
+Module rufen es über `env.Services` bzw. den typisierten Client
+[`pkg/sdk/tagservice`](../tagservice/tagservice.go) auf.
+
+Für tabellengesteuerte Objects mit Zeitscheiben, Status-Flag, Verweisen und Labels gibt es die
+gemeinsame Engine [`pkg/sdk/crud`](../crud): `crud.NewSet(entities…).Register(r, "Gruppe")`
+in `RegisterRoutes` und `set.Bind(env.DB)` in `Initialize`. Sie wird von `partner` und `tag`
+genutzt.
+
 ## Aggregate (Master-Detail)
 
 Enthält das Metamodell eines Objects Relationen (`SectionDefinition.Relation`), registriert
@@ -125,6 +140,41 @@ Lebenszyklus (`metamodel.Lifecycle`): Typ timeslice mit `expire` und Enddatum, T
 **Voraussetzungen:** Unter-Objects gehören zum selben Modul (`NewPlugin` prüft das). Sie
 bieten Actions der Kinds `list` (Filter auf den Fremdschlüssel), `item`, `create`, `update`
 sowie je nach Lifecycle `expire` oder `deactivate`. Der Master bietet `item`, `create` und `update`.
+
+## Übersetzungen (i18n)
+
+Ein Modul implementiert optional `module.Translator`. Seine Texte liegen als eingebettete
+JSON-Dateien je Sprache vor (`de`, `en`, `zh-CN`):
+
+```go
+//go:embed i18n/*.json
+var i18nFiles embed.FS
+
+var translations = module.MustLoadTranslations(i18nFiles, "i18n")
+
+func (m *Module) Translations() metamodel.Translations { return translations }
+```
+
+```json
+{ "sales.module.title": "Verkauf", "sales.SalesOrder.title": "Aufträge",
+  "sales.SalesOrder.fields.customer_id": "Kunde", "sales.navigation.belege": "Belege" }
+```
+
+Die Schlüssel setzt das Plugin automatisch, wo das Metamodell keine angibt
+(`metamodel.WithKeys`, `metamodel.ModuleKeys`):
+
+| Schlüssel | Text |
+|---|---|
+| `<modul>.module.title` / `.description` | Modul |
+| `<modul>.navigation.<gruppe>` | Navigationsgruppe (`Section("Belege")` → `belege`) |
+| `<modul>.<Object>.title` | Object |
+| `<modul>.<Object>.fields.<feld>` | Feld |
+| `<modul>.<Object>.options.<feld>.<wert>` | Auswahlwert |
+| `<modul>.<Object>.actions.<action>[.confirm]` | Action (nur nötig, wenn vom Standardtext des Kinds abweichend) |
+| `<modul>.<Object>.sections.<abschnitt>` | Abschnitt der Detailansicht |
+
+`NewPlugin` lehnt Schlüssel außerhalb der eigenen Module und unbekannte Sprachen ab. Fehlende
+Übersetzungen fallen auf Deutsch zurück, sonst auf den Text im Metamodell.
 
 ## Kapselung
 

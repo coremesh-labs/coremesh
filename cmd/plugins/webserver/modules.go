@@ -31,14 +31,20 @@ type moduleInfo struct {
 	Description string         `json:"description"`
 	Available   bool           `json:"available"`
 	Objects     []moduleObject `json:"objects"`
+	Services    []string       `json:"services"` // Objects ohne Metamodell (nur JSON-API)
+
+	TitleKey       string `json:"title_key"`
+	DescriptionKey string `json:"description_key"`
 }
 
 type moduleObject struct {
-	Object    string `json:"object"`
-	Title     string `json:"title"`
-	Icon      string `json:"icon"`
-	Section   string `json:"section"`
-	Available bool   `json:"available"`
+	Object     string `json:"object"`
+	Title      string `json:"title"`
+	Icon       string `json:"icon"`
+	Section    string `json:"section"`
+	Available  bool   `json:"available"`
+	TitleKey   string `json:"title_key"`
+	SectionKey string `json:"section_key"`
 }
 
 // visibleFor behält nur Objects, die laufen und für die der Benutzer
@@ -103,13 +109,13 @@ func (s *server) loadModule(r *http.Request, name string) (moduleInfo, error) {
 		return moduleInfo{}, err
 	}
 	if !m.Available {
-		return moduleInfo{}, fmt.Errorf("%w: Modul %s ist derzeit nicht verfügbar", sdk.ErrUnavailable, m.Title)
+		return moduleInfo{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.module_unavailable", m.Title))
 	}
 	v := m.visibleFor(userFrom(r))
 	if len(v.Objects) == 0 {
-		return moduleInfo{}, fmt.Errorf("%w: keine Berechtigung für Modul %s", sdk.ErrPermissionDenied, m.Title)
+		return moduleInfo{}, fmt.Errorf("%w: %s", sdk.ErrPermissionDenied, s.T(r, "core.error.module_no_permission", m.Title))
 	}
-	return v, nil
+	return s.localizeModule(r, v), nil
 }
 
 // modules liefert alle Module, die der Benutzer sehen darf (Navigation, Startseite).
@@ -126,7 +132,7 @@ func (s *server) modules(r *http.Request) []moduleInfo {
 	var out []moduleInfo
 	for _, m := range list.Modules {
 		if v := m.visibleFor(userFrom(r)); len(v.Objects) > 0 {
-			out = append(out, v)
+			out = append(out, s.localizeModule(r, v))
 		}
 	}
 	return out

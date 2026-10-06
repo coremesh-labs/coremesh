@@ -19,7 +19,7 @@
 <div hx-swap-oob="beforeend:#toast-container">
   <div class="toast {{.Level}}" role="status">
     <span>{{.Message}}</span>
-    <button type="button" aria-label="Schließen" onclick="this.parentElement.remove()">×</button>
+    <button type="button" aria-label="{{t "core.app.close"}}" onclick="this.parentElement.remove()">×</button>
   </div>
 </div>
 {{end}}
@@ -31,9 +31,9 @@
 {{with .Message}}<p class="result-message">{{.}}</p>{{else}}<pre class="result">{{json .Result}}</pre>{{end}}
 <footer>
   {{if .Modal}}
-  <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">Schließen</button>
+  <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.close"}}</button>
   {{else}}
-  <a class="btn primary" href="{{.URL}}">Zurück</a>
+  <a class="btn primary" href="{{.URL}}">{{t "core.app.back"}}</a>
   {{end}}
 </footer>
 {{if .Modal}}</article></dialog>{{end}}
@@ -50,20 +50,20 @@
     <li><a href="/m/{{.Name}}">
       {{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{.Title}}</strong>
       {{with .Description}}<span>{{.}}</span>{{end}}
-      <small>{{len .Objects}} {{if eq (len .Objects) 1}}Objekt{{else}}Objekte{{end}}</small>
+      <small>{{if eq (len .Objects) 1}}{{t "core.home.objects_one" 1}}{{else}}{{t "core.home.objects_many" (len .Objects)}}{{end}}</small>
     </a></li>
     {{end}}
   </ul>
   {{else}}
-  <p class="empty">Noch keine Module registriert oder keine Berechtigung.</p>
+  <p class="empty">{{t "core.home.empty"}}</p>
   {{end}}
 </section>
 {{end}}
 
 {{define "error"}}
 <section class="error-page">
-  <h1>Fehler {{.Status}}</h1>
+  <h1>{{t "core.app.error_title" .Status}}</h1>
   <p>{{.Message}}</p>
-  <p><a href="/">Zur Startseite</a></p>
+  <p><a href="/">{{t "core.app.home"}}</a></p>
 </section>
 {{end}}

@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/metamodel"
 )
 
 // ModuleInfo ist ein fachliches Modul mit Darstellung und Verfügbarkeit.
@@ -18,15 +19,21 @@ type ModuleInfo struct {
 	Plugin      string             `json:"plugin"`    // Plugin, das das Modul bedient
 	Available   bool               `json:"available"` // mindestens ein Object aufrufbar
 	Objects     []ModuleObjectInfo `json:"objects"`
+	Services    []string           `json:"services,omitempty"` // Objects ohne Metamodell (nur JSON-API)
+
+	TitleKey       string `json:"title_key,omitempty"`
+	DescriptionKey string `json:"description_key,omitempty"`
 }
 
 // ModuleObjectInfo ist ein Object eines Moduls.
 type ModuleObjectInfo struct {
-	Object    string `json:"object"`
-	Title     string `json:"title"`
-	Icon      string `json:"icon,omitempty"`
-	Section   string `json:"section,omitempty"`
-	Available bool   `json:"available"`
+	Object     string `json:"object"`
+	Title      string `json:"title"`
+	Icon       string `json:"icon,omitempty"`
+	Section    string `json:"section,omitempty"`
+	Available  bool   `json:"available"`
+	TitleKey   string `json:"title_key,omitempty"`
+	SectionKey string `json:"section_key,omitempty"`
 }
 
 // moduleOwner sucht das Plugin, das das Modul name in diesem Lauf
@@ -63,9 +70,9 @@ func (p *Plugin) listModules(includeUnavailable bool) []ModuleInfo {
 	seen := map[string]bool{}
 	for _, plugin := range slices.Sorted(maps.Keys(entries)) {
 		e := entries[plugin]
-		titles := map[string][2]string{}
+		titles := map[string][3]string{}
 		for _, d := range e.Objects {
-			titles[d.Name] = [2]string{d.Title, d.Icon}
+			titles[d.Name] = [3]string{d.Title, d.Icon, d.TitleKey}
 		}
 		for _, md := range e.Modules {
 			if seen[md.Name] {
@@ -73,10 +80,11 @@ func (p *Plugin) listModules(includeUnavailable bool) []ModuleInfo {
 			}
 			seen[md.Name] = true
 			mi := ModuleInfo{Name: md.Name, Title: md.Title, Icon: md.Icon, Description: md.Description,
-				Plugin: plugin, Objects: []ModuleObjectInfo{}}
+				Plugin: plugin, Objects: []ModuleObjectInfo{}, Services: md.Services, TitleKey: md.TitleKey, DescriptionKey: md.DescriptionKey}
 			for _, o := range md.Objects {
 				t := titles[o.Object]
-				oi := ModuleObjectInfo{Object: o.Object, Title: t[0], Icon: t[1], Section: o.Section, Available: available[o.Object]}
+				oi := ModuleObjectInfo{Object: o.Object, Title: t[0], Icon: t[1], Section: o.Section, Available: available[o.Object],
+					TitleKey: t[2], SectionKey: o.SectionKey}
 				mi.Available = mi.Available || oi.Available
 				mi.Objects = append(mi.Objects, oi)
 			}
@@ -117,4 +125,27 @@ func (p *Plugin) moduleOf(object string) string {
 		}
 	}
 	return ""
+}
+
+// translations liefert die Übersetzungen aller Module in einer Sprache –
+// mit Rückfall auf de für fehlende Schlüssel. Eingetragen sind Plugins, die
+// in diesem Lauf registriert haben, sonst der Stand aus dem Cache.
+func (p *Plugin) translations(locale string) (sdk.Response, error) {
+	loc := metamodel.NormalizeLocale(locale)
+	if loc == "" {
+		return sdk.Response{}, fmt.Errorf("%w: Sprache %q nicht unterstützt (%v)", sdk.ErrInvalidArgument, locale, metamodel.Locales)
+	}
+	p.mu.RLock()
+	entries := map[string]*moduleEntry{}
+	maps.Copy(entries, p.cached)
+	maps.Copy(entries, p.modules)
+	p.mu.RUnlock()
+	out := map[string]string{}
+	for _, plugin := range slices.Sorted(maps.Keys(entries)) {
+		tr := entries[plugin].Translations
+		for _, l := range []string{metamodel.LocaleDE, loc} { // de zuerst, dann überschreibt die Sprache
+			maps.Copy(out, tr[l])
+		}
+	}
+	return sdk.Response{Payload: map[string]any{"locale": loc, "translations": out}}, nil
 }

@@ -43,7 +43,7 @@ import (
 
 const (
 	Name    = "catalog"
-	Version = "0.4.0"
+	Version = "0.5.0"
 	Object  = sdk.ObjectCatalog
 )
 
@@ -73,7 +73,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Version:     Version,
 		Description: "Registry der Business-Objects, ihrer Actions und Metamodelle",
 		Capabilities: []sdk.Capability{
-			{Object: Object, Actions: []string{"Register", "ListObjects", "GetDefinition", "ListActions", "ListModules", "GetModule"},
+			{Object: Object, Actions: []string{"Register", "ListObjects", "GetDefinition", "ListActions", "ListModules", "GetModule", "Translations"},
 				Description: "Verzeichnis der Module und Business-Objects"},
 		},
 	}, nil
@@ -137,6 +137,14 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 			return sdk.Response{}, err
 		}
 		return sdk.Response{Payload: map[string]any{"modules": p.listModules(in.IncludeUnavailable)}}, nil
+	case "Translations":
+		var in struct {
+			Locale string `json:"locale"`
+		}
+		if err := sdk.Decode(req.Payload, &in); err != nil {
+			return sdk.Response{}, err
+		}
+		return p.translations(in.Locale)
 	case "GetModule":
 		var in struct {
 			Module string `json:"module"`
@@ -150,10 +158,11 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 }
 
 type registerInput struct {
-	Module  string                       `json:"module"`
-	Version string                       `json:"version"`
-	Objects []metamodel.ObjectDefinition `json:"objects"`
-	Modules []metamodel.ModuleDefinition `json:"modules"`
+	Module       string                       `json:"module"`
+	Version      string                       `json:"version"`
+	Objects      []metamodel.ObjectDefinition `json:"objects"`
+	Modules      []metamodel.ModuleDefinition `json:"modules"`
+	Translations metamodel.Translations       `json:"translations"`
 }
 
 func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error) {
@@ -164,10 +173,10 @@ func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error
 	if !config.ValidPluginName(in.Module) || in.Version == "" {
 		return sdk.Response{}, fmt.Errorf("%w: module und version sind Pflicht", sdk.ErrInvalidArgument)
 	}
-	if err := checkOwnership(in.Module, in.Objects, in.Modules, p.source()); err != nil {
+	if err := checkOwnership(in.Module, in.Objects, in.Modules, in.Translations, p.source()); err != nil {
 		return sdk.Response{}, err
 	}
-	entry, err := newEntry(in.Module, in.Version, in.Objects, in.Modules)
+	entry, err := newEntry(in.Module, in.Version, in.Objects, in.Modules, in.Translations)
 	if err != nil {
 		return sdk.Response{}, err
 	}

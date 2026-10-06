@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -27,7 +28,7 @@ type fakeHost struct {
 }
 
 var partnerDef = metamodel.ObjectDefinition{
-	Name: "Partner", Title: "Geschäftspartner", Icon: "icon-users",
+	Name: "Partner", Title: "Geschäftspartner", Icon: "icon-users", TitleKey: "crm.Partner.title",
 	Fields: []metamodel.FieldDefinition{
 		{Key: "company_name", Label: "Firmenname", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 		{Key: "email", Label: "E-Mail", Type: metamodel.TypeEmail, Listable: true, Editable: true},
@@ -50,8 +51,8 @@ var partnerDef = metamodel.ObjectDefinition{
 }
 
 // crmModule bündelt Partner; Fremd ist ein Object außerhalb des Moduls.
-var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm", "available": true,
-	"objects": []any{map[string]any{"object": "Partner", "title": "Geschäftspartner", "section": "Stammdaten", "available": true}}}
+var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm", "available": true, "title_key": "crm.module.title",
+	"objects": []any{map[string]any{"object": "Partner", "title": "Geschäftspartner", "section": "Stammdaten", "available": true}}, "services": []any{"Search"}}
 
 func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	h.mu.Lock()
@@ -67,6 +68,15 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	switch req.Object + "." + req.Action {
 	case "Catalog.GetDefinition":
 		return sdk.Response{Payload: map[string]any{"definition": partnerDef, "available": true}}, nil
+	case "Catalog.Translations":
+		p, _ := req.Payload.(map[string]any)
+		dict := map[string]any{"crm.module.title": "CRM"}
+		if p["locale"] == "zh-CN" {
+			dict = map[string]any{"crm.module.title": "客户关系", "crm.Partner.title": "伙伴"}
+		}
+		return sdk.Response{Payload: map[string]any{"locale": p["locale"], "translations": dict}}, nil
+	case "Account.UpdateProfile":
+		return sdk.Response{Payload: req.Payload}, nil
 	case "Catalog.GetModule":
 		if p, _ := req.Payload.(map[string]any); p["module"] != "crm" {
 			return sdk.Response{}, fmt.Errorf("%w: Modul %v", sdk.ErrNotFound, p["module"])
@@ -100,6 +110,8 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 		}
 		inactive["active"] = false
 		return sdk.Response{Payload: inactive}, nil
+	case "Search.run":
+		return sdk.Response{Payload: map[string]any{"hits": 1}}, nil
 	case "Partner.Notify":
 		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt"}}, nil
 	}
@@ -242,7 +254,7 @@ func TestListFullPageVsFragment(t *testing.T) {
 	fb := frag.Body.String()
 	mustContain(t, fb, `<section id="list"`, `hx-trigger="coremesh-changed from:body"`)
 	mustNotContain(t, fb, "<!doctype html>", "<aside")
-	if frag.Header().Get("Vary") != "HX-Request" {
+	if !slices.Contains(frag.Header().Values("Vary"), "HX-Request") {
 		t.Error("Vary: HX-Request fehlt")
 	}
 }

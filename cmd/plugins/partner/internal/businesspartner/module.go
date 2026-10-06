@@ -11,9 +11,10 @@ package businesspartner
 
 import (
 	"context"
+	"embed"
 	"log/slog"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/crud"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 	"github.com/camel/coremesh/pkg/sdk/module"
 )
@@ -29,8 +30,7 @@ type Module struct {
 	services module.Services
 	log      *slog.Logger
 
-	byObject map[string]*entity
-	order    []*entity
+	set *crud.Set // Entities (pkg/sdk/crud) mit der Datenbank des Moduls
 }
 
 var (
@@ -40,12 +40,8 @@ var (
 
 // New erzeugt das Modul mit allen Entitäten.
 func New() *Module {
-	m := &Module{byObject: map[string]*entity{}}
-	for _, e := range m.entities() {
-		e.m = m
-		m.byObject[e.Object] = e
-		m.order = append(m.order, e)
-	}
+	m := &Module{}
+	m.set = crud.NewSet(m.entities()...)
 	return m
 }
 
@@ -60,33 +56,14 @@ func (m *Module) Descriptor() module.Descriptor {
 // delete gibt es je nach Lebenszyklus expire (Zeitscheibe) oder deactivate
 // (Status-Flag); Entitäten ohne beides (immutable) haben keine Ende-Action.
 func (m *Module) RegisterRoutes(r *module.Router) {
-	for _, e := range m.order {
-		section := e.Section
-		if section == "" {
-			section = "Partnerdaten"
-		}
-		o := r.Object(e.Object).Section(section).Describe(e.definition()).
-			Handle("list", payloadOnly(e.list)).
-			Handle("get", payloadOnly(e.get)).
-			Handle("create", payloadOnly(e.create)).
-			Handle("update", payloadOnly(e.update))
-		switch e.lifecycle().Kind() {
-		case metamodel.LifecycleTimeSlice:
-			o.Handle("expire", payloadOnly(e.expire))
-		case metamodel.LifecycleStatus:
-			o.Handle("deactivate", payloadOnly(e.deactivate))
-		}
-	}
-}
-
-func payloadOnly(f func(ctx context.Context, payload any) (sdk.Response, error)) module.HandlerFunc {
-	return func(ctx context.Context, req sdk.Request) (sdk.Response, error) { return f(ctx, req.Payload) }
+	m.set.Register(r, "Partnerdaten")
 }
 
 // Initialize übernimmt Datenbank, Services und Logger.
 func (m *Module) Initialize(ctx context.Context, env module.Env) error {
 	m.db, m.services, m.log = env.DB, env.Services, env.Log
-	m.log.InfoContext(ctx, "Modul bereit", "objects", len(m.order), "database", env.DB.Name())
+	m.set.Bind(env.DB)
+	m.log.InfoContext(ctx, "Modul bereit", "objects", len(m.set.Entities()), "database", env.DB.Name())
 	return nil
 }
 
@@ -96,3 +73,15 @@ func (m *Module) Shutdown(context.Context) error { return nil }
 func (m *Module) Schema() module.Schema {
 	return module.Schema{HCL: schemaHCL, Seed: seeds}
 }
+
+// Übersetzungen (de, en, zh-CN) für Titel, Felder, Abschnitte und Navigation.
+// Schlüssel nach der Konvention von metamodel.WithKeys; Framework-Texte
+// (Speichern, Beenden …) bringt der WebServer mit.
+//
+//go:embed i18n/*.json
+var i18nFiles embed.FS
+
+var translations = module.MustLoadTranslations(i18nFiles, "i18n")
+
+// Translations implementiert module.Translator.
+func (m *Module) Translations() metamodel.Translations { return translations }
