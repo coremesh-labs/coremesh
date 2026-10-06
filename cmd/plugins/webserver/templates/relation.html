@@ -1,0 +1,52 @@
+{{/*
+  Eingebettete Tabelle eines Abschnitts mit Relation (Master-Detail),
+  GET /m/{module}/{object}/{id}/rel/{section}.
+  Daten: relationView {Child, Section, ForeignKey, Columns, Rows, AddURL, LookupEdit, Message}.
+  Blöcke: relation, relation-toolbar, relation-row.
+
+  Hinzufügen/Bearbeiten öffnen die normalen Formulare des Unter-Objects im
+  Dialog – mit festem Fremdschlüssel (_lock) und _view=refresh. Nach dem
+  Speichern lädt sich der Abschnitt über coremesh-changed neu.
+  ✎ an einem Lookup-Wert bearbeitet den verknüpften Datensatz (z. B. die Adresse).
+*/}}
+{{define "relation"}}
+{{with .Message}}<p class="empty">{{.}}</p>{{else}}
+{{block "relation-toolbar" .}}
+{{with .AddURL}}
+<div class="relation-toolbar">
+  <a class="btn small" href="{{.}}" hx-get="{{.}}" hx-target="#modal">+ Hinzufügen</a>
+</div>
+{{end}}
+{{end}}
+{{if .Rows}}
+<table class="data sub">
+  <thead>
+    <tr>{{range .Columns}}<th>{{.Label}}</th>{{end}}<th class="actions"><span class="sr-only">Aktionen</span></th></tr>
+  </thead>
+  <tbody>
+    {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
+    <tr>
+      {{range $f := .Rel.Columns}}
+      <td>{{value $.Row $f}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
+        <a class="inline-edit" href="{{.}}/{{pathEscape $v}}/edit" hx-get="{{.}}/{{pathEscape $v}}/edit?view=refresh"
+           hx-target="#modal" title="Verknüpften Datensatz bearbeiten">✎</a>{{end}}{{end}}</td>
+      {{end}}
+      <td class="actions">
+        {{with .Rel.Child.Has.update}}
+        <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
+           hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>
+        {{end}}
+        {{with .Rel.Child.Has.delete}}
+        <button type="button" class="link danger" hx-delete="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}?_view=refresh"
+                hx-target="closest tr" hx-swap="outerHTML" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}{{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">Keine Einträge.</p>
+{{end}}
+{{end}}
+{{end}}

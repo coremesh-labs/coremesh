@@ -1,0 +1,37 @@
+{{/*
+  Lookup-Dialog (GET /lookup?from=<Object>&field=<Feld>), wird in #lookup geladen.
+  Daten: lookupView {From, Field, Title, Query, Columns, Rows, More}.
+  Blöcke: lookup, lookup-rows.
+
+  Die Suche lädt nur die Zeilen neu (rows=1). Klick oder Enter auf eine Zeile
+  übernimmt Wert und Text in das Formular (coremeshPick im Layout).
+*/}}
+{{define "lookup"}}
+<dialog open class="modal lookup-dialog"><article>
+  <h2>{{.Title}} auswählen</h2>
+  <input type="search" name="q" value="{{.Query}}" placeholder="Suchen …" autofocus autocomplete="off"
+         hx-get="/lookup?from={{.From}}&field={{.Field}}&rows=1" hx-trigger="input changed delay:300ms, search"
+         hx-target="#lookup-rows" hx-swap="innerHTML">
+  <div class="lookup-table">
+    <table class="data">
+      <thead><tr>{{range .Columns}}<th>{{.Label}}</th>{{end}}</tr></thead>
+      <tbody id="lookup-rows">{{template "lookup-rows" .}}</tbody>
+    </table>
+  </div>
+  <footer>
+    <button type="button" class="btn" onclick="document.getElementById('lookup').innerHTML=''">Abbrechen</button>
+  </footer>
+</article></dialog>
+{{end}}
+
+{{define "lookup-rows"}}
+{{range .Rows}}
+<tr class="pick" tabindex="0" data-field="{{$.Field}}" data-value="{{.Value}}" data-label="{{.Label}}"
+    onclick="coremeshPick(this)" onkeydown="if(event.key==='Enter')coremeshPick(this)">
+  {{range .Cells}}<td>{{.}}</td>{{end}}
+</tr>
+{{else}}
+<tr><td colspan="{{len .Columns}}" class="empty">Keine Treffer.</td></tr>
+{{end}}
+{{if .More}}<tr><td colspan="{{len .Columns}}" class="muted">Weitere Treffer – bitte die Suche verfeinern.</td></tr>{{end}}
+{{end}}

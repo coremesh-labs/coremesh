@@ -220,6 +220,7 @@ type view struct {
 	ActionID   string // id für custom-Actions
 	FormFields []fieldCtx
 	FormError  string
+	Locked     string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
 
 	// Ergebnisse
 	Action  metamodel.ActionConfig
@@ -250,6 +251,9 @@ type fieldCtx struct {
 	Value     string
 	Error     string
 	ReadOnly  bool
+	Hidden    bool   // festes Feld (z. B. Fremdschlüssel im Master-Detail), als type=hidden
+	Object    string // Object des Formulars (Lookup-Dialog: /lookup?from=…)
+	Label     string // lesbarer Text eines Lookup-Werts
 }
 
 var inputTypes = map[metamodel.FieldType]string{
@@ -259,10 +263,14 @@ var inputTypes = map[metamodel.FieldType]string{
 
 // buildFields erstellt die Formularfelder. create/action zeigen nur
 // bearbeitbare Felder; edit zeigt alle, nicht bearbeitbare schreibgeschützt.
-func buildFields(d metamodel.ObjectDefinition, mode string, values, errs map[string]string) []fieldCtx {
+//
+// formOpts: labels sind die lesbaren Texte der Lookup-Felder (aus "_labels"),
+// locked die Felder, die als verstecktes Feld fest mitgehen – etwa der
+// Fremdschlüssel eines Unter-Objects in der Master-Detail-Ansicht.
+func buildFields(d metamodel.ObjectDefinition, mode string, values, errs map[string]string, opts formOpts) []fieldCtx {
 	var out []fieldCtx
 	for _, f := range d.Fields {
-		if !f.Editable && mode != "edit" {
+		if !f.Editable && mode != "edit" && !opts.locked[f.Key] {
 			continue
 		}
 		it := inputTypes[f.Type]
@@ -270,9 +278,42 @@ func buildFields(d metamodel.ObjectDefinition, mode string, values, errs map[str
 			it = "text"
 		}
 		out = append(out, fieldCtx{
-			Field: f, Type: string(f.Type), InputType: it,
+			Field: f, Type: string(f.Type), InputType: it, Object: d.Name,
 			Value: values[f.Key], Error: errs[f.Key], ReadOnly: !f.Editable,
+			Hidden: opts.locked[f.Key], Label: opts.labels[f.Key],
 		})
+	}
+	return out
+}
+
+type formOpts struct {
+	labels map[string]string
+	locked map[string]bool
+}
+
+// lockedFields liest _lock (Komma-Liste von Feld-Keys) aus Query oder Formular.
+func lockedFields(d metamodel.ObjectDefinition, raw string) (map[string]bool, string) {
+	locked := map[string]bool{}
+	var keys []string
+	for _, k := range strings.Split(raw, ",") {
+		k = strings.TrimSpace(k)
+		if slices.ContainsFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }) && !locked[k] {
+			locked[k] = true
+			keys = append(keys, k)
+		}
+	}
+	return locked, strings.Join(keys, ",")
+}
+
+// labelsOf liest "_labels" eines Datensatzes.
+func labelsOf(rec record) map[string]string {
+	out := map[string]string{}
+	if m, ok := rec["_labels"].(map[string]any); ok {
+		for k, v := range m {
+			if s, ok := v.(string); ok {
+				out[k] = s
+			}
+		}
 	}
 	return out
 }

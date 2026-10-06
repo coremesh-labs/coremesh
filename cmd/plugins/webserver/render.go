@@ -92,6 +92,9 @@ func (r *renderer) page(w io.Writer, fragment string, data any, page pageData) e
 var funcs = template.FuncMap{
 	"listable":   listable,
 	"value":      displayValue,
+	"raw":        func(rec record, key string) string { return scalar(rec[key]) },
+	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
+	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
 	"pathEscape": url.PathEscape,
 	"domID":      func(id string) string { return hex.EncodeToString([]byte(id)) },
 	"json": func(v any) string {
@@ -115,6 +118,10 @@ func displayValue(rec record, f metamodel.FieldDefinition) string {
 	v, ok := rec[f.Key]
 	if !ok || v == nil || f.Type == metamodel.TypePassword {
 		return ""
+	}
+	// Lesbarer Text eines Verweises (vom Modul in "_labels" geliefert).
+	if l, ok := labelsOf(rec)[f.Key]; ok && l != "" {
+		return l
 	}
 	switch f.Type {
 	case metamodel.TypeBoolean:
@@ -151,6 +158,8 @@ func formValue(rec record, f metamodel.FieldDefinition) string {
 
 func scalar(v any) string {
 	switch v := v.(type) {
+	case nil:
+		return ""
 	case string:
 		return v
 	case float64:

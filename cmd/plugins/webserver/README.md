@@ -25,6 +25,7 @@ Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──�
 6. [Aufrufkontext](#6-aufrufkontext)
 7. [Rendering: HTMX-Fragment oder ganze Seite](#7-rendering-htmx-fragment-oder-ganze-seite)
 8. [HTMX-Swaps im Detail](#8-htmx-swaps-im-detail)
+8b. [Master-Detail und Lookups](#master-detail-und-lookups)
 9. [Fehlerbehandlung](#9-fehlerbehandlung)
 10. [Templates und Blöcke überschreiben](#10-templates-und-blöcke-überschreiben)
 11. [Konfiguration](#11-konfiguration) und [Anmeldung und Sicherheit](#anmeldung-und-sicherheit)
@@ -95,6 +96,9 @@ Danach wird die Antwort gerendert: bei HTMX-Anfragen nur das Fragment, sonst die
 | `POST /action/{module}/{object}/{name}` | `custom` | `{id?, data}` | Ergebnis im Dialog + Toast | Seite mit Ergebnis |
 | `GET /api/v1/{module}` | – | `Catalog.ListActions` je Object | JSON, siehe [API](#json-api) | |
 | `POST /api/v1/{module}/{object}/{action}` | beliebig | JSON-Body | JSON, siehe [API](#json-api) | |
+| `GET /m/{module}/{object}/{id}/rel/{section}` | `list` des Unter-Objects | `{query: {<fk>: <id>}}` | eingebettete Tabelle | – |
+| `GET /lookup?from=…&field=…` | `list` des Nachschlage-Objects | `{query: {q}}` | Auswahldialog in `#lookup` | – |
+| `GET /api/v1/{module}/{object}` | – | Catalog | JSON: Metadaten (Lookups, Relationen, Actions) | |
 | `GET /static/…` | – | – | CSS u. a. | |
 
 **Hinweise:**
@@ -317,6 +321,104 @@ CSS-Selektoren, auch bei IDs wie `p/1`.
 `hx-target` und `hx-swap` selbst. In eigenen Templates also nicht darauf verlassen,
 dass ein Elternelement sie vorgibt.
 
+## Master-Detail und Lookups
+
+Die Detailansicht folgt dem Stil von LeanIX: aufklappbare Abschnitte mit Feldern und
+eingebetteten Tabellen zugeordneter Unter-Objects. Lookup-Felder wählen ihren Wert in einem
+Dialog aus einer Stammdatentabelle. Alles kommt aus dem **Metamodell**. Der WebServer kennt
+kein einziges Object.
+
+### Metamodell
+
+```go
+metamodel.ObjectDefinition{
+    Name: "BusinessPartner", TitleField: "name1",        // Überschrift „Geschäftspartner · Muster AG“
+    Sections: []metamodel.SectionDefinition{
+        {Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2"}},
+        {Key: "adressen", Title: "Adressen", Relation: &metamodel.Relation{
+            Object: "PartnerAddress", ForeignKey: "bp_id",            // Unter-Object + Fremdschlüssel
+            Columns: []string{"address_role_code", "address_id"}}},   // Spalten der eingebetteten Tabelle
+        {Key: "bank", Title: "Bankverbindungen", Collapsed: true, Relation: …},
+    },
+}
+metamodel.FieldDefinition{Key: "address_role_code", …,
+    Lookup: &metamodel.Lookup{Object: "PartnerAddressRole", ValueField: "code", LabelFields: []string{"description"}}}
+```
+
+| Element | Wirkung |
+|---|---|
+| `Sections` | `<details>`-Abschnitte. Felder ohne Abschnitt stehen vorne in „Allgemein“. Ohne Sections bleibt die einfache Feldliste. |
+| `Relation` | Eingebettete Tabelle des Unter-Objects, gefiltert über `{"query": {<ForeignKey>: <id>}}` |
+| `Lookup` | Feld mit Schaltfläche „Auswählen …“, die den Auswahldialog öffnet |
+| `"_labels"` im Datensatz | Lesbarer Text statt des Schlüssels, in Tabellen, Details und Formularen. Das Modul liefert ihn. |
+
+Eine **n:m-Beziehung** ist eine Relation auf die Zwischentabelle, deren zweiter Schlüssel ein
+Lookup ist: `BusinessPartner` → `PartnerAddress` (Rolle, Zeitscheibe) → `PartnerAddressData`
+über `address_id`.
+
+### Ablauf in der Oberfläche
+
+| Aktion | Anfrage | Antwort |
+|---|---|---|
+| Abschnitt laden | `GET /m/{module}/{object}/{id}/rel/{section}` (`hx-trigger="load, coremesh-changed from:body"`) | Fragment `relation` |
+| Hinzufügen | `GET …/{child}/new?{fk}={id}&_lock={fk}&_view=refresh` | Formular im Dialog; der Fremdschlüssel geht als verstecktes Feld fest mit |
+| Bearbeiten | `GET …/{child}/{cid}/edit?view=refresh&_lock={fk}` | dito, mit Werten und Labels |
+| Speichern | `POST`/`PUT` mit `_view=refresh` | leerer Swap in `#modal` (Dialog zu) + Toast + `HX-Trigger: coremesh-changed` → die Abschnitte laden neu |
+| Löschen | `DELETE …/{child}/{cid}?_view=refresh` | Zeile entfernt + Toast |
+| Verknüpften Datensatz bearbeiten (✎) | `GET …/{lookup-object}/{value}/edit?view=refresh` | z. B. die Adresse selbst ändern, direkt aus dem Abschnitt |
+
+Der ✎-Link erscheint bei Lookups mit `ValueField: "id"` auf Objects desselben Moduls, also bei
+Stammdaten wie Adressen. Kataloge werden über ihren Code referenziert und bekommen keinen Link.
+
+**Jede Änderung ist eine eigene Action des Unter-Objects.** Fachregeln und Berechtigungen gelten
+unverändert; es gibt keine Sonderwege für die Detailansicht.
+
+### Lookup-Dialog
+
+`GET /lookup?from=<Object>&field=<Feld>[&q=…][&rows=1]` wird in `#lookup` über dem Formular
+geladen.
+
+1. Das Nachschlage-Object kommt aus dem **Metamodell des Felds** (`from` + `field`), nicht aus
+   der URL. Ein Aufrufer kann so kein beliebiges Object abfragen.
+2. Gelesen wird über die `list`-Action des Ziels mit `{"query": {"q": …}}`. Der Dispatcher prüft
+   die Berechtigung. Ignoriert das Ziel `q`, filtert der WebServer die Zeilen selbst.
+3. Spalten: `Lookup.Columns`, sonst die listable Felder des Ziels. Höchstens 100 Zeilen.
+4. Die Suche lädt nur die Zeilen neu (`rows=1`, Verzögerung 300 ms).
+5. Ein Klick oder Enter auf eine Zeile ruft `coremeshPick` (Block `scripts`) auf. Die Funktion
+   setzt den Schlüssel ins Feld und den Text (`LabelFields`) daneben und schließt den Dialog.
+
+Lookups dürfen **Modulgrenzen überschreiten**, zum Beispiel die Buchungskreise aus `iam` in den
+Partner-Buchungskreisdaten, aber nur lesend über die Actions des Ziels.
+
+Ohne JavaScript bleibt das Lookup-Feld ein normales Textfeld für den Schlüssel.
+
+### Aggregat-API (Fetch & Cascade Save)
+
+Für Frontends, die ein zusammengesetztes Object als Ganzes laden und speichern, registriert
+`pkg/sdk/module` je Object mit Relationen die Actions `getAggregate` und `saveAggregate`.
+Die JSON-API erreicht sie wie jede andere Action:
+
+```bash
+curl -b jar -H "Content-Type: application/json" -d '{"id":"<bp>"}' \
+     http://localhost:8080/api/v1/businesspartner/BusinessPartner/getAggregate
+# → {"payload": {"record": {…}, "relations": {"adressen": […], "kommunikation": […], …}}}
+
+curl -b jar -H "Content-Type: application/json" http://localhost:8080/api/v1/businesspartner/BusinessPartner/saveAggregate -d '{
+  "id": "<bp>", "data": {"name2": "Zürich"},
+  "relations": {
+    "adressen":      {"create": [{"address_id": "<adr>", "address_role_code": "MAIN"}]},
+    "kommunikation": {"update": [{"id": "<k>", "data": {"value": "info@muster.ch"}}], "delete": ["<k2>"]}
+  }}'
+```
+
+`saveAggregate` ist **atomar**: Scheitert ein Teil, wird alles zurückgerollt. Einzelheiten
+stehen in [`pkg/sdk/module`](../../../pkg/sdk/module/README.md#aggregate-master-detail).
+
+**Metadaten:** `GET /api/v1/{module}/{object}` liefert das Metamodell, die Lookups
+(Fremdschlüssel), die Relationen, die erlaubten Actions und `aggregate: true|false`. Ein
+eigenes Frontend erkennt daran, wo es einen Lookup-Dialog oder eine eingebettete Tabelle
+braucht.
+
 ## 9. Fehlerbehandlung
 
 | Fehler des Moduls (`errors.Is`) | HTTP-Status |
@@ -348,8 +450,10 @@ bleiben.
 |---|---|---|
 | `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-module`, `nav-item`, `content`, `footer`, `scripts` | `pageData` (`nav-module`: `navModule`, `nav-item`: `navItem`) |
 | `list.html` | `list`, `list-toolbar`, `table`, `row`, `row-actions` | `view` |
-| `form.html` | `form`, `form-buttons`, `field` | `view` bzw. `fieldCtx` |
-| `detail.html` | `detail`, `detail-toolbar` | `view` |
+| `form.html` | `form`, `form-buttons`, `field`, `lookup-field` | `view` bzw. `fieldCtx` |
+| `detail.html` | `detail`, `detail-toolbar`, `detail-section`, `section-fields` | `view` |
+| `relation.html` | `relation`, `relation-toolbar`, `relation-row` | `relationView` bzw. `relRow` |
+| `lookup.html` | `lookup`, `lookup-rows` | `lookupView` |
 | `fragments.html` | `created`, `updated`, `modal-close`, `toast`, `result`, `home`, `error` | je Block |
 
 **Beispiel** `web/templates/branding.html`:
@@ -392,6 +496,8 @@ eingebetteten Dateien.
 | `pathEscape` | Wert für URL-Pfade kodieren |
 | `domID` | ID für DOM-Element-IDs |
 | `json` | Wert als JSON |
+| `raw .Record "key"` | Rohwert eines Felds (z. B. Schlüssel für Links) |
+| `sectionCtx`, `relRow` | Daten für die Blöcke `detail-section` und `relation-row` |
 
 ## 11. Konfiguration
 

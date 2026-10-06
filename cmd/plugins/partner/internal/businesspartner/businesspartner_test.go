@@ -27,6 +27,7 @@ type testHost struct {
 	db           *sql.DB
 	companyCodes []string            // in iam angelegt
 	granted      map[string][]string // action → erlaubte Buchungskreise ("*" = alle)
+	self         sdk.Handler         // Plugin selbst: alle übrigen Objects
 }
 
 func (h *testHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error { return nil }
@@ -80,7 +81,7 @@ func (h *testHost) RollbackTx(ctx context.Context, _ string) error {
 	return err
 }
 
-func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, error) {
+func (h *testHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	p, _ := req.Payload.(map[string]any)
 	switch req.Object + "." + req.Action {
 	case "CompanyCode.get":
@@ -101,6 +102,9 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 			ccs = append(ccs, c)
 		}
 		return sdk.Response{Payload: map[string]any{"all": false, "company_codes": ccs}}, nil
+	}
+	if h.self != nil {
+		return h.self.Handle(ctx, req)
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
 }
@@ -177,6 +181,7 @@ func setup(t *testing.T) *env {
 			}
 		}
 	}
+	h.self = p // eigene Objects über den "Dispatcher" (Aggregate)
 	return &env{t: t, p: p, h: h, ctx: sdk.WithHost(ctx, h)}
 }
 
@@ -446,5 +451,66 @@ func TestModule(t *testing.T) {
 	// Nicht registrierte Routen lehnt das Plugin ab.
 	if _, err := p.Handle(context.Background(), sdk.Request{Object: "Unbekannt", Action: "list"}); !errors.Is(err, sdk.ErrUnimplemented) {
 		t.Fatalf("unbekanntes Object: %v", err)
+	}
+}
+
+// TestLabelsAndLookups: Verweise tragen lesbare Texte (_labels) und sind im
+// Metamodell als Lookup beschrieben.
+func TestLabelsAndLookups(t *testing.T) {
+	e := setup(t)
+	bp := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Label AG"))
+	addr := e.must("PartnerAddressData", "create", data("street", "Seestrasse", "house_no", "1", "zip_code", "8000", "city", "Zürich", "country", "ch"))
+	e.must("PartnerAddress", "create", data("bp_id", bp["id"], "address_id", addr["id"], "address_role_code", "MAIN"))
+
+	got := e.items("PartnerAddress", map[string]any{"bp_id": bp["id"]})
+	labels, _ := got[0]["_labels"].(map[string]any)
+	if labels["address_role_code"] != "Hauptanschrift" || labels["address_id"] != "Seestrasse 1 8000 Zürich CH" || labels["bp_id"] != "Label AG" {
+		t.Fatalf("_labels: %v", got[0]["_labels"])
+	}
+
+	// Suche in Katalogen (Lookup-Dialog).
+	if roles := e.items("PartnerAddressRole", map[string]any{"q": "rechnung"}); len(roles) != 1 || roles[0]["code"] != "INVOICE" {
+		t.Fatalf("Suche: %v", roles)
+	}
+
+	resp, _ := e.p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	for _, d := range resp.Payload.(metamodel.DescribeResponse).Objects {
+		if d.Name != "PartnerAddress" {
+			continue
+		}
+		for _, f := range d.Fields {
+			if f.Key == "address_role_code" && (f.Lookup == nil || f.Lookup.Object != "PartnerAddressRole" || f.Lookup.ValueField != "code") {
+				t.Fatalf("Lookup: %+v", f.Lookup)
+			}
+		}
+	}
+}
+
+// TestAggregate: Geschäftspartner mit Adresse und Kommunikation in einem
+// Aufruf – atomar, auch über die Fachregeln der Unter-Objects.
+func TestAggregate(t *testing.T) {
+	e := setup(t)
+	addr := e.must("PartnerAddressData", "create", data("street", "Bahnhofstrasse", "zip_code", "8001", "city", "Zürich", "country", "CH"))
+
+	out := e.must("BusinessPartner", "saveAggregate", map[string]any{
+		"data": row("type", "ORGANIZATION", "name1", "Aggregat AG"),
+		"relations": map[string]any{
+			"adressen":      map[string]any{"create": []any{row("address_id", addr["id"], "address_role_code", "MAIN")}},
+			"kommunikation": map[string]any{"create": []any{row("comm_type_code", "EMAIL_WORK", "value", "info@aggregat.ch")}},
+		},
+	})
+	rels := out["relations"].(map[string]any)
+	if len(rels["adressen"].([]any)) != 1 || len(rels["kommunikation"].([]any)) != 1 || len(rels["rollen"].([]any)) != 0 {
+		t.Fatalf("Aggregat: %v", rels)
+	}
+
+	// Ungültige E-Mail im Unter-Object: auch der Partner entsteht nicht.
+	_, err := e.do("BusinessPartner", "saveAggregate", map[string]any{
+		"data":      row("type", "ORGANIZATION", "name1", "Fehler AG"),
+		"relations": map[string]any{"kommunikation": map[string]any{"create": []any{row("comm_type_code", "EMAIL_WORK", "value", "kein-mail")}}},
+	})
+	expect(t, err, sdk.ErrInvalidArgument, "ungültige E-Mail im Aggregat")
+	if n := len(e.items("BusinessPartner", map[string]any{"q": "Fehler AG"})); n != 0 {
+		t.Fatalf("Rollback: %d Partner", n)
 	}
 }

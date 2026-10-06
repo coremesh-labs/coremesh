@@ -38,6 +38,7 @@ type mounted struct {
 	mod    Module
 	desc   Descriptor
 	router *Router
+	env    Env // ab Configure (für Aggregate)
 }
 
 var (
@@ -74,13 +75,15 @@ func NewPlugin(info Info, modules ...Module) *Plugin {
 		seen[d.Name] = true
 		r := &Router{module: d.Name, errs: &errs, owners: owners}
 		mod.RegisterRoutes(r)
+		mt := &mounted{mod: mod, desc: d, router: r}
+		addAggregates(mt)
 		r.check()
 		for _, o := range r.objects {
 			for _, a := range o.actions {
 				p.handlers[[2]string{o.name, a}] = o.handlers[a]
 			}
 		}
-		p.mounted = append(p.mounted, &mounted{mod: mod, desc: d, router: r})
+		p.mounted = append(p.mounted, mt)
 	}
 	errs = append(errs, p.checkSchemas()...)
 	if len(errs) > 0 {
@@ -212,6 +215,7 @@ func (p *Plugin) Configure(ctx context.Context, cfg sdk.Config) error {
 			Services: hostServices{host: cfg.Host},
 			config:   modCfg,
 		}
+		m.env = env
 		if err := m.mod.Initialize(ctx, env); err != nil {
 			p.shutdownLocked(ctx)
 			return fmt.Errorf("Modul %s: Initialize: %w", m.desc.Name, err)

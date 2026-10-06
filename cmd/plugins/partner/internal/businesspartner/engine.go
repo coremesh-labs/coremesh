@@ -31,14 +31,31 @@ type field struct {
 	ReadOnly   bool // nur Anzeige (z. B. generierte id)
 	Virtual    bool // nicht in der Tabelle (wird von Hooks verarbeitet)
 	Options    []metamodel.Option
-	Ref        *ref // Verweis auf einen Katalog/eine Entität
+	Ref        *ref              // Verweis auf einen Katalog/eine Entität (prüfen, Label, Lookup)
+	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls
 }
 
 // ref: Der Wert muss in Table.Column existieren; bei TimeSliced zusätzlich
 // am Stichtag (valid_from des Datensatzes, sonst heute) gültig sein.
+//
+// Object und LabelFields machen daraus ein Lookup im Metamodell (Auswahldialog)
+// und liefern den lesbaren Text in "_labels" der Datensätze.
 type ref struct {
 	Table, Column, Label string
 	TimeSliced           bool
+	Object               string   // Ziel-Object, z. B. "PartnerAddressRole"
+	LabelFields          []string // Spalten des Ziels für den lesbaren Text
+}
+
+// lookup liefert die Lookup-Metadaten eines Felds.
+func (f *field) lookup() *metamodel.Lookup {
+	if f.Lookup != nil {
+		return f.Lookup
+	}
+	if f.Ref == nil || f.Ref.Object == "" {
+		return nil
+	}
+	return &metamodel.Lookup{Object: f.Ref.Object, ValueField: f.Ref.Column, LabelFields: f.Ref.LabelFields}
 }
 
 type entity struct {
@@ -53,6 +70,10 @@ type entity struct {
 	Order                      string   // ORDER BY
 	Filters                    []string // erlaubte Filter in list (Query-Parameter)
 	Search                     []string // Spalten für den Suchparameter q (LIKE)
+
+	// Detailansicht (Metamodell): Abschnitte, eingebettete Unter-Objects
+	TitleField string
+	Sections   []metamodel.SectionDefinition
 
 	// Hooks
 	validate     func(ctx context.Context, rec record, old record) error // nach Typprüfung, in der Transaktion
@@ -269,6 +290,13 @@ func (e *entity) list(ctx context.Context, payload any) (sdk.Response, error) {
 		}
 		items = append(items, rec)
 	}
+	recs := make([]record, len(items))
+	for i, it := range items {
+		recs[i] = it.(record)
+	}
+	if err := e.withLabels(ctx, recs...); err != nil {
+		return sdk.Response{}, err
+	}
 	return sdk.Response{Payload: map[string]any{"items": items}}, nil
 }
 
@@ -311,6 +339,9 @@ func (e *entity) get(ctx context.Context, payload any) (sdk.Response, error) {
 		if err := e.checkRecord(ctx, "get", rec); err != nil {
 			return sdk.Response{}, err
 		}
+	}
+	if err := e.withLabels(ctx, rec); err != nil {
+		return sdk.Response{}, err
 	}
 	return sdk.Response{Payload: rec}, nil
 }
@@ -443,6 +474,9 @@ func (e *entity) create(ctx context.Context, payload any) (sdk.Response, error) 
 	if err != nil {
 		return sdk.Response{}, err
 	}
+	if err := e.withLabels(ctx, saved); err != nil {
+		return sdk.Response{}, err
+	}
 	return sdk.Response{Payload: saved}, nil
 }
 
@@ -500,6 +534,9 @@ func (e *entity) update(ctx context.Context, payload any) (sdk.Response, error) 
 	if err != nil {
 		return sdk.Response{}, err
 	}
+	if err := e.withLabels(ctx, saved); err != nil {
+		return sdk.Response{}, err
+	}
 	return sdk.Response{Payload: saved}, nil
 }
 
@@ -538,11 +575,12 @@ func idOf(payload any) string {
 // --- Metamodell --------------------------------------------------------------------
 
 func (e *entity) definition() metamodel.ObjectDefinition {
-	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon}
-	for _, f := range e.Fields {
+	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections}
+	for i := range e.Fields {
+		f := &e.Fields[i]
 		d.Fields = append(d.Fields, metamodel.FieldDefinition{
 			Key: f.Key, Label: f.Label, Type: f.Type, Required: f.Required,
-			Listable: f.Listable, Editable: !f.ReadOnly, Options: f.Options,
+			Listable: f.Listable, Editable: !f.ReadOnly, Options: f.Options, Lookup: f.lookup(),
 		})
 	}
 	d.Actions = []metamodel.ActionConfig{

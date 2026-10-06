@@ -124,6 +124,34 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
   Bankverbindungen und Buchungskreisdaten. Die Adressen selbst bleiben, sie sind
   wiederverwendbar.
 
+## Detailansicht, Lookups und Aggregat
+
+**Detailansicht eines Partners** (`/m/businesspartner/BusinessPartner/{id}`) mit aufklappbaren
+Abschnitten:
+
+| Abschnitt | Inhalt | Lookups in der eingebetteten Tabelle |
+|---|---|---|
+| Stammdaten | Art, Name 1/2, Suchbegriff, Gesperrt, ID | – |
+| Rollen | `PartnerRole` | Rolle → `PartnerRoleType` |
+| Adressen | `PartnerAddress`, n:m über die Zuordnung mit Rolle und Zeitscheibe | Adressrolle → `PartnerAddressRole`, Adresse → `PartnerAddressData` (✎ bearbeitet die Adresse selbst) |
+| Kommunikation | `PartnerContact` | Kommunikationstyp → `PartnerCommType` |
+| Bankverbindungen (zugeklappt) | `PartnerBankDetail` | – |
+| Buchungskreisdaten (zugeklappt) | `PartnerCompanyCode` | Buchungskreis → `CompanyCode` aus `iam` (über Modulgrenzen, nur lesend) |
+
+**Lookups und Labels.** Jeder Verweis (`ref` in `entities.go`) mit `Object` und `LabelFields`
+erscheint im Metamodell als Lookup. Die Engine liefert in jedem Datensatz `"_labels"` mit dem
+lesbaren Text, je Feld mit einer einzigen Abfrage für alle Datensätze (`labels.go`). Die
+Kataloge unterstützen die Suche `q` über Code und Beschreibung.
+
+**Aggregat.** `BusinessPartner.getAggregate` und `BusinessPartner.saveAggregate` stellt
+`pkg/sdk/module` automatisch aus den Relationen bereit. Beispiel: Partner mit Adresse und
+E-Mail in einem atomaren Aufruf:
+
+```bash
+console --object BusinessPartner --action saveAggregate --param 'data={"type":"ORGANIZATION","name1":"Neu AG"}' \
+  --param 'relations={"adressen":{"create":[{"address_id":"…","address_role_code":"MAIN"}]},"kommunikation":{"create":[{"comm_type_code":"EMAIL_WORK","value":"info@neu.ch"}]}}'
+```
+
 ## Aufbau des Codes
 
 | Datei | Inhalt |
@@ -132,6 +160,7 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
 | `internal/businesspartner/module.go` | das **BusinessPartnerModule**: Descriptor, RegisterRoutes, Initialize (DB, Services, Logger), Schema |
 | `schema.go` | Atlas-HCL aller Tabellen und Seeds |
 | `engine.go` | tabellengesteuerte CRUD-Engine: Typumwandlung, Schlüssel, Verweise, Zeitscheiben, Transaktionen, Metamodell |
+| `labels.go` | lesbare Texte der Verweise (`_labels`) für Oberfläche und API |
 | `entities.go` | Kataloge, Partner, Adressen, Kommunikation, Bank |
 | `finance.go` | Rollenzuordnung, Buchungskreisdaten, Zugriff je Buchungskreis |
 | `validate.go` | Zeitscheiben, E-Mail, Telefon, URL, IBAN, BIC, Land |
@@ -156,17 +185,14 @@ Seeds ein und prüft unter anderem:
 - das Löschen eines Partners samt Beziehungen,
 - Finanzrollen mit Buchungskreis-Zwang, Rollback bei Fehlern und Sicht je Buchungskreis,
 - die Gültigkeit aller 11 Metamodelle und das Modul (Gruppen, ein `schema`-Block).
+- Labels, Lookup-Metadaten und Suche in Katalogen,
+- `saveAggregate` mit Adresse und Kommunikation, Rollback bei ungültiger E-Mail.
 
 Die Tests laufen über `module.NewPlugin`, also über denselben Weg wie im Betrieb: Router,
 Dependency Injection und DBSchema.Init.
 
 ## Grenzen und nächste Schritte
 
-- **Beziehungen in der Oberfläche:** Unterobjekte wie Rollen, Adressen und Kontakte sind
-  eigene Objects und lassen sich über `?bp_id=…` filtern. Das Metamodell kennt noch keine
-  Beziehungen, die Detailseite eines Partners zeigt sie also nicht eingebettet. Das wäre
-  eine Erweiterung von Metamodell und WebServer, zum Beispiel `relations` mit Ziel-Object
-  und Filterfeld.
 - **Standard-Kennzeichen:** Mehrere `is_default`-Einträge pro Partner und Typ in
   überlappenden Zeitscheiben werden noch nicht verhindert.
 - **Mandanten:** Partner sind nicht nach Mandant getrennt (`tenant_id`). Das ließe sich

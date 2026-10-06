@@ -211,7 +211,8 @@ func (m *Module) partnerCompanyCode() *entity {
 		Filters: []string{"bp_id", "company_code", "role_code"},
 		Fields: []field{
 			{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
-			{Key: "company_code", Label: "Buchungskreis", Type: tText, Required: true, Listable: true, Immutable: true},
+			{Key: "company_code", Label: "Buchungskreis", Type: tText, Required: true, Listable: true, Immutable: true,
+				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
 			{Key: "role_code", Label: "Finanzrolle", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refRoleType},
 			{Key: "reconciliation_account", Label: "Abstimmkonto", Type: tText, Listable: true},
 			{Key: "payment_terms", Label: "Zahlungsbedingung", Type: tText, Listable: true},

@@ -35,6 +35,7 @@ alles, was keine Fachlogik ist:
 | Routing `(Object, Action)` → Handler | Router |
 | `DBSchema.Init` | `SchemaProvider` der Module, zu einem Schema zusammengefasst |
 | `Catalog.Describe` | Metamodelle (`Describe`) und Module (`Descriptor` + Reihenfolge, `Section`) |
+| `getAggregate`, `saveAggregate` | Relationen im Metamodell, siehe [Aggregate](#aggregate-master-detail) |
 | Dependency Injection | `Env` je Modul in `Configure` |
 | Lebenszyklus | `Initialize` in Registrierungsreihenfolge, `Shutdown` rückwärts |
 
@@ -84,6 +85,42 @@ plugins:
 `DB` und `Services` funktionieren auch in eigenen Goroutinen mit frischem `ctx`, weil
 dann der Host aus `Configure` einspringt. Transaktionen (`InTx`) gibt es nur innerhalb
 einer Anfrage.
+
+## Aggregate (Master-Detail)
+
+Enthält das Metamodell eines Objects Relationen (`SectionDefinition.Relation`), registriert
+`NewPlugin` automatisch zwei weitere Actions. Ein Modul kann sie auch selbst implementieren;
+dann bleibt seine eigene Implementierung.
+
+| Action | Payload | Antwort |
+|---|---|---|
+| `getAggregate` | `{"id": "…"}` | `{"record": {…}, "relations": {"<section>": [{…}], …}}` |
+| `saveAggregate` | `{"id"?, "data"?, "relations": {"<section>": {"create": [{…}], "update": [{"id", "data"}], "delete": ["id"]}}}` | wie `getAggregate`, Stand nach dem Speichern |
+
+So verarbeitet `saveAggregate` die Änderungen:
+
+```
+InTx(env.DB)                                   ← eine Transaktion der Moduldatenbank
+├── Master: create (ohne id) oder update (mit data)
+└── je Relation, in der Reihenfolge der Abschnitte:
+    ├── delete  → Prüfung: gehört das Unter-Object zum Master?
+    ├── update  → Fremdschlüssel bleibt auf den Master gesetzt
+    └── create  → Fremdschlüssel = id des Masters (auch bei Neuanlage)
+Fehler irgendwo → Rollback von allem; Erfolg → Commit, dann getAggregate
+```
+
+**Jeder Teilschritt ist ein normaler Aufruf über den Dispatcher** (`env.Services.Call`), zum
+Beispiel `PartnerContact.create`. Daraus folgt dreierlei:
+
+- Berechtigungen gelten je `Object.Action`. Wer `PartnerContact.create` nicht darf, kann es
+  auch über das Aggregat nicht.
+- Die Fachregeln der Actions greifen unverändert, etwa die E-Mail-Prüfung oder der
+  Buchungskreis-Zwang.
+- Die Transaktion geht automatisch auf die aufgerufenen Actions über (Tx-Weitergabe des Hosts).
+
+**Voraussetzungen:** Unter-Objects gehören zum selben Modul (`NewPlugin` prüft das). Sie
+bieten Actions der Kinds `list` (Filter auf den Fremdschlüssel), `item`, `create`, `update`
+und `delete`. Der Master bietet `item`, `create` und `update`.
 
 ## Kapselung
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 var (
@@ -58,6 +59,25 @@ func (d ObjectDefinition) Validate() error {
 			}
 			values[o.Value] = true
 		}
+		if lk := f.Lookup; lk != nil {
+			if !objectRe.MatchString(lk.Object) {
+				add("%s: lookup.object %q: PascalCase erwartet", where, lk.Object)
+			}
+			if !keyRe.MatchString(lk.ValueField) {
+				add("%s: lookup.value_field fehlt oder ungültig", where)
+			}
+			if len(lk.LabelFields) == 0 {
+				add("%s: lookup.label_fields fehlt", where)
+			}
+			for _, k := range append(slices.Clone(lk.LabelFields), lk.Columns...) {
+				if !keyRe.MatchString(k) {
+					add("%s: lookup: ungültiges Feld %q", where, k)
+				}
+			}
+			if f.Type == TypeSelect || f.Type == TypeBoolean || f.Type == TypePassword {
+				add("%s: lookup nicht bei type %s", where, f.Type)
+			}
+		}
 	}
 
 	names := map[string]bool{}
@@ -75,6 +95,43 @@ func (d ObjectDefinition) Validate() error {
 		}
 		if a.Label == "" {
 			add("%s: label fehlt", where)
+		}
+	}
+
+	if d.TitleField != "" && !keys[d.TitleField] {
+		add("title_field %q ist kein Feld", d.TitleField)
+	}
+	sections, placed := map[string]bool{}, map[string]string{}
+	for i, s := range d.Sections {
+		where := fmt.Sprintf("sections[%d] %q", i, s.Key)
+		if !keyRe.MatchString(s.Key) || sections[s.Key] {
+			add("%s: key ungültig oder doppelt", where)
+		}
+		sections[s.Key] = true
+		if s.Title == "" {
+			add("%s: title fehlt", where)
+		}
+		if (len(s.Fields) > 0) == (s.Relation != nil) {
+			add("%s: genau eines von fields und relation angeben", where)
+		}
+		for _, k := range s.Fields {
+			switch {
+			case !keys[k]:
+				add("%s: Feld %q gibt es nicht", where, k)
+			case placed[k] != "":
+				add("%s: Feld %q steht schon in Abschnitt %s", where, k, placed[k])
+			}
+			placed[k] = s.Key
+		}
+		if r := s.Relation; r != nil {
+			if !objectRe.MatchString(r.Object) || !keyRe.MatchString(r.ForeignKey) {
+				add("%s: relation braucht object (PascalCase) und foreign_key", where)
+			}
+			for _, k := range r.Columns {
+				if !keyRe.MatchString(k) {
+					add("%s: relation: ungültige Spalte %q", where, k)
+				}
+			}
 		}
 	}
 

@@ -291,3 +291,13 @@ func TestModules(t *testing.T) {
 		}
 	}
 }
+
+func TestRelationsOnlyToOwnObjects(t *testing.T) {
+	e := setup(t, t.TempDir())
+	bp := partnerDef()
+	bp.Sections = []metamodel.SectionDefinition{{Key: "props", Title: "Liegenschaften",
+		Relation: &metamodel.Relation{Object: "Property", ForeignKey: "bp_id"}}}
+	if _, err := e.register("partner", "1.2.0", bp); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("Relation auf fremdes Object: %v", err)
+	}
+}
