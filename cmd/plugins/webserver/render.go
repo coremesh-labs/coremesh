@@ -64,15 +64,18 @@ type pageData struct {
 	AppTitle string
 	Title    string
 	Active   string        // aktives Object in der Navigation
-	Nav      []navItem     // aus Catalog.ListObjects
+	Nav      []navModule   // Module aus Catalog.ListModules; das aktive mit seinen Objects
 	Content  template.HTML // bereits gerendertes Fragment
 	User     *user         // angemeldeter Benutzer
 }
 
+// navItem ist ein Object in der Navigation des aktiven Moduls.
 type navItem struct {
 	Object string
 	Title  string
 	Icon   string
+	URL    string // /m/{module}/{object}
+	Active bool
 }
 
 // page rendert das Fragment und bettet es in das Layout ein.
@@ -87,13 +90,7 @@ func (r *renderer) page(w io.Writer, fragment string, data any, page pageData) e
 }
 
 var funcs = template.FuncMap{
-	"listable": listable,
-	"navCtx": func(n navItem, active string) any {
-		return struct {
-			navItem
-			Active bool
-		}{n, n.Object == active}
-	},
+	"listable":   listable,
 	"value":      displayValue,
 	"pathEscape": url.PathEscape,
 	"domID":      func(id string) string { return hex.EncodeToString([]byte(id)) },

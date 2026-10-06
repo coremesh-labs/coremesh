@@ -1,8 +1,10 @@
 {{/*
   Base-Layout für Full-Page-Requests (Seitenaufruf, F5).
-  Daten: pageData {AppTitle, Title, Active, Nav, Content}.
+  Daten: pageData {AppTitle, Title, Active, Nav, Content, User}.
+  Nav: Module (navModule {Name, Title, Icon, Active, Sections}); nur das aktive
+  Modul zeigt seine Objects, gruppiert nach Section (navItem {Object, Title, Icon, URL, Active}).
 
-  Überschreibbare Blöcke: head, brand, sidebar, nav-item, user-menu, content, footer, scripts.
+  Überschreibbare Blöcke: head, brand, sidebar, nav-module, nav-item, user-menu, content, footer, scripts.
   Pflicht-IDs für HTMX: #main-content, #modal, #toast-container.
 */}}
 {{define "layout"}}<!doctype html>
@@ -25,11 +27,24 @@
     {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
     {{block "sidebar" .}}
     <nav>
-      {{range .Nav}}{{block "nav-item" (navCtx . $.Active)}}
-      <a href="/ui/{{.Object}}" hx-get="/ui/{{.Object}}" hx-target="#main-content" hx-push-url="true"
-         {{if .Active}}class="active" aria-current="page"{{end}}>
-        {{with .Icon}}<i class="{{.}}"></i>{{end}}{{or .Title .Object}}
+      {{range .Nav}}{{block "nav-module" .}}
+      {{/* Modulwechsel = ganze Seite (Seitenleiste zeigt die Objects des neuen Moduls). */}}
+      <a class="module{{if .Active}} active{{end}}" href="/m/{{.Name}}" {{if .Active}}aria-current="true"{{end}}>
+        {{with .Icon}}<i class="{{.}}"></i>{{end}}{{.Title}}
       </a>
+      {{if .Active}}
+      <div class="subnav">
+        {{range .Sections}}
+        {{with .Title}}<span class="section">{{.}}</span>{{end}}
+        {{range .Items}}{{block "nav-item" .}}
+        <a href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true"
+           {{if .Active}}class="active" aria-current="page"{{end}}>
+          {{with .Icon}}<i class="{{.}}"></i>{{end}}{{or .Title .Object}}
+        </a>
+        {{end}}{{end}}
+        {{end}}
+      </div>
+      {{end}}
       {{end}}{{end}}
     </nav>
     {{end}}
@@ -41,11 +56,13 @@
   {{block "footer" .}}{{end}}
   {{block "scripts" .}}
   <script>
-    // Aktiven Navigationspunkt nach HTMX-Navigation nachziehen.
+    // Aktiven Navigationspunkt im Modul nach HTMX-Navigation nachziehen.
+    // Exakter Pfad oder Unterpfad – "/m/x/Role" passt nicht auf "/m/x/RoleType".
     document.addEventListener("htmx:pushedIntoHistory", function (e) {
-      document.querySelectorAll(".sidebar nav a").forEach(function (a) {
-        var on = e.detail.path.indexOf(a.getAttribute("href")) === 0;
-        a.classList.toggle("active", on);
+      var path = e.detail.path.split("?")[0];
+      document.querySelectorAll(".sidebar .subnav a").forEach(function (a) {
+        var href = a.getAttribute("href");
+        a.classList.toggle("active", path === href || path.indexOf(href + "/") === 0);
       });
     });
   </script>

@@ -1,5 +1,9 @@
 // Command hello ist ein Beispiel-Plugin. Es importiert bewusst nur pkg/sdk/...,
 // genau wie ein externes Plugin-Modul es tun würde – nie internal/.
+//
+// Es zeigt den einfachsten Weg: sdk.Plugin direkt implementieren und das
+// Modul (demo) nur in Catalog.Describe melden. Für größere Fachmodule ist
+// pkg/sdk/module komfortabler (Beispiel: cmd/plugins/partner).
 package main
 
 import (
@@ -51,7 +55,12 @@ func (h *hello) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case req.Object == sdk.ObjectDBSchema && req.Action == sdk.ActionInit:
 		return h.initSchema(req)
 	case req.Object == sdk.ObjectCatalog && req.Action == sdk.ActionDescribe:
-		return sdk.Response{Payload: metamodel.DescribeResponse{Objects: []metamodel.ObjectDefinition{greetingDef}}}, nil
+		// Ohne Modul erscheint Greeting nicht im WebServer (er registriert nur Module).
+		return sdk.Response{Payload: metamodel.DescribeResponse{
+			Objects: []metamodel.ObjectDefinition{greetingDef},
+			Modules: []metamodel.ModuleDefinition{{Name: "demo", Title: "Demo", Icon: "icon-hand-wave",
+				Description: "Beispiel-Plugin hello", Objects: []metamodel.ModuleObject{{Object: "Greeting"}}}},
+		}}, nil
 	case req.Object == "Greeting" && req.Action == "say":
 		return h.say(ctx, req)
 	case req.Object == "Greeting" && req.Action == "list":

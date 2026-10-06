@@ -4,8 +4,9 @@ Das Core-Plugin `iam` (Identity & Access Management) läuft im Host-Prozess und 
 drei Aufgaben:
 
 1. **Benutzer und Rollen verwalten.** Das geschieht über die generische Oberfläche:
-   Die Objects `User` und `Role` haben ein Metamodell, der WebServer baut
-   Listen und Formulare daraus.
+   Die Objects `User`, `Role` und `CompanyCode` haben ein Metamodell und bilden das
+   Modul **`admin`** („Administration“, `/m/admin`). Der WebServer baut Listen und
+   Formulare daraus.
 2. **Anmeldedaten prüfen.** `Account.Authenticate` ist nur für Ingress-Plugins wie den
    WebServer erreichbar.
 3. **Berechtigungen durchsetzen.** `iam` ist der *Authorizer* des Dispatchers. Jede

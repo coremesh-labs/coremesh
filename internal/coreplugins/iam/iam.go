@@ -105,7 +105,10 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		}
 		return sdk.Response{Payload: sdk.SchemaInitResponse{Module: in.Module, Schema: schemaHCL}}, nil
 	case sdk.ObjectCatalog + "." + sdk.ActionDescribe:
-		return sdk.Response{Payload: metamodel.DescribeResponse{Objects: []metamodel.ObjectDefinition{userDef, roleDef, companyCodeDef}}}, nil
+		return sdk.Response{Payload: metamodel.DescribeResponse{
+			Objects: []metamodel.ObjectDefinition{userDef, roleDef, companyCodeDef},
+			Modules: []metamodel.ModuleDefinition{adminModule},
+		}}, nil
 
 	case "Account.Authenticate":
 		return p.authenticate(ctx, req.Payload)

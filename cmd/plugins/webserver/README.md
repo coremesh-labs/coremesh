@@ -3,7 +3,8 @@
 Das generische Web-Frontend von CoreMesh, implementiert als **externes Plugin**.
 
 Es nimmt HTTP-Anfragen an und übersetzt sie in `(object, action)`-Aufrufe an die
-Fachmodule. Tabellen, Formulare und Detailansichten entstehen allein aus dem
+Fachmodule. Dabei registriert es **nur Module**: fachliche Namensräume, die Objects bündeln
+(`/m/businesspartner/…`, `/api/v1/businesspartner/…`). Tabellen, Formulare und Detailansichten entstehen allein aus dem
 **Metamodell**, das die Module beim Catalog hinterlegen. Der WebServer enthält
 keinen Code für einzelne Objects. Ein neues Fachmodul erscheint in der Oberfläche,
 sobald es läuft und ein Metamodell liefert.
@@ -11,7 +12,7 @@ sobald es läuft und ein Metamodell liefert.
 ```
 Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──▶ Dispatcher ──▶ Fachmodul
    ▲                 │ html/template + HTMX                    │
-   └──── HTML ───────┘                         Catalog.GetDefinition / ListObjects
+   └──── HTML ───────┘                         Catalog.ListModules / GetModule / GetDefinition
 ```
 
 ## Inhalt
@@ -34,14 +35,41 @@ Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──�
 
 ## 1. Grundprinzip
 
-Jede HTTP-Anfrage wird in vier Schritten verarbeitet:
+### Module statt einzelner Objects
 
-1. **Object aus der URL:** `/ui/BusinessPartner/…` → Object `BusinessPartner`
-   (PascalCase, sonst 404).
+Der WebServer registriert **ausschließlich Module** (`Catalog.ListModules`). Ein Modul
+ist ein fachlicher Namensraum, der zusammengehörige Business-Objects bündelt, zum
+Beispiel `businesspartner` mit `BusinessPartner`, `PartnerRole`, … und den Katalogen.
+Module beschreibt jedes Plugin selbst (`metamodel.ModuleDefinition`, am einfachsten
+über `pkg/sdk/module`). Ein Object ohne Modul ist über den WebServer nicht erreichbar.
+
+Jedes Modul bekommt drei **gekapselte Sub-Router** (`modules.go`):
+
+| Präfix | Sub-Router | Inhalt |
+|---|---|---|
+| `/m/{module}` | `uiRoutes` | Oberfläche (HTMX) |
+| `/action/{module}` | `actionRoutes` | custom-Actions |
+| `/api/v1/{module}` | `apiRoutes` | JSON-API |
+
+`mountModule` löst das Modul **einmal je Anfrage** auf (`Catalog.GetModule`). Danach
+beschränkt es das Modul auf die Objects, die laufen und für die der Benutzer eine
+Berechtigung hat, und reicht die Anfrage mit abgeschnittenem Präfix an den Sub-Router
+weiter. Was das für die Kapselung bedeutet:
+
+- `/m/businesspartner/User` → **404**: `User` gehört zum Modul `admin`.
+- Ein unbekanntes Modul → **404**.
+- Ein Modul ohne ein einziges berechtigtes Object → **403**, und es fehlt in der Navigation.
+
+### Von der URL zum Aufruf
+
+Jede Anfrage im Modul wird in vier Schritten verarbeitet:
+
+1. **Object aus der URL:** `/m/businesspartner/BusinessPartner/…` → Object
+   `BusinessPartner`. Es muss PascalCase haben **und zum Modul gehören**, sonst 404.
 2. **Metamodell holen:** `Catalog.GetDefinition {"object": "BusinessPartner"}`
    liefert Felder, Titel und die angebotenen Actions mit ihrem **Kind**.
 3. **Action über das Kind wählen:** Die HTTP-Methode und der Pfad bestimmen ein Kind
-   (z. B. `GET /ui/X` → `list`). Der WebServer nimmt die Action, die im Metamodell
+   (z. B. `GET /m/{module}/X` → `list`). Der WebServer nimmt die Action, die im Metamodell
    dieses Kind hat. Wie sie heißt (`List`, `list`, `search`), ist egal.
 4. **Aufruf:** `Host.Handle(ctx, {Object, Action, Payload})`. Das Payload folgt den
    Konventionen aus [Abschnitt 4](#4-parameter-und-payloads).
@@ -53,28 +81,51 @@ Danach wird die Antwort gerendert: bei HTMX-Anfragen nur das Fragment, sonst die
 | Methode & Pfad | Kind | Aufruf an das Modul | Antwort (HTMX) | Antwort (ohne JS) |
 |---|---|---|---|---|
 | `GET /login`, `POST /login`, `POST /logout` | – | – (siehe „Anmeldung und Sicherheit“) | | |
-| `GET /` | – | `Catalog.ListObjects` | Startseite | Seite |
-| `GET /ui/{object}` | `list` | `{query}` | `<section id="list">` mit Tabelle | Seite |
-| `GET /ui/{object}/new` | (`create`) | – (nur Metamodell) | Formular im Dialog `#modal` | Seite mit Formular |
-| `POST /ui/{object}` | `create` | `{data}` | neue `<tr>` + Dialog zu + Toast | `303` → `/ui/{object}` |
-| `GET /ui/{object}/{id}` | `item` | `{id}` | `<section id="detail">` | Seite |
-| `GET /ui/{object}/{id}/edit` | `item` + (`update`) | `{id}` | Formular mit Werten im Dialog | Seite mit Formular |
-| `PUT /ui/{object}/{id}` | `update` | `{id, data}` | Zeile oder Detail + Dialog zu + Toast | – |
-| `DELETE /ui/{object}/{id}` | `delete` | `{id}` | Zeile entfernt + Toast | – |
-| `POST /ui/{object}/{id}` | `update`/`delete` | wie PUT/DELETE, gesteuert über `_method` | wie PUT/DELETE | `303` → Detail/Liste |
-| `GET /action/{object}/{name}` | `custom` | – (nur Metamodell) | Formular der Action im Dialog | Seite mit Formular |
-| `POST /action/{object}/{name}` | `custom` | `{id?, data}` | Ergebnis im Dialog + Toast | Seite mit Ergebnis |
+| `GET /` | – | `Catalog.ListModules` | Startseite: Modul-Kacheln | Seite |
+| `GET /m/{module}` | `list` | wie unten, für das **erste** Object des Moduls | Tabelle | Seite |
+| `GET /m/{module}/{object}` | `list` | `{query}` | `<section id="list">` mit Tabelle | Seite |
+| `GET /m/{module}/{object}/new` | (`create`) | – (nur Metamodell) | Formular im Dialog `#modal` | Seite mit Formular |
+| `POST /m/{module}/{object}` | `create` | `{data}` | neue `<tr>` + Dialog zu + Toast | `303` → Liste |
+| `GET /m/{module}/{object}/{id}` | `item` | `{id}` | `<section id="detail">` | Seite |
+| `GET /m/{module}/{object}/{id}/edit` | `item` + (`update`) | `{id}` | Formular mit Werten im Dialog | Seite mit Formular |
+| `PUT /m/{module}/{object}/{id}` | `update` | `{id, data}` | Zeile oder Detail + Dialog zu + Toast | – |
+| `DELETE /m/{module}/{object}/{id}` | `delete` | `{id}` | Zeile entfernt + Toast | – |
+| `POST /m/{module}/{object}/{id}` | `update`/`delete` | wie PUT/DELETE, gesteuert über `_method` | wie PUT/DELETE | `303` → Detail/Liste |
+| `GET /action/{module}/{object}/{name}` | `custom` | – (nur Metamodell) | Formular der Action im Dialog | Seite mit Formular |
+| `POST /action/{module}/{object}/{name}` | `custom` | `{id?, data}` | Ergebnis im Dialog + Toast | Seite mit Ergebnis |
+| `GET /api/v1/{module}` | – | `Catalog.ListActions` je Object | JSON, siehe [API](#json-api) | |
+| `POST /api/v1/{module}/{object}/{action}` | beliebig | JSON-Body | JSON, siehe [API](#json-api) | |
 | `GET /static/…` | – | – | CSS u. a. | |
 
 **Hinweise:**
 
 - `{id}` ist URL-kodiert. Die ID `p/1` steht in der URL als `p%2F1`. Die ID `new` ist nicht adressierbar.
-- **Custom-Actions** liegen unter `/action/` statt unter `/ui/{object}/…`. Sonst gäbe es
-  Mehrdeutigkeiten mit `/ui/{object}/{id}/edit`, etwa bei einer Action namens `edit`.
+- **Custom-Actions** liegen unter `/action/` statt unter `/m/{module}/{object}/…`. Sonst gäbe es
+  Mehrdeutigkeiten mit `…/{id}/edit`, etwa bei einer Action namens `edit`.
 - In Klammern gesetzte Kinds werden nur geprüft: Das Formular erscheint nur, wenn das
   Object die Action anbietet.
 - Bietet ein Object ein Kind nicht an, antwortet der WebServer mit **404**. In der
   Oberfläche erscheinen nur die Buttons angebotener Actions.
+- Die früheren Objekt-Routen `/ui/{object}` gibt es seit Version 0.4.0 nicht mehr.
+
+### JSON-API
+
+Die API nutzt dieselbe Session wie die Oberfläche (Cookie aus `POST /login`).
+
+- `GET /api/v1/{module}` beschreibt das Modul: Objects mit Titel, Gruppe und den Actions,
+  die der Benutzer aufrufen darf.
+- `POST /api/v1/{module}/{object}/{action}` ruft eine beliebige Route eines Objects des
+  Moduls auf. Der JSON-Body ist das Payload. Die Antwort lautet `{"payload": …, "metadata": …}`.
+- Fehler kommen als `{"error": "…"}` mit demselben Status wie in der Oberfläche, zum
+  Beispiel `404`, `403` oder `422`. Ohne Session antwortet die API mit `401`.
+- **CSRF-Schutz:** Ein Body verlangt `Content-Type: application/json`, sonst antwortet die
+  API mit `415`. Fremde Seiten können diesen Content-Type nicht ohne CORS-Freigabe senden;
+  zusätzlich greift die Origin-Prüfung.
+
+```bash
+curl -b cookies.txt -H "Content-Type: application/json" \
+     -d '{"query":{"q":"muster"}}' http://localhost:8080/api/v1/businesspartner/BusinessPartner/list
+```
 
 ## 3. Object und Action bestimmen
 
@@ -121,7 +172,7 @@ einhalten, funktionieren ohne Anpassung mit dem WebServer.
 | `delete` | `{"id": "<id>"}` | Pfad |
 | `custom` | `{"id": "<id>", "data": {…}}` | `id` optional (aus `?id=` bzw. `_id`), Formular |
 
-**Beispiel:** `GET /ui/BusinessPartner?q=acme&page=2&tag=a&tag=b` führt zu
+**Beispiel:** `GET /m/businesspartner/BusinessPartner?q=acme&page=2&tag=a&tag=b` führt zu
 
 ```json
 { "object": "BusinessPartner", "action": "List",
@@ -220,17 +271,23 @@ ganze Seite wird das Fragment zuerst gerendert und dann als `.Content` in den Bl
 `layout` eingesetzt. Jede Antwort trägt `Vary: HX-Request`, damit Caches beide Varianten
 auseinanderhalten.
 
-**Sidebar:** Bei jeder ganzen Seite ruft der WebServer `Catalog.ListObjects` auf und
-verlinkt alle Objects mit `defined && available`:
+**Sidebar:** Bei jeder ganzen Seite ruft der WebServer `Catalog.ListModules` auf. Er
+zeigt alle Module mit mindestens einem sichtbaren Object. Nur das **aktive** Modul klappt
+seine Objects auf, gruppiert nach `Section` (z. B. „Partnerdaten“, „Kataloge“):
 
 ```html
-<a href="/ui/BusinessPartner" hx-get="/ui/BusinessPartner" hx-target="#main-content" hx-push-url="true">
-  Geschäftspartner
-</a>
+<a class="module active" href="/m/businesspartner">Geschäftspartner</a>
+<div class="subnav">
+  <span class="section">Partnerdaten</span>
+  <a href="/m/businesspartner/BusinessPartner" hx-get="/m/businesspartner/BusinessPartner"
+     hx-target="#main-content" hx-push-url="true">Geschäftspartner</a>
+  …
+</div>
 ```
 
-Ohne JavaScript ist das ein normaler Link. Mit HTMX wird nur `#main-content` getauscht,
-und die URL landet im Browserverlauf.
+Ein Modulwechsel lädt die ganze Seite, damit die Seitenleiste die Objects des neuen Moduls
+zeigt. Innerhalb eines Moduls tauscht HTMX nur `#main-content`, und die URL landet im
+Browserverlauf. Ohne JavaScript sind alle Einträge normale Links.
 
 ## 8. HTMX-Swaps im Detail
 
@@ -289,7 +346,7 @@ bleiben.
 
 | Datei | Blöcke | Daten |
 |---|---|---|
-| `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-item`, `content`, `footer`, `scripts` | `pageData` |
+| `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-module`, `nav-item`, `content`, `footer`, `scripts` | `pageData` (`nav-module`: `navModule`, `nav-item`: `navItem`) |
 | `list.html` | `list`, `list-toolbar`, `table`, `row`, `row-actions` | `view` |
 | `form.html` | `form`, `form-buttons`, `field` | `view` bzw. `fieldCtx` |
 | `detail.html` | `detail`, `detail-toolbar` | `view` |
@@ -317,6 +374,8 @@ eingebetteten Dateien.
 |---|---|
 | `.Def` | `metamodel.ObjectDefinition` |
 | `.Object` | Name des Objects |
+| `.Module` | Namensraum des Moduls |
+| `.URL` / `.ActionURL` | `/m/{module}/{object}` bzw. `/action/{module}/{object}` – Links immer hierüber bauen |
 | `.Has.list` … `.Has.delete` | `*ActionConfig` oder `nil` |
 | `.Custom` | `[]ActionConfig` |
 | `.Rows` | Liste der Datensätze |
@@ -333,7 +392,6 @@ eingebetteten Dateien.
 | `pathEscape` | Wert für URL-Pfade kodieren |
 | `domID` | ID für DOM-Element-IDs |
 | `json` | Wert als JSON |
-| `navCtx` | Daten für einen Navigationspunkt |
 
 ## 11. Konfiguration
 
@@ -342,7 +400,7 @@ eingebetteten Dateien.
 ```yaml
 plugins:
   webserver:
-    version: 0.3.0
+    version: 0.4.0
     ingress: true                       # Pflicht: startet eigene Wurzelanfragen
     databases:
       main: { access: write }           # Pflicht: Session-Tabelle
@@ -392,7 +450,7 @@ Der WebServer selbst hält nur die Sessions (über `DBSchema.Init`, siehe `schem
 `webserver__users` aus Version 0.2.0 bleibt im Schema, wird aber nicht mehr genutzt.
 DBSchema lehnt `DROP TABLE` ab. Der erste Benutzer entsteht jetzt in `iam`.
 
-**Berechtigungen in der Oberfläche:** Die Navigation zeigt nur Objects, für die der
+**Berechtigungen in der Oberfläche:** Die Navigation zeigt nur Module und Objects, für die der
 Benutzer mindestens eine Berechtigung hat. Tabellen, Detailansichten und Dialoge zeigen
 nur Buttons für erlaubte Actions. Ruft jemand eine verbotene Action direkt auf,
 antwortet der WebServer mit **403** („keine Berechtigung …“). Verbindlich prüft unabhängig
@@ -432,7 +490,7 @@ gelangen nicht in diese Binary.
 ```bash
 cd cmd/plugins/webserver
 go test ./...
-go build -o ../../../bin/plugins/we/webserver-0.3.0-windows-amd64.exe .
+go build -o ../../../bin/plugins/we/webserver-0.4.0-windows-amd64.exe .
 ```
 
 Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`, Unterordner `we/`).

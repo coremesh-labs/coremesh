@@ -30,7 +30,7 @@ func (h *Host) describe(ctx context.Context, m sdk.Manifest, p sdk.Plugin, svc *
 		Object: sdk.ObjectCatalog,
 		Action: "Register",
 		Payload: map[string]any{
-			"module": m.Name, "version": m.Version, "objects": desc.Objects,
+			"module": m.Name, "version": m.Version, "objects": desc.Objects, "modules": desc.Modules,
 		},
 	})
 	if errors.Is(err, sdk.ErrUnimplemented) {

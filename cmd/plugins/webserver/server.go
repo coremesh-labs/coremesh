@@ -20,18 +20,23 @@ import (
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 )
 
-// server übersetzt HTTP-Anfragen in (object, action)-Aufrufe.
+// server übersetzt HTTP-Anfragen in (object, action)-Aufrufe. Er registriert
+// nur Module (siehe modules.go); jedes Modul hat eigene Sub-Router:
 //
-//	GET    /ui/{object}             Kind list    → Tabelle
-//	GET    /ui/{object}/new         –            → leeres Formular (create)
-//	POST   /ui/{object}             Kind create  → neue Zeile + Toast
-//	GET    /ui/{object}/{id}        Kind item    → Detailansicht
-//	GET    /ui/{object}/{id}/edit   Kind item    → Formular mit Werten (update)
-//	PUT    /ui/{object}/{id}        Kind update  → Zeile oder Detail + Toast
-//	DELETE /ui/{object}/{id}        Kind delete  → Zeile entfernen + Toast
-//	POST   /ui/{object}/{id}        _method=PUT|DELETE (Formulare ohne JavaScript)
-//	GET    /action/{object}/{name}  Kind custom  → Formular der Action
-//	POST   /action/{object}/{name}  Kind custom  → Ergebnis + Toast
+//	GET    /                                 –            → Startseite: alle Module
+//	GET    /m/{module}                       Kind list    → Übersicht des ersten Objects
+//	GET    /m/{module}/{object}              Kind list    → Tabelle
+//	GET    /m/{module}/{object}/new          –            → leeres Formular (create)
+//	POST   /m/{module}/{object}              Kind create  → neue Zeile + Toast
+//	GET    /m/{module}/{object}/{id}         Kind item    → Detailansicht
+//	GET    /m/{module}/{object}/{id}/edit    Kind item    → Formular mit Werten (update)
+//	PUT    /m/{module}/{object}/{id}         Kind update  → Zeile oder Detail + Toast
+//	DELETE /m/{module}/{object}/{id}         Kind delete  → Zeile entfernen + Toast
+//	POST   /m/{module}/{object}/{id}         _method=PUT|DELETE (Formulare ohne JavaScript)
+//	GET    /action/{module}/{object}/{name}  Kind custom  → Formular der Action
+//	POST   /action/{module}/{object}/{name}  Kind custom  → Ergebnis + Toast
+//	GET    /api/v1/{module}                  –            → JSON: Objects und Actions
+//	POST   /api/v1/{module}/{object}/{action} beliebig    → JSON: Payload der Action
 type server struct {
 	host    sdk.Host
 	views   *renderer
@@ -50,16 +55,10 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("POST /account/password", s.changePassword)
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", staticHandler(cfg.StaticDir)))
 	s.mux.HandleFunc("GET /{$}", s.home)
-	s.mux.HandleFunc("GET /ui/{object}", s.list)
-	s.mux.HandleFunc("GET /ui/{object}/new", s.newForm)
-	s.mux.HandleFunc("POST /ui/{object}", s.create)
-	s.mux.HandleFunc("GET /ui/{object}/{id}", s.item)
-	s.mux.HandleFunc("GET /ui/{object}/{id}/edit", s.editForm)
-	s.mux.HandleFunc("PUT /ui/{object}/{id}", s.update)
-	s.mux.HandleFunc("DELETE /ui/{object}/{id}", s.delete)
-	s.mux.HandleFunc("POST /ui/{object}/{id}", s.methodOverride)
-	s.mux.HandleFunc("GET /action/{object}/{name}", s.actionForm)
-	s.mux.HandleFunc("POST /action/{object}/{name}", s.runAction)
+	// Nur Module: je Modul ein gekapselter Sub-Router für Oberfläche, Actions und API.
+	s.mountModule("/m", s.uiRoutes(), s.fail)
+	s.mountModule("/action", s.actionRoutes(), s.fail)
+	s.mountModule("/api/v1", s.apiRoutes(), s.apiError)
 	// Reihenfolge: Schutz-Header → CSRF-Prüfung → Anmeldung → Routen.
 	s.handler = securityHeaders(checkOrigin(s.requireAuth(s.mux)))
 	return s
@@ -96,11 +95,17 @@ func (s *server) callContext(r *http.Request) sdk.CallContext {
 
 var objectRe = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
 
-// loadObject holt das Metamodell des Objects aus dem Catalog.
+// loadObject holt das Metamodell des Objects aus dem Catalog. Das Object
+// muss zum Modul der Anfrage gehören (Kapselung: kein Zugriff auf Objects
+// anderer Module über diesen Namensraum).
 func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 	object := r.PathValue("object")
+	mod := moduleFrom(r)
 	if !objectRe.MatchString(object) {
 		return objectCtx{}, fmt.Errorf("%w: Object %q", sdk.ErrNotFound, object)
+	}
+	if _, ok := mod.object(object); !ok {
+		return objectCtx{}, fmt.Errorf("%w: %s gehört nicht zu Modul %s", sdk.ErrNotFound, object, mod.Title)
 	}
 	resp, err := s.call(r, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
 	if err != nil {
@@ -116,7 +121,7 @@ func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 	if !def.Available {
 		return objectCtx{}, fmt.Errorf("%w: %s ist derzeit nicht verfügbar", sdk.ErrUnavailable, def.Definition.Title)
 	}
-	return newObjectCtx(object, def.Definition).visibleFor(userFrom(r)), nil
+	return newObjectCtx(mod.Name, object, def.Definition).visibleFor(userFrom(r)), nil
 }
 
 // need liefert die Action eines Kinds oder einen Fehler, wenn das Object sie nicht anbietet.
@@ -128,33 +133,6 @@ func need(oc objectCtx, kind metamodel.ActionKind) (*metamodel.ActionConfig, err
 		return nil, fmt.Errorf("%w: keine Berechtigung für %s (%s)", sdk.ErrPermissionDenied, oc.Def.Title, kind)
 	}
 	return nil, fmt.Errorf("%w: %s bietet keine Aktion vom Typ %s an", sdk.ErrUnimplemented, oc.Def.Title, kind)
-}
-
-// nav liefert die Navigation aus Catalog.ListObjects: alle verfügbaren
-// Objects mit Metamodell.
-func (s *server) nav(r *http.Request) []navItem {
-	resp, err := s.call(r, sdk.ObjectCatalog, "ListObjects", nil)
-	if err != nil {
-		s.logError(r, "Navigation", err)
-		return nil
-	}
-	var list struct {
-		Objects []struct {
-			Object, Title, Icon string
-			Defined, Available  bool
-		} `json:"objects"`
-	}
-	_ = sdk.Decode(resp.Payload, &list)
-	u := userFrom(r)
-	var out []navItem
-	for _, o := range list.Objects {
-		// Nur Objects mit Metamodell, die gerade laufen und für die der
-		// Benutzer mindestens eine Berechtigung hat.
-		if o.Defined && o.Available && (u == nil || u.CanAny(o.Object)) {
-			out = append(out, navItem{Object: o.Object, Title: o.Title, Icon: o.Icon})
-		}
-	}
-	return out
 }
 
 // --- Rendering ---------------------------------------------------------------
@@ -173,7 +151,7 @@ func (s *server) render(w http.ResponseWriter, r *http.Request, status int, frag
 	if isHTMX(r) {
 		err = s.views.fragment(&buf, fragment, data)
 	} else {
-		err = s.views.page(&buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r), User: userFrom(r)})
+		err = s.views.page(&buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r, active), User: userFrom(r)})
 	}
 	if err != nil {
 		s.logError(r, "Template "+fragment, err)
@@ -230,10 +208,10 @@ func (s *server) logError(r *http.Request, what string, err error) {
 // --- Handler -----------------------------------------------------------------
 
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "home", map[string]any{"Nav": s.nav(r), "AppTitle": s.cfg.Title}, "", "")
+	s.render(w, r, http.StatusOK, "home", map[string]any{"Modules": s.modules(r), "AppTitle": s.cfg.Title}, "", "")
 }
 
-// GET /ui/{object}
+// GET /m/{module}/{object}
 func (s *server) list(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
@@ -258,7 +236,7 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "list", view{objectCtx: oc, Rows: rows}, oc.Def.Title, oc.Object)
 }
 
-// GET /ui/{object}/new
+// GET /m/{module}/{object}/new
 func (s *server) newForm(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
@@ -276,12 +254,12 @@ func (s *server) newForm(w http.ResponseWriter, r *http.Request) {
 func (s *server) createView(r *http.Request, oc objectCtx, values, errs map[string]string) view {
 	return view{
 		objectCtx: oc, Mode: "create", Modal: isHTMX(r),
-		FormTitle: oc.Def.Title + " – " + oc.Has["create"].Label, FormAction: "/ui/" + oc.Object,
-		CancelURL: "/ui/" + oc.Object, FormFields: buildFields(oc.Def, "create", values, errs),
+		FormTitle: oc.Def.Title + " – " + oc.Has["create"].Label, FormAction: oc.URL,
+		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "create", values, errs),
 	}
 }
 
-// POST /ui/{object}
+// POST /m/{module}/{object}
 func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
@@ -312,7 +290,7 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isHTMX(r) {
-		http.Redirect(w, r, "/ui/"+oc.Object, http.StatusSeeOther)
+		http.Redirect(w, r, oc.URL, http.StatusSeeOther)
 		return
 	}
 	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: &toast{Level: "success", Message: oc.Def.Title + " angelegt"}}
@@ -330,7 +308,7 @@ func (s *server) formAgain(w http.ResponseWriter, r *http.Request, v view, formE
 	s.render(w, r, http.StatusUnprocessableEntity, "form", v, v.FormTitle, v.Object)
 }
 
-// GET /ui/{object}/{id}
+// GET /m/{module}/{object}/{id}
 func (s *server) item(w http.ResponseWriter, r *http.Request) {
 	oc, rec, err := s.loadItem(r)
 	if err != nil {
@@ -360,7 +338,7 @@ func (s *server) loadItem(r *http.Request) (objectCtx, record, error) {
 	return oc, rec, nil
 }
 
-// GET /ui/{object}/{id}/edit
+// GET /m/{module}/{object}/{id}/edit
 func (s *server) editForm(w http.ResponseWriter, r *http.Request) {
 	oc, rec, err := s.loadItem(r)
 	if err != nil {
@@ -391,12 +369,12 @@ func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, err
 	return view{
 		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target,
 		FormTitle:  oc.Def.Title + " – " + oc.Has["update"].Label,
-		FormAction: "/ui/" + oc.Object + "/" + pathEscape(id), CancelURL: "/ui/" + oc.Object + "/" + pathEscape(id),
+		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
 		FormFields: buildFields(oc.Def, "edit", values, errs),
 	}
 }
 
-// PUT /ui/{object}/{id}
+// PUT /m/{module}/{object}/{id}
 func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
@@ -428,7 +406,7 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isHTMX(r) {
-		http.Redirect(w, r, "/ui/"+oc.Object+"/"+pathEscape(id), http.StatusSeeOther)
+		http.Redirect(w, r, oc.URL+"/"+pathEscape(id), http.StatusSeeOther)
 		return
 	}
 	rec := asRecord(resp.Payload)
@@ -443,7 +421,7 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "updated", v, "", "")
 }
 
-// DELETE /ui/{object}/{id}
+// DELETE /m/{module}/{object}/{id}
 func (s *server) delete(w http.ResponseWriter, r *http.Request) {
 	oc, err := s.loadObject(r)
 	if err != nil {
@@ -461,10 +439,10 @@ func (s *server) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case !isHTMX(r):
-		http.Redirect(w, r, "/ui/"+oc.Object, http.StatusSeeOther)
+		http.Redirect(w, r, oc.URL, http.StatusSeeOther)
 	case r.FormValue("_view") == "detail":
 		// Aus der Detailansicht: zurück zur Übersicht.
-		loc, _ := json.Marshal(map[string]string{"path": "/ui/" + oc.Object, "target": "#main-content"})
+		loc, _ := json.Marshal(map[string]string{"path": oc.URL, "target": "#main-content"})
 		w.Header().Set("HX-Location", string(loc))
 		w.WriteHeader(http.StatusOK)
 	default:
@@ -473,7 +451,7 @@ func (s *server) delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// POST /ui/{object}/{id} mit _method=PUT|DELETE – für Formulare ohne JavaScript.
+// POST /m/{module}/{object}/{id} mit _method=PUT|DELETE – für Formulare ohne JavaScript.
 func (s *server) methodOverride(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.fail(w, r, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err))
@@ -489,7 +467,7 @@ func (s *server) methodOverride(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /action/{object}/{name}
+// GET /action/{module}/{object}/{name}
 func (s *server) actionForm(w http.ResponseWriter, r *http.Request) {
 	oc, act, err := s.loadAction(r)
 	if err != nil {
@@ -518,12 +496,12 @@ func (s *server) loadAction(r *http.Request) (objectCtx, *metamodel.ActionConfig
 func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string, values, errs map[string]string) view {
 	return view{
 		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
-		FormTitle: oc.Def.Title + " – " + act.Label, FormAction: "/action/" + oc.Object + "/" + act.Name,
-		CancelURL: "/ui/" + oc.Object, FormFields: buildFields(oc.Def, "action", values, errs),
+		FormTitle: oc.Def.Title + " – " + act.Label, FormAction: oc.ActionURL + "/" + act.Name,
+		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "action", values, errs),
 	}
 }
 
-// POST /action/{object}/{name}
+// POST /action/{module}/{object}/{name}
 func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	oc, act, err := s.loadAction(r)
 	if err != nil {

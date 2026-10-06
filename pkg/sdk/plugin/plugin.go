@@ -53,6 +53,25 @@ func Serve(p sdk.Plugin) {
 		Plugins:         adapter.ServerPlugins(p),
 		GRPCServer:      goplugin.DefaultGRPCServer,
 	})
+	shutdown(p)
+}
+
+// ShutdownTimeout begrenzt sdk.Shutdowner.Shutdown. Der Host wartet nach dem
+// Beenden-Signal nur kurz (go-plugin: ca. 2 s), bevor er den Prozess beendet.
+const ShutdownTimeout = 1500 * time.Millisecond
+
+// shutdown ruft den optionalen Shutdown-Hook auf, nachdem der Host den
+// gRPC-Server beendet hat (kein Handle mehr aktiv).
+func shutdown(p sdk.Plugin) {
+	s, ok := p.(sdk.Shutdowner)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+	defer cancel()
+	if err := s.Shutdown(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "plugin: Shutdown:", err)
+	}
 }
 
 // Debug startet das Plugin eigenständig – z. B. aus der IDE oder unter Delve,
@@ -97,6 +116,7 @@ func serveDebug(ctx context.Context, p sdk.Plugin, ready func(name string, info 
 		return errors.New("Plugin-Server ist nicht rechtzeitig gestartet")
 	}
 	<-closeCh
+	shutdown(p)
 	return nil
 }
 

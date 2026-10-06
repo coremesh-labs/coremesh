@@ -1,4 +1,4 @@
-package main
+package businesspartner
 
 import (
 	"context"
@@ -38,8 +38,8 @@ func requireCompanyCode(ctx context.Context, action, cc string) error {
 	return nil
 }
 
-func companyCodeExists(ctx context.Context, cc string) error {
-	_, err := sdk.HostFrom(ctx).Handle(ctx, sdk.Request{Object: "CompanyCode", Action: "get", Payload: map[string]any{"id": cc}})
+func (m *Module) companyCodeExists(ctx context.Context, cc string) error {
+	_, err := m.services.Call(ctx, "CompanyCode", "get", map[string]any{"id": cc})
 	if errors.Is(err, sdk.ErrNotFound) {
 		return invalid("Buchungskreis %q gibt es nicht", cc)
 	}
@@ -47,8 +47,8 @@ func companyCodeExists(ctx context.Context, cc string) error {
 }
 
 // financeRole meldet, ob der Rollentyp eine Finanzrolle ist.
-func financeRole(ctx context.Context, code string) (bool, error) {
-	res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT is_debitor, is_creditor FROM partner__role_types WHERE code = ?", code)
+func (m *Module) financeRole(ctx context.Context, code string) (bool, error) {
+	res, err := m.db.Query(ctx, "SELECT is_debitor, is_creditor FROM partner__role_types WHERE code = ?", code)
 	if err != nil {
 		return false, err
 	}
@@ -60,7 +60,7 @@ func financeRole(ctx context.Context, code string) (bool, error) {
 
 // --- Rollenzuordnung ----------------------------------------------------------------
 
-func partnerRole() *entity {
+func (m *Module) partnerRole() *entity {
 	return &entity{
 		Object: "PartnerRole", Title: "Partner-Rollen", Icon: "icon-id", Table: "partner__roles",
 		Keys: []string{"bp_id", "role_code", "valid_from"}, TimeSlice: true, Order: "bp_id, role_code, valid_from",
@@ -75,7 +75,7 @@ func partnerRole() *entity {
 				Type: metamodel.TypeTextarea, Listable: true, Virtual: true},
 		),
 		afterCreate: func(ctx context.Context, rec record) error {
-			fin, err := financeRole(ctx, str(rec["role_code"]))
+			fin, err := m.financeRole(ctx, str(rec["role_code"]))
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,7 @@ func partnerRole() *entity {
 			}
 			for _, cc := range entries {
 				cc["bp_id"], cc["role_code"] = rec["bp_id"], rec["role_code"]
-				if err := insertCompanyCode(ctx, cc, true); err != nil {
+				if err := m.insertCompanyCode(ctx, cc, true); err != nil {
 					return err
 				}
 			}
@@ -100,7 +100,7 @@ func partnerRole() *entity {
 		// Endet die letzte Zuordnung einer Finanzrolle, gehen ihre
 		// Buchungskreisdaten mit – sofern der Benutzer darauf zugreifen darf.
 		beforeDelete: func(ctx context.Context, rec record) error {
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ? AND valid_from <> ?",
+			res, err := m.db.Query(ctx, "SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ? AND valid_from <> ?",
 				rec["bp_id"], rec["role_code"], rec["valid_from"])
 			if err != nil {
 				return err
@@ -108,7 +108,7 @@ func partnerRole() *entity {
 			if n, _ := strconv.Atoi(str(res.Rows[0][0])); n > 0 {
 				return nil
 			}
-			ccs, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
+			ccs, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
 			if err != nil {
 				return err
 			}
@@ -117,11 +117,11 @@ func partnerRole() *entity {
 					return err
 				}
 			}
-			_, err = sdk.HostFrom(ctx).Exec(ctx, db, "DELETE FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
+			_, err = m.db.Exec(ctx, "DELETE FROM partner__company_codes WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
 			return err
 		},
 		decorate: func(ctx context.Context, rec record) error {
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ? ORDER BY company_code",
+			res, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ? AND role_code = ? ORDER BY company_code",
 				rec["bp_id"], rec["role_code"])
 			if err != nil {
 				return err
@@ -173,8 +173,8 @@ func parseCompanyCodes(v any) ([]record, error) {
 
 // insertCompanyCode legt einen Buchungskreis-Eintrag an (mit allen Prüfungen
 // der Entität PartnerCompanyCode).
-func insertCompanyCode(ctx context.Context, data record, skipRoleCheck bool) error {
-	e := partnerCompanyCode()
+func (m *Module) insertCompanyCode(ctx context.Context, data record, skipRoleCheck bool) error {
+	e := m.byObject[ccObject]
 	rec, err := e.input(map[string]any{"data": data})
 	if err != nil {
 		return err
@@ -198,13 +198,13 @@ func insertCompanyCode(ctx context.Context, data record, skipRoleCheck bool) err
 	for i, c := range cols {
 		marks[i], args[i] = "?", rec[c]
 	}
-	_, err = sdk.HostFrom(ctx).Exec(ctx, db, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...)
+	_, err = m.db.Exec(ctx, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...)
 	return err
 }
 
 // --- Buchungskreis-Ausprägung (Debitor / Kreditor) ---------------------------------------
 
-func partnerCompanyCode() *entity {
+func (m *Module) partnerCompanyCode() *entity {
 	e := &entity{
 		Object: ccObject, Title: "Buchungskreisdaten", Icon: "icon-building", Table: "partner__company_codes",
 		Keys: []string{"bp_id", "company_code", "role_code"}, Order: "bp_id, company_code, role_code",
@@ -222,10 +222,10 @@ func partnerCompanyCode() *entity {
 			if old != nil {
 				return nil // Schlüssel unverändert, Rolle bereits geprüft
 			}
-			if err := companyCodeExists(ctx, str(rec["company_code"])); err != nil {
+			if err := m.companyCodeExists(ctx, str(rec["company_code"])); err != nil {
 				return err
 			}
-			fin, err := financeRole(ctx, str(rec["role_code"]))
+			fin, err := m.financeRole(ctx, str(rec["role_code"]))
 			if err != nil {
 				return err
 			}
@@ -235,7 +235,7 @@ func partnerCompanyCode() *entity {
 			if rec["_role_assigned"] == true {
 				return nil // im selben Aufruf zugewiesen (PartnerRole.create)
 			}
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
+			res, err := m.db.Query(ctx, "SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ?", rec["bp_id"], rec["role_code"])
 			if err != nil {
 				return err
 			}
@@ -266,7 +266,7 @@ func partnerCompanyCode() *entity {
 		// Buchungskreis-Zwang: Der letzte Eintrag einer noch gültigen
 		// Finanzrolle bleibt.
 		beforeDelete: func(ctx context.Context, rec record) error {
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, `SELECT
+			res, err := m.db.Query(ctx, `SELECT
 				(SELECT COUNT(*) FROM partner__company_codes WHERE bp_id = ? AND role_code = ?),
 				(SELECT COUNT(*) FROM partner__roles WHERE bp_id = ? AND role_code = ? AND valid_to >= ?)`,
 				rec["bp_id"], rec["role_code"], rec["bp_id"], rec["role_code"], today())

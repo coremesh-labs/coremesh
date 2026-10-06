@@ -109,6 +109,8 @@ var userBaseline = map[key]bool{
 	{sdk.ObjectCatalog, "ListObjects"}:   true,
 	{sdk.ObjectCatalog, "GetDefinition"}: true,
 	{sdk.ObjectCatalog, "ListActions"}:   true,
+	{sdk.ObjectCatalog, "ListModules"}:   true,
+	{sdk.ObjectCatalog, "GetModule"}:     true,
 	{"Account", "Me"}:                    true,
 	{"Account", "ChangePassword"}:        true,
 	{"Account", "Check"}:                 true,

@@ -1,4 +1,4 @@
-package main
+package businesspartner
 
 import (
 	"context"
@@ -18,8 +18,6 @@ import (
 // Schlüssel und Felder; list/get/create/update/delete, Typumwandlung,
 // Pflichtfelder, Verweise auf Kataloge und Zeitscheiben sind generisch.
 // Fachregeln hängen als Hooks an der Entität.
-
-const db = "main"
 
 type record = map[string]any
 
@@ -44,7 +42,10 @@ type ref struct {
 }
 
 type entity struct {
+	m *Module // Ressourcen des Moduls (Datenbank, Services)
+
 	Object, Title, Icon, Table string
+	Section                    string   // Gruppe in der Modul-Navigation (Standard: Partnerdaten)
 	Keys                       []string // Primärschlüssel
 	Surrogate                  bool     // Keys[0] = generierte id
 	TimeSlice                  bool     // valid_from/valid_to
@@ -256,7 +257,7 @@ func (e *entity) list(ctx context.Context, payload any) (sdk.Response, error) {
 	if e.Order != "" {
 		sql += " ORDER BY " + e.Order
 	}
-	res, err := sdk.HostFrom(ctx).Query(ctx, db, sql, args...)
+	res, err := e.m.db.Query(ctx, sql, args...)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -287,7 +288,7 @@ func listQuery(payload any) map[string]any {
 func (e *entity) load(ctx context.Context, key record) (record, error) {
 	cols := e.columns()
 	w, args := e.keyWhere(key)
-	res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT "+strings.Join(cols, ", ")+" FROM "+e.Table+" WHERE "+w, args...)
+	res, err := e.m.db.Query(ctx, "SELECT "+strings.Join(cols, ", ")+" FROM "+e.Table+" WHERE "+w, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +371,7 @@ func (e *entity) check(ctx context.Context, rec, old record) error {
 			if e.TimeSlice {
 				at = str(rec["valid_from"])
 			}
-			if err := checkRef(ctx, f.Ref, str(rec[f.Key]), at); err != nil {
+			if err := e.m.checkRef(ctx, f.Ref, str(rec[f.Key]), at); err != nil {
 				return err
 			}
 		}
@@ -381,14 +382,14 @@ func (e *entity) check(ctx context.Context, rec, old record) error {
 	return nil
 }
 
-func checkRef(ctx context.Context, r *ref, value, at string) error {
+func (m *Module) checkRef(ctx context.Context, r *ref, value, at string) error {
 	sql := "SELECT 1 FROM " + r.Table + " WHERE " + r.Column + " = ?"
 	args := []any{value}
 	if r.TimeSliced {
 		sql += " AND valid_from <= ? AND valid_to >= ?"
 		args = append(args, at, at)
 	}
-	res, err := sdk.HostFrom(ctx).Query(ctx, db, sql, args...)
+	res, err := m.db.Query(ctx, sql, args...)
 	if err != nil {
 		return err
 	}
@@ -409,7 +410,7 @@ func (e *entity) create(ctx context.Context, payload any) (sdk.Response, error) 
 	if e.Surrogate {
 		rec[e.Keys[0]] = newID()
 	}
-	err = sdk.InTx(ctx, db, nil, func(ctx context.Context) error {
+	err = e.m.db.InTx(ctx, nil, func(ctx context.Context) error {
 		if err := e.check(ctx, rec, nil); err != nil {
 			return err
 		}
@@ -427,7 +428,7 @@ func (e *entity) create(ctx context.Context, payload any) (sdk.Response, error) 
 		for i, c := range cols {
 			marks[i], args[i] = "?", rec[c]
 		}
-		if _, err := sdk.HostFrom(ctx).Exec(ctx, db, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...); err != nil {
+		if _, err := e.m.db.Exec(ctx, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...); err != nil {
 			return err
 		}
 		if e.afterCreate != nil {
@@ -455,7 +456,7 @@ func (e *entity) update(ctx context.Context, payload any) (sdk.Response, error) 
 		return sdk.Response{}, err
 	}
 	var saved record
-	err = sdk.InTx(ctx, db, nil, func(ctx context.Context) error {
+	err = e.m.db.InTx(ctx, nil, func(ctx context.Context) error {
 		old, err := e.load(ctx, key)
 		if err != nil {
 			return err
@@ -490,7 +491,7 @@ func (e *entity) update(ctx context.Context, payload any) (sdk.Response, error) 
 			}
 		}
 		w, wargs := e.keyWhere(key)
-		if _, err := sdk.HostFrom(ctx).Exec(ctx, db, "UPDATE "+e.Table+" SET "+strings.Join(sets, ", ")+" WHERE "+w, append(args, wargs...)...); err != nil {
+		if _, err := e.m.db.Exec(ctx, "UPDATE "+e.Table+" SET "+strings.Join(sets, ", ")+" WHERE "+w, append(args, wargs...)...); err != nil {
 			return err
 		}
 		saved, err = e.load(ctx, key)
@@ -507,7 +508,7 @@ func (e *entity) delete(ctx context.Context, payload any) (sdk.Response, error) 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	err = sdk.InTx(ctx, db, nil, func(ctx context.Context) error {
+	err = e.m.db.InTx(ctx, nil, func(ctx context.Context) error {
 		rec, err := e.load(ctx, key)
 		if err != nil {
 			return err
@@ -523,7 +524,7 @@ func (e *entity) delete(ctx context.Context, payload any) (sdk.Response, error) 
 			}
 		}
 		w, args := e.keyWhere(key)
-		_, err = sdk.HostFrom(ctx).Exec(ctx, db, "DELETE FROM "+e.Table+" WHERE "+w, args...)
+		_, err = e.m.db.Exec(ctx, "DELETE FROM "+e.Table+" WHERE "+w, args...)
 		return err
 	})
 	return sdk.Response{}, err
@@ -555,9 +556,9 @@ func (e *entity) definition() metamodel.ObjectDefinition {
 }
 
 // inUse lehnt ab, wenn value in einer der Tabellen.Spalten verwendet wird.
-func inUse(ctx context.Context, what, value string, uses ...[2]string) error {
+func (m *Module) inUse(ctx context.Context, what, value string, uses ...[2]string) error {
 	for _, u := range uses {
-		res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT COUNT(*) FROM "+u[0]+" WHERE "+u[1]+" = ?", value)
+		res, err := m.db.Query(ctx, "SELECT COUNT(*) FROM "+u[0]+" WHERE "+u[1]+" = ?", value)
 		if err != nil {
 			return err
 		}

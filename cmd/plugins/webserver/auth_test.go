@@ -23,15 +23,15 @@ func TestUnauthenticatedIsRedirected(t *testing.T) {
 	s, h := newTestServer(t, "")
 	n := len(h.calls)
 
-	w := doAnon(s, "GET", "/ui/Partner?page=2", nil, false)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login?next="+url.QueryEscape("/ui/Partner?page=2") {
+	w := doAnon(s, "GET", "/m/crm/Partner?page=2", nil, false)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login?next="+url.QueryEscape("/m/crm/Partner?page=2") {
 		t.Fatalf("Seitenaufruf: %d %s", w.Code, w.Header().Get("Location"))
 	}
-	w = doAnon(s, "GET", "/ui/Partner", nil, true)
+	w = doAnon(s, "GET", "/m/crm/Partner", nil, true)
 	if w.Code != http.StatusUnauthorized || !strings.HasPrefix(w.Header().Get("HX-Redirect"), "/login") {
 		t.Fatalf("HTMX: %d %q", w.Code, w.Header().Get("HX-Redirect"))
 	}
-	if w := doAnon(s, "POST", "/ui/Partner", url.Values{"company_name": {"x"}}, true); w.Code != http.StatusUnauthorized {
+	if w := doAnon(s, "POST", "/m/crm/Partner", url.Values{"company_name": {"x"}}, true); w.Code != http.StatusUnauthorized {
 		t.Fatalf("POST ohne Anmeldung: %d", w.Code)
 	}
 	if len(h.calls) != n {
@@ -59,9 +59,9 @@ func TestLoginLogout(t *testing.T) {
 	}
 
 	// Benutzername ist unabhängig von Groß-/Kleinschreibung; next wird befolgt.
-	w = doAnon(s, "POST", "/login", url.Values{"username": {" Tester "}, "password": {testPassword}, "next": {"/ui/Partner"}}, false)
+	w = doAnon(s, "POST", "/login", url.Values{"username": {" Tester "}, "password": {testPassword}, "next": {"/m/crm/Partner"}}, false)
 	c := sessionFrom(w)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/ui/Partner" || c == nil {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Partner" || c == nil {
 		t.Fatalf("Login: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Secure {
@@ -69,7 +69,7 @@ func TestLoginLogout(t *testing.T) {
 	}
 
 	// Mit dem neuen Cookie: Zugriff, Benutzer im Aufrufkontext.
-	r := httptest.NewRequest("GET", "/ui/Partner", nil)
+	r := httptest.NewRequest("GET", "/m/crm/Partner", nil)
 	r.AddCookie(c)
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, r)
@@ -86,7 +86,7 @@ func TestLoginLogout(t *testing.T) {
 	r.AddCookie(c)
 	rec = httptest.NewRecorder()
 	s.ServeHTTP(rec, r)
-	r = httptest.NewRequest("GET", "/ui/Partner", nil)
+	r = httptest.NewRequest("GET", "/m/crm/Partner", nil)
 	r.AddCookie(c)
 	rec = httptest.NewRecorder()
 	s.ServeHTTP(rec, r)
@@ -101,7 +101,7 @@ func TestOpenRedirectBlocked(t *testing.T) {
 			t.Errorf("safeNext(%q) = %q", next, got)
 		}
 	}
-	if safeNext("/ui/Partner?x=1") != "/ui/Partner?x=1" {
+	if safeNext("/m/crm/Partner?x=1") != "/m/crm/Partner?x=1" {
 		t.Error("lokaler Pfad muss erlaubt sein")
 	}
 }
@@ -110,7 +110,7 @@ func TestCSRFOriginCheck(t *testing.T) {
 	s, h := newTestServer(t, "")
 	n := len(h.calls)
 	send := func(headers map[string]string) int {
-		r := httptest.NewRequest("POST", "/ui/Partner", strings.NewReader("company_name=x"))
+		r := httptest.NewRequest("POST", "/m/crm/Partner", strings.NewReader("company_name=x"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		tok, _ := testTokens.Load(s)
 		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: tok.(string)})
@@ -220,7 +220,7 @@ func TestChangePassword(t *testing.T) {
 		t.Fatalf("Ändern: %d", w.Code)
 	}
 	// Alte Session ist beendet, Login mit neuem Passwort klappt.
-	if w := do(s, "GET", "/ui/Partner", nil, false); w.Code != http.StatusSeeOther {
+	if w := do(s, "GET", "/m/crm/Partner", nil, false); w.Code != http.StatusSeeOther {
 		t.Fatalf("alte Session noch gültig: %d", w.Code)
 	}
 	if w := doAnon(s, "POST", "/login", url.Values{"username": {"tester"}, "password": {"neues-passwort-1"}}, false); w.Code != http.StatusSeeOther {
@@ -255,8 +255,8 @@ func TestPermissionsShapeUI(t *testing.T) {
 		return w.Body.String()
 	}
 
-	list := get("/ui/Partner")
-	mustContain(t, list, "ACME", ">Anzeigen<", `href="/ui/Partner"`)
+	list := get("/m/crm/Partner")
+	mustContain(t, list, "ACME", ">Anzeigen<", `href="/m/crm/Partner"`)
 	mustNotContain(t, list, ">Neu<", ">Bearbeiten<", ">Löschen<", ">Benachrichtigen<")
 
 	u := &user{Permissions: []string{"Partner.*", "*.list"}}
@@ -271,9 +271,9 @@ func TestForbiddenIs403(t *testing.T) {
 	ids.(*memIdentity).add("leser", "leser-passwort-1", "", "Partner.List")
 	c := sessionFrom(doAnon(s, "POST", "/login", url.Values{"username": {"leser"}, "password": {"leser-passwort-1"}}, false))
 	for _, tc := range []struct{ method, path string }{
-		{"GET", "/ui/Partner/new"},         // create nicht erlaubt
-		{"POST", "/action/Partner/Notify"}, // custom nicht erlaubt
-		{"GET", "/ui/Partner/p1"},          // item nicht erlaubt
+		{"GET", "/m/crm/Partner/new"},          // create nicht erlaubt
+		{"POST", "/action/crm/Partner/Notify"}, // custom nicht erlaubt
+		{"GET", "/m/crm/Partner/p1"},           // item nicht erlaubt
 	} {
 		r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(""))
 		r.Header.Set("HX-Request", "true")

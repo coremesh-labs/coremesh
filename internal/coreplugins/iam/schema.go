@@ -183,3 +183,15 @@ var (
 		Actions: crud("Buchungskreis"),
 	}
 )
+
+// adminModule bündelt die Benutzerverwaltung als fachliches Modul
+// (Oberfläche: /m/admin).
+var adminModule = metamodel.ModuleDefinition{
+	Name: "admin", Title: "Administration", Icon: "icon-shield",
+	Description: "Benutzer, Rollen und Buchungskreise",
+	Objects: []metamodel.ModuleObject{
+		{Object: "User", Section: "Zugriff"},
+		{Object: "Role", Section: "Zugriff"},
+		{Object: "CompanyCode", Section: "Organisation"},
+	},
+}

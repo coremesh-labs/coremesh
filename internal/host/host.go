@@ -46,6 +46,7 @@ type Host struct {
 type started struct {
 	name     string
 	external bool
+	core     sdk.Plugin // nur intern: für sdk.Shutdowner
 }
 
 func New(cfg *config.Config, db *database.Manager, log *slog.Logger) (*Host, error) {
@@ -102,7 +103,7 @@ func (h *Host) StartInternal(ctx context.Context, factories map[string]InternalF
 			h.disp.SetAuthorizer(a)
 			h.log.Info("Berechtigungsprüfung aktiv", "authorizer", name)
 		}
-		h.track(name, false)
+		h.track(started{name: name, core: core})
 	}
 	for _, name := range h.cfg.Names(config.KindInternal) {
 		if _, ok := factories[name]; !ok {
@@ -148,7 +149,7 @@ func (h *Host) startExternal(ctx context.Context, res *resolver.Resolver, name s
 		h.mgr.Stop(name)
 		return err
 	}
-	h.track(name, true)
+	h.track(started{name: name, external: true})
 	go h.watch(name)
 	return nil
 }
@@ -238,14 +239,18 @@ func (h *Host) Shutdown(ctx context.Context) {
 		}
 		if s.external {
 			h.mgr.Stop(s.name)
+		} else if sd, ok := s.core.(sdk.Shutdowner); ok {
+			if err := sd.Shutdown(ctx); err != nil {
+				h.log.Warn("Shutdown fehlgeschlagen", "plugin", s.name, "err", err)
+			}
 		}
 		h.log.Info("Plugin beendet", "plugin", s.name)
 	}
 }
 
-func (h *Host) track(name string, external bool) {
+func (h *Host) track(s started) {
 	h.mu.Lock()
-	h.started = append(h.started, started{name, external})
+	h.started = append(h.started, s)
 	h.mu.Unlock()
 }
 

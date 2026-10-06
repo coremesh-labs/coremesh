@@ -1,10 +1,9 @@
-package main
+package businesspartner
 
 import (
 	"context"
 	"strings"
 
-	"github.com/camel/coremesh/pkg/sdk"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 )
 
@@ -33,19 +32,19 @@ var (
 )
 
 // entities in der Reihenfolge der Registrierung (Navigation).
-func entities() []*entity {
+func (m *Module) entities() []*entity {
 	return []*entity{
-		businessPartner(), partnerRole(), partnerCompanyCode(),
-		address(), partnerAddress(), partnerContact(), partnerBankDetail(),
-		addressRoleCatalog(), commCategoryCatalog(), commTypeCatalog(), roleTypeCatalog(),
+		m.businessPartner(), m.partnerRole(), m.partnerCompanyCode(),
+		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(),
+		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(),
 	}
 }
 
 // --- Kataloge ----------------------------------------------------------------------
 
-func addressRoleCatalog() *entity {
+func (m *Module) addressRoleCatalog() *entity {
 	return &entity{
-		Object: "PartnerAddressRole", Title: "Adressrollen", Icon: "icon-tag", Table: "partner__address_roles",
+		Object: "PartnerAddressRole", Section: "Kataloge", Title: "Adressrollen", Icon: "icon-tag", Table: "partner__address_roles",
 		Keys: []string{"code"}, TimeSlice: true, Order: "code",
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -57,31 +56,31 @@ func addressRoleCatalog() *entity {
 			if !asBool(rec["is_main"]) {
 				return nil
 			}
-			return uniqueMain(ctx, "partner__address_roles", "code", str(rec["code"]), "", nil, "Hauptanschrift")
+			return m.uniqueMain(ctx, "partner__address_roles", "code", str(rec["code"]), "", nil, "Hauptanschrift")
 		},
 		beforeDelete: func(ctx context.Context, rec record) error {
-			return inUse(ctx, "Adressrolle", str(rec["code"]), [2]string{"partner__bp_addresses", "address_role_code"})
+			return m.inUse(ctx, "Adressrolle", str(rec["code"]), [2]string{"partner__bp_addresses", "address_role_code"})
 		},
 	}
 }
 
-func commCategoryCatalog() *entity {
+func (m *Module) commCategoryCatalog() *entity {
 	return &entity{
-		Object: "PartnerCommCategory", Title: "Kommunikationskategorien", Icon: "icon-tag", Table: "partner__comm_categories",
+		Object: "PartnerCommCategory", Section: "Kataloge", Title: "Kommunikationskategorien", Icon: "icon-tag", Table: "partner__comm_categories",
 		Keys: []string{"code"}, Order: "code",
 		Fields: []field{
 			{Key: "code", Label: "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
 		},
 		beforeDelete: func(ctx context.Context, rec record) error {
-			return inUse(ctx, "Kommunikationskategorie", str(rec["code"]), [2]string{"partner__comm_types", "category_code"})
+			return m.inUse(ctx, "Kommunikationskategorie", str(rec["code"]), [2]string{"partner__comm_types", "category_code"})
 		},
 	}
 }
 
-func commTypeCatalog() *entity {
+func (m *Module) commTypeCatalog() *entity {
 	return &entity{
-		Object: "PartnerCommType", Title: "Kommunikationstypen", Icon: "icon-tag", Table: "partner__comm_types",
+		Object: "PartnerCommType", Section: "Kataloge", Title: "Kommunikationstypen", Icon: "icon-tag", Table: "partner__comm_types",
 		Keys: []string{"code"}, TimeSlice: true, Order: "category_code, code", Filters: []string{"category_code"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -94,17 +93,17 @@ func commTypeCatalog() *entity {
 			if !asBool(rec["is_main"]) {
 				return nil
 			}
-			return uniqueMain(ctx, "partner__comm_types", "code", str(rec["code"]), "category_code", rec["category_code"], "Haupttyp der Kategorie "+str(rec["category_code"]))
+			return m.uniqueMain(ctx, "partner__comm_types", "code", str(rec["code"]), "category_code", rec["category_code"], "Haupttyp der Kategorie "+str(rec["category_code"]))
 		},
 		beforeDelete: func(ctx context.Context, rec record) error {
-			return inUse(ctx, "Kommunikationstyp", str(rec["code"]), [2]string{"partner__contacts", "comm_type_code"})
+			return m.inUse(ctx, "Kommunikationstyp", str(rec["code"]), [2]string{"partner__contacts", "comm_type_code"})
 		},
 	}
 }
 
-func roleTypeCatalog() *entity {
+func (m *Module) roleTypeCatalog() *entity {
 	return &entity{
-		Object: "PartnerRoleType", Title: "Rollentypen", Icon: "icon-tag", Table: "partner__role_types",
+		Object: "PartnerRoleType", Section: "Kataloge", Title: "Rollentypen", Icon: "icon-tag", Table: "partner__role_types",
 		Keys: []string{"code"}, TimeSlice: true, Order: "code",
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -113,21 +112,21 @@ func roleTypeCatalog() *entity {
 			field{Key: "is_creditor", Label: "Kreditor (Finanzrolle)", Type: tBool, Listable: true},
 		),
 		beforeDelete: func(ctx context.Context, rec record) error {
-			return inUse(ctx, "Rolle", str(rec["code"]),
+			return m.inUse(ctx, "Rolle", str(rec["code"]),
 				[2]string{"partner__roles", "role_code"}, [2]string{"partner__company_codes", "role_code"})
 		},
 	}
 }
 
 // uniqueMain: Kein anderer Eintrag (gleiche Gruppe) darf is_main tragen.
-func uniqueMain(ctx context.Context, table, keyCol, key, groupCol string, group any, what string) error {
+func (m *Module) uniqueMain(ctx context.Context, table, keyCol, key, groupCol string, group any, what string) error {
 	sql := "SELECT " + keyCol + " FROM " + table + " WHERE is_main = ? AND " + keyCol + " <> ?"
 	args := []any{true, key}
 	if groupCol != "" {
 		sql += " AND " + groupCol + " = ?"
 		args = append(args, group)
 	}
-	res, err := sdk.HostFrom(ctx).Query(ctx, db, sql, args...)
+	res, err := m.db.Query(ctx, sql, args...)
 	if err != nil {
 		return err
 	}
@@ -139,7 +138,7 @@ func uniqueMain(ctx context.Context, table, keyCol, key, groupCol string, group 
 
 // --- Geschäftspartner --------------------------------------------------------------
 
-func businessPartner() *entity {
+func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
 		Keys: []string{"id"}, Surrogate: true, Order: "search_term, name1",
@@ -163,7 +162,7 @@ func businessPartner() *entity {
 		// sie sind wiederverwendbar). Buchungskreisdaten nur mit Zugriff darauf.
 		beforeDelete: func(ctx context.Context, rec record) error {
 			id := str(rec["id"])
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT company_code FROM partner__company_codes WHERE bp_id = ?", id)
+			res, err := m.db.Query(ctx, "SELECT company_code FROM partner__company_codes WHERE bp_id = ?", id)
 			if err != nil {
 				return err
 			}
@@ -173,7 +172,7 @@ func businessPartner() *entity {
 				}
 			}
 			for _, t := range []string{"partner__company_codes", "partner__roles", "partner__bp_addresses", "partner__contacts", "partner__bank_details"} {
-				if _, err := sdk.HostFrom(ctx).Exec(ctx, db, "DELETE FROM "+t+" WHERE bp_id = ?", id); err != nil {
+				if _, err := m.db.Exec(ctx, "DELETE FROM "+t+" WHERE bp_id = ?", id); err != nil {
 					return err
 				}
 			}
@@ -182,7 +181,7 @@ func businessPartner() *entity {
 	}
 }
 
-func address() *entity {
+func (m *Module) address() *entity {
 	return &entity{
 		Object: "PartnerAddressData", Title: "Adressen", Icon: "icon-map", Table: "partner__addresses",
 		Keys: []string{"id"}, Surrogate: true, Order: "country, zip_code, street", Search: []string{"street", "city", "zip_code"},
@@ -200,12 +199,12 @@ func address() *entity {
 			return err
 		},
 		beforeDelete: func(ctx context.Context, rec record) error {
-			return inUse(ctx, "Adresse", str(rec["id"]), [2]string{"partner__bp_addresses", "address_id"})
+			return m.inUse(ctx, "Adresse", str(rec["id"]), [2]string{"partner__bp_addresses", "address_id"})
 		},
 	}
 }
 
-func partnerAddress() *entity {
+func (m *Module) partnerAddress() *entity {
 	return &entity{
 		Object: "PartnerAddress", Title: "Partner-Adressen", Icon: "icon-map", Table: "partner__bp_addresses",
 		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, address_role_code, valid_from",
@@ -220,7 +219,7 @@ func partnerAddress() *entity {
 	}
 }
 
-func partnerContact() *entity {
+func (m *Module) partnerContact() *entity {
 	return &entity{
 		Object: "PartnerContact", Title: "Kommunikation", Icon: "icon-phone", Table: "partner__contacts",
 		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, comm_type_code, valid_from",
@@ -234,7 +233,7 @@ func partnerContact() *entity {
 		),
 		// Prüfung des Werts anhand der Kategorie des Kommunikationstyps.
 		validate: func(ctx context.Context, rec, _ record) error {
-			res, err := sdk.HostFrom(ctx).Query(ctx, db, "SELECT category_code FROM partner__comm_types WHERE code = ?", rec["comm_type_code"])
+			res, err := m.db.Query(ctx, "SELECT category_code FROM partner__comm_types WHERE code = ?", rec["comm_type_code"])
 			if err != nil {
 				return err
 			}
@@ -246,7 +245,7 @@ func partnerContact() *entity {
 	}
 }
 
-func partnerBankDetail() *entity {
+func (m *Module) partnerBankDetail() *entity {
 	return &entity{
 		Object: "PartnerBankDetail", Title: "Bankverbindungen", Icon: "icon-bank", Table: "partner__bank_details",
 		Keys: []string{"id"}, Surrogate: true, TimeSlice: true, Order: "bp_id, valid_from", Filters: []string{"bp_id"},
