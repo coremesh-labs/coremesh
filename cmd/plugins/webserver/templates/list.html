@@ -15,7 +15,7 @@
       {{with .Has.create}}
       <a class="btn primary" href="{{$.URL}}/new" hx-get="{{$.URL}}/new" hx-target="#modal">{{.Label}}</a>
       {{end}}
-      {{range .Custom}}
+      {{range .ObjectActions}}
       <a class="btn" href="{{$.ActionURL}}/{{.Name}}" hx-get="{{$.ActionURL}}/{{.Name}}" hx-target="#modal">{{.Label}}</a>
       {{end}}
       {{if .HasHistory}}{{template "history-toggle" (historyCtx .URL .History "#list" "outerHTML")}}{{end}}

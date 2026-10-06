@@ -41,7 +41,8 @@ type sectionView struct {
 }
 
 // Sections gliedert die Detailansicht. Felder ohne Abschnitt stehen in
-// „Allgemein“ vorne. Ohne Abschnitte im Metamodell: nil (einfache Liste).
+// „Allgemein“ vorne (nur Felder, die der Datensatz liefert). Ohne Abschnitte
+// im Metamodell: nil (einfache Liste).
 func (v view) Sections() []sectionView {
 	d := v.Def
 	if len(d.Sections) == 0 {
@@ -56,7 +57,9 @@ func (v view) Sections() []sectionView {
 	var out []sectionView
 	var rest []metamodel.FieldDefinition
 	for _, f := range d.Fields {
-		if !placed[f.Key] {
+		// Felder, die der Datensatz gar nicht liefert (z. B. virtuelle Eingabefelder
+		// einer custom-Action), gehören nicht in die Anzeige.
+		if _, ok := v.Record[f.Key]; !placed[f.Key] && (ok || v.Record == nil) {
 			rest = append(rest, f)
 		}
 	}

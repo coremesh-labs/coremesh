@@ -25,9 +25,26 @@ import (
 //
 // Unbekannte Schlüssel sind ein Fehler, damit Tippfehler auffallen.
 func LoadDir(dir string) (*Config, []string, error) {
-	files, err := configFiles(dir)
-	if err != nil {
-		return nil, nil, err
+	return LoadDirs(dir)
+}
+
+// LoadDirs liest mehrere Verzeichnisse nacheinander (je Verzeichnis
+// alphanumerisch) und führt alles wie LoadDir zusammen. Spätere Verzeichnisse
+// ergänzen frühere, z. B. configs des Kerns und configs von coremesh-erp.
+func LoadDirs(dirs ...string) (*Config, []string, error) {
+	var files []string
+	for _, dir := range dirs {
+		if dir = strings.TrimSpace(dir); dir == "" {
+			continue
+		}
+		f, err := configFiles(dir)
+		if err != nil {
+			return nil, nil, err
+		}
+		files = append(files, f...)
+	}
+	if len(files) == 0 {
+		return nil, nil, errors.New("kein Konfigurationsverzeichnis angegeben")
 	}
 
 	merged := map[string]any{}

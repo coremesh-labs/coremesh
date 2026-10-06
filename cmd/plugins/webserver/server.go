@@ -543,7 +543,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 	return view{
 		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name,
-		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "action", values, errs, formOpts{}),
+		CancelURL: oc.URL, FormFields: actionFields(buildFields(oc.Def, "action", values, errs, formOpts{}), act.Fields),
 	}
 }
 
@@ -559,7 +559,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PostForm.Get("_id")
-	data, raw, errs := parseFields(oc.Def, r.PostForm)
+	data, raw, errs := parseFields(actionDef(oc.Def, act.Fields), r.PostForm)
 	if len(errs) > 0 {
 		s.formAgain(w, r, s.actionView(r, oc, act, id, raw, errs), "")
 		return

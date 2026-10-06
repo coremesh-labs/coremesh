@@ -19,7 +19,11 @@ type Config struct {
 
 type Host struct {
 	// Zentrales Plugin-Verzeichnis (relativ zum Arbeitsverzeichnis).
-	PluginDir          string        `yaml:"plugin_dir"`
+	PluginDir string `yaml:"plugin_dir"`
+	// Weitere Verzeichnisse, in denen der Resolver Binaries sucht (nach plugin_dir),
+	// z. B. die Plugins eines anderen Repositories wie coremesh-erp. Downloads landen
+	// immer in plugin_dir.
+	ExtraPluginDirs    []string      `yaml:"extra_plugin_dirs"`
 	PluginStartTimeout time.Duration `yaml:"plugin_start_timeout"`
 	ShutdownTimeout    time.Duration `yaml:"shutdown_timeout"`
 	// Maximale Zahl gleichzeitig verschachtelter Plugin-Aufrufe pro Anfrage.

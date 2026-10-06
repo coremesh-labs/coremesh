@@ -72,7 +72,14 @@ func addAggregates(m *mounted) {
 			continue // keine Relationen oder eigene Implementierung des Moduls
 		}
 		a := &aggregate{m: m, master: o, rels: rels}
-		o.Handle(ActionGetAggregate, a.get).Handle(ActionSaveAggregate, a.save)
+		o.Handle(ActionGetAggregate, a.get)
+		// Schreibgeschützte Master (ohne create und update, z. B. Buchungsbelege)
+		// haben nur das Lesen.
+		_, errC := actionOf(o, metamodel.KindCreate)
+		_, errU := actionOf(o, metamodel.KindUpdate)
+		if errC == nil || errU == nil {
+			o.Handle(ActionSaveAggregate, a.save)
+		}
 	}
 }
 

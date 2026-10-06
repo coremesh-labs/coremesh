@@ -46,9 +46,13 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		}
 		o := r.Object(e.Object).Section(section).Describe(e.Definition()).
 			Handle("list", payloadOnly(e.List)).
-			Handle("get", payloadOnly(e.Get)).
-			Handle("create", payloadOnly(e.Create)).
-			Handle("update", payloadOnly(e.Update))
+			Handle("get", payloadOnly(e.Get))
+		if !e.ReadOnly {
+			o.Handle("create", payloadOnly(e.Create)).Handle("update", payloadOnly(e.Update))
+		}
+		for _, a := range e.Actions {
+			o.Handle(a.Name, a.Handle)
+		}
 		switch e.Lifecycle().Kind() {
 		case metamodel.LifecycleTimeSlice:
 			o.Handle("expire", payloadOnly(e.Expire))
@@ -75,8 +79,17 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 	d.Actions = []metamodel.ActionConfig{
 		{Name: "list", Kind: metamodel.KindList, Label: "Übersicht"},
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
-		{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
-		{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
+	}
+	if !e.ReadOnly {
+		d.Actions = append(d.Actions,
+			metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
+			metamodel.ActionConfig{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"})
+	}
+	for _, a := range e.Actions {
+		if a.Kind == "" {
+			a.Kind = metamodel.KindCustom
+		}
+		d.Actions = append(d.Actions, a.ActionConfig)
 	}
 	d.Lifecycle = e.Lifecycle()
 	switch d.Lifecycle.Kind() {

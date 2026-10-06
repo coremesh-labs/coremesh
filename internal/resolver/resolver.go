@@ -5,6 +5,7 @@
 // Suchreihenfolge:
 //  1. <plugin_dir>/<binary>
 //  2. <plugin_dir>/<xx>/<binary>   (xx = erste 2 Buchstaben des Namens, klein)
+//  3. dasselbe in jedem Verzeichnis aus extra_plugin_dirs
 //
 // Heruntergeladene Binaries landen immer in <plugin_dir>/<xx>/.
 package resolver
@@ -32,6 +33,7 @@ var ErrNotFound = errors.New("plugin binary not found")
 
 type Resolver struct {
 	dir    string
+	extra  []string // weitere Suchverzeichnisse (nur lokal)
 	dl     config.Download
 	client *http.Client
 	log    *slog.Logger
@@ -39,9 +41,10 @@ type Resolver struct {
 	goarch string
 }
 
-func New(dir string, dl config.Download, log *slog.Logger) *Resolver {
+func New(dir string, dl config.Download, log *slog.Logger, extra ...string) *Resolver {
 	return &Resolver{
 		dir:    dir,
+		extra:  extra,
 		dl:     dl,
 		client: &http.Client{Timeout: dl.Timeout},
 		log:    log,
@@ -68,10 +71,11 @@ func Shard(name string) string {
 // Candidates liefert die Suchpfade in Prüfreihenfolge.
 func (r *Resolver) Candidates(name, version string) []string {
 	bin := BinaryName(name, version, r.goos, r.goarch)
-	return []string{
-		filepath.Join(r.dir, bin),
-		filepath.Join(r.dir, Shard(name), bin),
+	var out []string
+	for _, d := range append([]string{r.dir}, r.extra...) {
+		out = append(out, filepath.Join(d, bin), filepath.Join(d, Shard(name), bin))
 	}
+	return out
 }
 
 // Find sucht die Binary lokal.

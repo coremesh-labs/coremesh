@@ -161,6 +161,13 @@ Actions: []metamodel.ActionConfig{
 
 - Pro Kind gilt die **erste** Action. Mehrere `custom`-Actions sind erlaubt; sie werden über
   ihren `Name` angesprochen.
+- `custom`-Actions mit `Record: true` gelten einem Datensatz (z. B. „Stornieren …“): Sie
+  stehen in der Detailansicht und bekommen dessen id. Alle anderen stehen in der Übersicht.
+- `ActionConfig.Fields` beschränkt das Formular einer `custom`-Action auf diese Felder (in
+  dieser Reihenfolge), sonst erscheinen alle editierbaren Felder. Ausgewertet werden beim
+  Absenden ebenfalls nur diese Felder.
+- In der Detailansicht stehen unter „Allgemein“ nur Felder, die der Datensatz liefert.
+  Reine Eingabefelder einer `custom`-Action (virtuell, ohne Wert) erscheinen dort nicht.
 - Der Catalog hat beim Registrieren bereits geprüft, dass jede `ActionConfig.Name` eine echte
   Route des Moduls ist. Die Oberfläche bietet also nie eine Action an, die es nicht gibt.
 

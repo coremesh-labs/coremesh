@@ -1,8 +1,12 @@
 # Grundkonfiguration des Hosts. Dateien in configs/ werden alphanumerisch
 # eingelesen und gemergt: spätere Dateien ergänzen/überschreiben frühere.
+#
+# Mehrere Verzeichnisse: -config configs,../coremesh-erp/configs liest erst das
+# erste, dann das zweite (z. B. Fachplugins eines anderen Repositories).
 
 host:
   plugin_dir: ./bin/plugins          # <dir>/<binary> oder <dir>/<xx>/<binary>
+  # extra_plugin_dirs: [../coremesh-erp/bin/plugins]   # weitere Suchpfade (nur lokal)
   plugin_start_timeout: 10s
   shutdown_timeout: 10s
   max_call_depth: 8                  # verschachtelte Plugin-Aufrufe pro Anfrage

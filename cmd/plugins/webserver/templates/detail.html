@@ -21,7 +21,7 @@
       <a class="btn primary" href="{{$.URL}}/{{pathEscape $.ID}}/edit"
          hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=detail" hx-target="#modal">{{.Label}}</a>
       {{end}}
-      {{range .Custom}}
+      {{range .RecordActions}}
       <a class="btn" href="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}"
          hx-get="{{$.ActionURL}}/{{.Name}}?id={{$.ID}}" hx-target="#modal">{{.Label}}</a>
       {{end}}

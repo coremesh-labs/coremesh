@@ -210,6 +210,21 @@ func (oc objectCtx) visibleFor(u *user) objectCtx {
 	return oc
 }
 
+// ObjectActions sind die custom-Actions der Übersicht, RecordActions die der
+// Detailansicht (ActionConfig.Record).
+func (oc objectCtx) ObjectActions() []metamodel.ActionConfig { return oc.customs(false) }
+func (oc objectCtx) RecordActions() []metamodel.ActionConfig { return oc.customs(true) }
+
+func (oc objectCtx) customs(record bool) []metamodel.ActionConfig {
+	var out []metamodel.ActionConfig
+	for _, a := range oc.Custom {
+		if a.Record == record {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 func (oc objectCtx) custom(name string) *metamodel.ActionConfig {
 	for i := range oc.Custom {
 		if oc.Custom[i].Name == name {
@@ -338,4 +353,36 @@ func labelsOf(rec record) map[string]string {
 		}
 	}
 	return out
+}
+
+// actionFields beschränkt das Formular einer custom-Action auf ActionConfig.Fields
+// (in deren Reihenfolge); ohne Angabe bleiben alle Felder.
+func actionFields(all []fieldCtx, keys []string) []fieldCtx {
+	if len(keys) == 0 {
+		return all
+	}
+	var out []fieldCtx
+	for _, k := range keys {
+		for _, f := range all {
+			if f.Field.Key == k {
+				out = append(out, f)
+			}
+		}
+	}
+	return out
+}
+
+// actionDef: das Metamodell mit nur den Feldern einer custom-Action (Auswertung des Formulars).
+func actionDef(d metamodel.ObjectDefinition, keys []string) metamodel.ObjectDefinition {
+	if len(keys) == 0 {
+		return d
+	}
+	fields := d.Fields
+	d.Fields = nil
+	for _, f := range fields {
+		if slices.Contains(keys, f.Key) {
+			d.Fields = append(d.Fields, f)
+		}
+	}
+	return d
 }

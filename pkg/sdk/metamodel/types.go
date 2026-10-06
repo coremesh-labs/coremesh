@@ -116,6 +116,11 @@ type ActionConfig struct {
 	// Übersetzungsschlüssel für Label und Confirm (i18n).
 	LabelKey   string `json:"label_key,omitempty"`
 	ConfirmKey string `json:"confirm_key,omitempty"`
+	// Nur Kind custom: Fields sind die Felder des Formulars (leer = alle editierbaren
+	// Felder des Objects). Record: die Aktion gilt einem Datensatz (Payload mit id)
+	// und erscheint in der Detailansicht, sonst in der Übersicht.
+	Fields []string `json:"fields,omitempty"`
+	Record bool     `json:"record,omitempty"`
 }
 
 // ActionKind sagt dem WebServer, wie er eine Aktion einbindet.

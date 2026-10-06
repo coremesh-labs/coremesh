@@ -69,6 +69,13 @@ func (f *Field) lookup() *metamodel.Lookup {
 	return &metamodel.Lookup{Object: f.Ref.Object, ValueField: f.Ref.Column, LabelFields: f.Ref.LabelFields}
 }
 
+// Action ist eine eigene Action einer Entity. Ohne Kind gilt KindCustom; Name,
+// Label, Fields und Record steuern Formular und Platz in der Oberfläche.
+type Action struct {
+	metamodel.ActionConfig
+	Handle module.HandlerFunc
+}
+
 // Entity beschreibt ein Business-Object.
 type Entity struct {
 	Object, Title, Icon, Table string
@@ -87,6 +94,12 @@ type Entity struct {
 
 	TitleField string
 	Sections   []metamodel.SectionDefinition
+
+	// ReadOnly: keine generischen create/update – Datensätze entstehen nur über
+	// eigene Actions (z. B. Buchungen, die Soll und Haben gemeinsam prüfen).
+	ReadOnly bool
+	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
+	Actions []Action
 
 	// Hooks
 	Validate    func(ctx context.Context, rec, old Record) error // nach der Typprüfung, in der Transaktion
