@@ -1,0 +1,462 @@
+# CoreMesh WebServer
+
+Das generische Web-Frontend von CoreMesh, implementiert als **externes Plugin**.
+
+Es nimmt HTTP-Anfragen an und übersetzt sie in `(object, action)`-Aufrufe an die
+Fachmodule. Tabellen, Formulare und Detailansichten entstehen allein aus dem
+**Metamodell**, das die Module beim Catalog hinterlegen. Der WebServer enthält
+keinen Code für einzelne Objects. Ein neues Fachmodul erscheint in der Oberfläche,
+sobald es läuft und ein Metamodell liefert.
+
+```
+Browser ──HTTP──▶ WebServer (Plugin, Ingress) ──Host.Handle──▶ Dispatcher ──▶ Fachmodul
+   ▲                 │ html/template + HTMX                    │
+   └──── HTML ───────┘                         Catalog.GetDefinition / ListObjects
+```
+
+## Inhalt
+
+1. [Grundprinzip: Wie aus einer URL ein Aufruf wird](#1-grundprinzip)
+2. [URL-Schema](#2-url-schema)
+3. [Object und Action bestimmen](#3-object-und-action-bestimmen)
+4. [Parameter und Payloads](#4-parameter-und-payloads)
+5. [Formulardaten → Payload](#5-formulardaten--payload)
+6. [Aufrufkontext](#6-aufrufkontext)
+7. [Rendering: HTMX-Fragment oder ganze Seite](#7-rendering-htmx-fragment-oder-ganze-seite)
+8. [HTMX-Swaps im Detail](#8-htmx-swaps-im-detail)
+9. [Fehlerbehandlung](#9-fehlerbehandlung)
+10. [Templates und Blöcke überschreiben](#10-templates-und-blöcke-überschreiben)
+11. [Konfiguration](#11-konfiguration) und [Anmeldung und Sicherheit](#anmeldung-und-sicherheit)
+12. [Bauen, testen, austauschen](#12-bauen-testen-austauschen)
+13. [Grenzen und nächste Schritte](#13-grenzen-und-nächste-schritte)
+
+---
+
+## 1. Grundprinzip
+
+Jede HTTP-Anfrage wird in vier Schritten verarbeitet:
+
+1. **Object aus der URL:** `/ui/BusinessPartner/…` → Object `BusinessPartner`
+   (PascalCase, sonst 404).
+2. **Metamodell holen:** `Catalog.GetDefinition {"object": "BusinessPartner"}`
+   liefert Felder, Titel und die angebotenen Actions mit ihrem **Kind**.
+3. **Action über das Kind wählen:** Die HTTP-Methode und der Pfad bestimmen ein Kind
+   (z. B. `GET /ui/X` → `list`). Der WebServer nimmt die Action, die im Metamodell
+   dieses Kind hat. Wie sie heißt (`List`, `list`, `search`), ist egal.
+4. **Aufruf:** `Host.Handle(ctx, {Object, Action, Payload})`. Das Payload folgt den
+   Konventionen aus [Abschnitt 4](#4-parameter-und-payloads).
+
+Danach wird die Antwort gerendert: bei HTMX-Anfragen nur das Fragment, sonst die ganze Seite.
+
+## 2. URL-Schema
+
+| Methode & Pfad | Kind | Aufruf an das Modul | Antwort (HTMX) | Antwort (ohne JS) |
+|---|---|---|---|---|
+| `GET /login`, `POST /login`, `POST /logout` | – | – (siehe „Anmeldung und Sicherheit“) | | |
+| `GET /` | – | `Catalog.ListObjects` | Startseite | Seite |
+| `GET /ui/{object}` | `list` | `{query}` | `<section id="list">` mit Tabelle | Seite |
+| `GET /ui/{object}/new` | (`create`) | – (nur Metamodell) | Formular im Dialog `#modal` | Seite mit Formular |
+| `POST /ui/{object}` | `create` | `{data}` | neue `<tr>` + Dialog zu + Toast | `303` → `/ui/{object}` |
+| `GET /ui/{object}/{id}` | `item` | `{id}` | `<section id="detail">` | Seite |
+| `GET /ui/{object}/{id}/edit` | `item` + (`update`) | `{id}` | Formular mit Werten im Dialog | Seite mit Formular |
+| `PUT /ui/{object}/{id}` | `update` | `{id, data}` | Zeile oder Detail + Dialog zu + Toast | – |
+| `DELETE /ui/{object}/{id}` | `delete` | `{id}` | Zeile entfernt + Toast | – |
+| `POST /ui/{object}/{id}` | `update`/`delete` | wie PUT/DELETE, gesteuert über `_method` | wie PUT/DELETE | `303` → Detail/Liste |
+| `GET /action/{object}/{name}` | `custom` | – (nur Metamodell) | Formular der Action im Dialog | Seite mit Formular |
+| `POST /action/{object}/{name}` | `custom` | `{id?, data}` | Ergebnis im Dialog + Toast | Seite mit Ergebnis |
+| `GET /static/…` | – | – | CSS u. a. | |
+
+**Hinweise:**
+
+- `{id}` ist URL-kodiert. Die ID `p/1` steht in der URL als `p%2F1`. Die ID `new` ist nicht adressierbar.
+- **Custom-Actions** liegen unter `/action/` statt unter `/ui/{object}/…`. Sonst gäbe es
+  Mehrdeutigkeiten mit `/ui/{object}/{id}/edit`, etwa bei einer Action namens `edit`.
+- In Klammern gesetzte Kinds werden nur geprüft: Das Formular erscheint nur, wenn das
+  Object die Action anbietet.
+- Bietet ein Object ein Kind nicht an, antwortet der WebServer mit **404**. In der
+  Oberfläche erscheinen nur die Buttons angebotener Actions.
+
+## 3. Object und Action bestimmen
+
+Das Metamodell (`pkg/sdk/metamodel`) verbindet Oberfläche und Dispatcher:
+
+```go
+Actions: []metamodel.ActionConfig{
+    {Name: "List",   Kind: metamodel.KindList,   Label: "Übersicht"},
+    {Name: "Item",   Kind: metamodel.KindItem,   Label: "Anzeigen"},
+    {Name: "Create", Kind: metamodel.KindCreate, Label: "Neu"},
+    {Name: "Update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
+    {Name: "Delete", Kind: metamodel.KindDelete, Label: "Löschen", Confirm: "Wirklich löschen?"},
+    {Name: "Notify", Kind: metamodel.KindCustom, Label: "Benachrichtigen"},
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `Name` | Action im Dispatcher. `Kind: list, Name: "List"` führt zum Aufruf `BusinessPartner.List`. |
+| `Kind` | Rolle in der Oberfläche: legt Endpunkt und Payload-Form fest |
+| `Label` | Text auf Buttons und in Toasts |
+| `Confirm` | Sicherheitsabfrage vor dem Ausführen (`hx-confirm`) |
+
+**Regeln:**
+
+- Pro Kind gilt die **erste** Action. Mehrere `custom`-Actions sind erlaubt; sie werden über
+  ihren `Name` angesprochen.
+- Der Catalog hat beim Registrieren bereits geprüft, dass jede `ActionConfig.Name` eine echte
+  Route des Moduls ist. Die Oberfläche bietet also nie eine Action an, die es nicht gibt.
+
+## 4. Parameter und Payloads
+
+Für jedes Kind gilt eine **feste Payload-Form**. Fachmodule, die diese Form
+einhalten, funktionieren ohne Anpassung mit dem WebServer.
+
+### Anfrage an das Modul
+
+| Kind | Payload | Herkunft |
+|---|---|---|
+| `list` | `{"query": {"<param>": "<wert>", …}}` | alle URL-Parameter. Ein einzelner Wert wird String, mehrfache werden Liste. |
+| `item` | `{"id": "<id>"}` | `{id}` aus dem Pfad |
+| `create` | `{"data": {<feld>: <wert>, …}}` | Formular, siehe [Abschnitt 5](#5-formulardaten--payload) |
+| `update` | `{"id": "<id>", "data": {…}}` | Pfad + Formular |
+| `delete` | `{"id": "<id>"}` | Pfad |
+| `custom` | `{"id": "<id>", "data": {…}}` | `id` optional (aus `?id=` bzw. `_id`), Formular |
+
+**Beispiel:** `GET /ui/BusinessPartner?q=acme&page=2&tag=a&tag=b` führt zu
+
+```json
+{ "object": "BusinessPartner", "action": "List",
+  "payload": { "query": { "q": "acme", "page": "2", "tag": ["a", "b"] } } }
+```
+
+Die Bedeutung der Parameter (Suche, Seite, Sortierung) legt das Modul fest. Der
+WebServer reicht sie nur durch.
+
+### Antwort des Moduls
+
+| Kind | Erwartete Antwort |
+|---|---|
+| `list` | `[record, …]` **oder** `{"items": [record, …]}` (dort ist Platz für z. B. `"total"`) |
+| `item`, `create`, `update` | `record` |
+| `delete` | beliebig (wird ignoriert) |
+| `custom` | beliebig. Ein String-Feld `"message"` wird als Text gezeigt, sonst das JSON. |
+
+Ein **record** ist ein JSON-Objekt mit den Feldern aus dem Metamodell. Der Schlüssel
+**`"id"`** identifiziert den Datensatz und erscheint in den URLs. Die Werte werden
+anhand von `FieldDefinition.Type` angezeigt: Bei `select` das Label der Option,
+bei `boolean` „Ja“/„Nein“. Fehlt in der Antwort von `create` oder `update` die `id`,
+ergänzt der WebServer sie aus dem Pfad.
+
+## 5. Formulardaten → Payload
+
+Das Formular entsteht aus `ObjectDefinition.Fields`:
+
+| `Type` | Formular-Element | Wert im Payload |
+|---|---|---|
+| `text` | `<input type="text">` | String |
+| `textarea` | `<textarea>` | String |
+| `email` | `<input type="email">` | String (geprüft mit `net/mail`) |
+| `number` | `<input type="number" step="any">` | Zahl (`float64`, `,` als Dezimaltrenner erlaubt) |
+| `date` | `<input type="date">` | String `JJJJ-MM-TT` (geprüft) |
+| `select` | `<select>` mit `Options` | String, muss eine der Options sein |
+| `boolean` | `<input type="checkbox">` | `true`/`false` (ein fehlendes Feld zählt als `false`) |
+
+**Regeln:**
+
+- **Nur Felder mit `Editable: true`** gelangen in `data`. Alle anderen Formularwerte,
+  auch eingeschleuste, ignoriert der WebServer. Das schützt vor Mass Assignment.
+- **`Required: true`** setzt das HTML-Attribut `required` und wird zusätzlich serverseitig geprüft.
+- **Leere optionale Felder** werden zu `null`.
+- **Neu-Formular:** Nicht editierbare Felder fehlen. **Bearbeiten-Formular:** Sie werden
+  schreibgeschützt angezeigt (`readonly` bzw. `disabled` bei `select`/Checkbox).
+- **Fehler bei der Prüfung** (Pflichtfeld, Format, ungültige Option) führen nicht zum Aufruf
+  des Moduls. Das Formular kommt mit Status **422** und den Eingaben zurück.
+- Meldet das Modul `sdk.ErrInvalidArgument`, erscheint das Formular ebenfalls erneut,
+  mit der Meldung des Moduls.
+- **Steuerfelder** mit Unterstrich werden nicht ans Modul weitergegeben:
+
+| Feld | Zweck |
+|---|---|
+| `_method` | `PUT`/`DELETE` bei Formularen ohne JavaScript |
+| `_view` | `row`/`detail`: wohin die Antwort von `update`/`delete` gehört |
+| `_id` | id für `custom`-Actions |
+
+## 6. Aufrufkontext
+
+Der WebServer ist **Ingress**: Er nimmt Anfragen von außen an. Er braucht deshalb in der
+Host-Konfiguration `ingress: true`. Damit darf er für jede HTTP-Anfrage eine **eigene
+Wurzelanfrage** starten. Plugins ohne diese Freigabe dürfen nur innerhalb laufender
+Anfragen aufrufen.
+
+| Feld (`sdk.CallContext`) | Wert |
+|---|---|
+| `RequestID` | zufällig, pro HTTP-Anfrage |
+| `TenantID` | `tenant_id` des angemeldeten Benutzers, sonst `settings.tenant` |
+| `UserID` | `id` des angemeldeten Benutzers |
+| `Metadata["username"]` | Benutzername |
+| `Metadata["ingress"]` | `"webserver"` |
+| `Metadata["locale"]` | erste Sprache aus `Accept-Language`, z. B. `de-CH` |
+
+Fachmodule lesen das mit `sdk.CallFromContext(ctx)`. Mandant und Benutzer stammen
+damit immer aus der Anmeldung und nie aus dem Formular.
+
+**Abbruch:** Bricht der Browser die Anfrage ab, endet über `r.Context()` die ganze
+Aufrufkette im Host, einschließlich verschachtelter Plugin-Aufrufe.
+
+**Was gesperrt bleibt:** Host-Routen wie `Catalog.Register` oder `DBSchema.Activate`
+sind auch für den Ingress nicht erreichbar.
+
+## 7. Rendering: HTMX-Fragment oder ganze Seite
+
+Eine Entscheidung je Anfrage, über den Header `HX-Request`:
+
+| Anfrage | Ausgabe |
+|---|---|
+| `HX-Request: true` (HTMX-Swap) | **nur das Fragment**, z. B. `<section id="list">`, `<form>`, `<tr>` |
+| sonst (Seitenaufruf, F5, Lesezeichen) | **Layout** (Kopf, Sidebar, Skripte) **mit dem Fragment** in `#main-content` |
+| `HX-History-Restore-Request: true` | ganze Seite (Zurück-Button, wenn der HTMX-Verlauf leer ist) |
+
+**Umsetzung:** Alle Handler rufen `render(w, r, status, fragment, data, …)` auf. Für eine
+ganze Seite wird das Fragment zuerst gerendert und dann als `.Content` in den Block
+`layout` eingesetzt. Jede Antwort trägt `Vary: HX-Request`, damit Caches beide Varianten
+auseinanderhalten.
+
+**Sidebar:** Bei jeder ganzen Seite ruft der WebServer `Catalog.ListObjects` auf und
+verlinkt alle Objects mit `defined && available`:
+
+```html
+<a href="/ui/BusinessPartner" hx-get="/ui/BusinessPartner" hx-target="#main-content" hx-push-url="true">
+  Geschäftspartner
+</a>
+```
+
+Ohne JavaScript ist das ein normaler Link. Mit HTMX wird nur `#main-content` getauscht,
+und die URL landet im Browserverlauf.
+
+## 8. HTMX-Swaps im Detail
+
+Pflicht-Container im Layout: `#main-content`, `#modal`, `#toast-container`.
+
+| Aktion | Auslöser | Ziel / Swap | Antwort |
+|---|---|---|---|
+| Navigation | Sidebar, Zurück-Link | `#main-content` innerHTML, URL im Verlauf | Fragment `list`/`detail` |
+| Neu / Bearbeiten / Custom öffnen | Button | `#modal` innerHTML | Fragment `form` im `<dialog>` |
+| Anlegen | `hx-post` | `#rows` beforeend | `<tr>` + OOB `#modal` leeren + OOB Toast |
+| Speichern (aus Tabelle) | `hx-put`, `_view=row` | `#row-<hex(id)>` outerHTML | `<tr>` + OOB + Toast |
+| Speichern (aus Detail) | `hx-put`, `_view=detail` | `#detail` outerHTML | `<section id="detail">` + OOB + Toast |
+| Löschen (Tabelle) | `hx-delete` | `closest tr` outerHTML | leer + OOB Toast |
+| Löschen (Detail) | `hx-delete`, `_view=detail` | – | Header `HX-Location` → Übersicht |
+| Custom ausführen | `hx-post` | `#modal` | Ergebnis + Toast, Header `HX-Trigger: coremesh-changed` |
+
+Dazu zwei Mechanismen:
+
+- **Toast:** Er kommt als Out-of-Band-Swap: `<div hx-swap-oob="beforeend:#toast-container">`.
+- **Automatisches Nachladen:** Die Übersicht hört auf `coremesh-changed` und lädt sich
+  danach neu (`hx-trigger="coremesh-changed from:body"`).
+
+**Zeilen-IDs** sind `row-` plus die hexadezimal kodierte `id`. So bleiben sie gültige
+CSS-Selektoren, auch bei IDs wie `p/1`.
+
+**Keine Vererbung:** `htmx-config` setzt `disableInheritance: true`. Jedes Element nennt
+`hx-target` und `hx-swap` selbst. In eigenen Templates also nicht darauf verlassen,
+dass ein Elternelement sie vorgibt.
+
+## 9. Fehlerbehandlung
+
+| Fehler des Moduls (`errors.Is`) | HTTP-Status |
+|---|---|
+| `sdk.ErrNotFound`, `sdk.ErrUnimplemented` | 404 |
+| `sdk.ErrInvalidArgument` | 422 (bei Formularen: Formular erneut anzeigen) |
+| `sdk.ErrPermissionDenied` | 403 |
+| `sdk.ErrAlreadyExists`, `sdk.ErrFailedPrecondition` | 409 |
+| `sdk.ErrUnavailable` (z. B. Modul läuft nicht) | 503 |
+| Abbruch durch den Client | 499 |
+| alles andere | 500. Die Meldung geht nur ins Host-Log, der Browser sieht „Interner Fehler“. |
+
+**Wie der Fehler erscheint:**
+
+- **Bei HTMX** als roter Toast: `HX-Retarget: #toast-container`, `HX-Reswap: beforeend`.
+  Damit HTMX auch 4xx/5xx-Antworten tauscht, setzt das Layout
+  `responseHandling` in `htmx-config`.
+- **Ohne HTMX** als Fehlerseite im Layout.
+
+## 10. Templates und Blöcke überschreiben
+
+Die Standard-Templates sind eingebettet (`templates/*.html`, `go:embed`). Jedes Stück
+ist ein benannter Block (`{{block}}` bzw. `{{define}}`). Mit `settings.templates_dir`
+werden zusätzlich alle `*.html` aus diesem Verzeichnis **nach** den eingebetteten
+geparst. Jeder dort neu definierte Block **ersetzt** den Standard-Block, alle anderen
+bleiben.
+
+| Datei | Blöcke | Daten |
+|---|---|---|
+| `layout.html` | `layout`, `head`, `brand`, `sidebar`, `nav-item`, `content`, `footer`, `scripts` | `pageData` |
+| `list.html` | `list`, `list-toolbar`, `table`, `row`, `row-actions` | `view` |
+| `form.html` | `form`, `form-buttons`, `field` | `view` bzw. `fieldCtx` |
+| `detail.html` | `detail`, `detail-toolbar` | `view` |
+| `fragments.html` | `created`, `updated`, `modal-close`, `toast`, `result`, `home`, `error` | je Block |
+
+**Beispiel** `web/templates/branding.html`:
+
+```html
+{{define "brand"}}<a class="brand" href="/"><img src="/static/logo.svg" alt=""> Meine Firma</a>{{end}}
+
+{{define "head"}}
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/firma.css">
+<script src="/static/htmx.min.js"></script>  {{/* htmx lokal statt CDN */}}
+{{end}}
+```
+
+Zusammen mit `static_dir: ./web/static` werden `logo.svg`, `firma.css` und
+`htmx.min.js` von dort ausgeliefert. Was dort fehlt, kommt weiterhin aus den
+eingebetteten Dateien.
+
+**Zugriff in eigenen Blöcken:**
+
+| Ausdruck | Ergebnis |
+|---|---|
+| `.Def` | `metamodel.ObjectDefinition` |
+| `.Object` | Name des Objects |
+| `.Has.list` … `.Has.delete` | `*ActionConfig` oder `nil` |
+| `.Custom` | `[]ActionConfig` |
+| `.Rows` | Liste der Datensätze |
+| `.Record` | aktueller Datensatz |
+| `.ID` | id des aktuellen Datensatzes |
+| `.Row .` | Sicht auf eine Tabellenzeile |
+
+**Template-Funktionen:**
+
+| Funktion | Zweck |
+|---|---|
+| `listable .Def` | Felder mit `Listable: true` |
+| `value .Record field` | Wert zur Anzeige |
+| `pathEscape` | Wert für URL-Pfade kodieren |
+| `domID` | ID für DOM-Element-IDs |
+| `json` | Wert als JSON |
+| `navCtx` | Daten für einen Navigationspunkt |
+
+## 11. Konfiguration
+
+`configs/04-webserver.yaml`:
+
+```yaml
+plugins:
+  webserver:
+    version: 0.3.0
+    ingress: true                       # Pflicht: startet eigene Wurzelanfragen
+    databases:
+      main: { access: write }           # Pflicht: Session-Tabelle
+    settings:
+      listen: 0.0.0.0:8080              # alle Schnittstellen; Standard 127.0.0.1:8080
+      title: CoreMesh
+      tenant: demo                      # Mandant für Benutzer ohne eigenen Mandanten
+      session_ttl: 12h                  # Gültigkeit einer Anmeldung
+      tls_cert: ./certs/server.crt      # optional; beide gesetzt = HTTPS
+      tls_key: ./certs/server.key
+      cookie_secure: auto               # auto (bei TLS) | true (hinter TLS-Proxy) | false
+      database: main                    # Datenbank der Session-Tabelle
+      templates_dir: ./web/templates    # optional
+      static_dir: ./web/static          # optional
+```
+
+- **Port belegt:** Der Start des Plugins scheitert mit einer klaren Meldung.
+- **Netz ohne TLS:** Lauscht der Server nicht nur auf Loopback und hat kein TLS, warnt das Host-Log.
+- **Windows-Firewall:** Beim ersten Start mit `0.0.0.0` fragt Windows unter Umständen nach
+  einer Freigabe für `webserver-…exe`.
+
+## Anmeldung und Sicherheit
+
+Alle Seiten außer `/login` und `/static/…` verlangen eine Anmeldung.
+
+| Methode & Pfad | Zweck |
+|---|---|
+| `GET /login`, `POST /login` | Anmeldeseite / Anmeldung (`username`, `password`, `next`) |
+| `POST /logout` | Abmelden; die Session wird serverseitig gelöscht |
+| `GET`/`POST /account/password` | eigenes Passwort ändern (beendet alle anderen Sessions) |
+
+**Benutzer, Rollen, Passwörter** verwaltet das Core-Plugin **iam** (siehe
+`internal/coreplugins/iam/README.md`). Der WebServer nutzt es über den Host:
+
+| Schritt | Aufruf |
+|---|---|
+| Anmeldung prüfen | `Account.Authenticate {username, password}` (nur Ingress) |
+| Profil des angemeldeten Benutzers pro Anfrage | `Account.Me` → Name, Mandant, Rollen, Berechtigungen |
+| Passwort ändern | `Account.ChangePassword {current, new}` |
+
+Der WebServer selbst hält nur die Sessions (über `DBSchema.Init`, siehe `schema.go`):
+
+| Tabelle | Spalten |
+|---|---|
+| `webserver__sessions` | `id` (= SHA-256 des Cookie-Tokens), `user_id`, `created_at`, `expires_at` |
+
+`webserver__users` aus Version 0.2.0 bleibt im Schema, wird aber nicht mehr genutzt.
+DBSchema lehnt `DROP TABLE` ab. Der erste Benutzer entsteht jetzt in `iam`.
+
+**Berechtigungen in der Oberfläche:** Die Navigation zeigt nur Objects, für die der
+Benutzer mindestens eine Berechtigung hat. Tabellen, Detailansichten und Dialoge zeigen
+nur Buttons für erlaubte Actions. Ruft jemand eine verbotene Action direkt auf,
+antwortet der WebServer mit **403** („keine Berechtigung …“). Verbindlich prüft unabhängig
+davon der Dispatcher.
+
+**Deaktivierte oder gelöschte Benutzer** verlieren ihre Session beim nächsten Aufruf.
+
+**Ohne Anmeldung:**
+- Seitenaufruf: `303` → `/login?next=<Pfad>`. Nach der Anmeldung geht es dorthin zurück,
+  aber nur für lokale Pfade, damit kein Open Redirect möglich ist.
+- HTMX-Anfrage: `401` mit `HX-Redirect: /login`.
+
+**Schutzmaßnahmen:**
+
+| Maßnahme | Umsetzung |
+|---|---|
+| Passwörter | bcrypt (Kosten 12) in iam, mindestens 10 Zeichen |
+| Session-Cookie | zufälliges 256-Bit-Token, `HttpOnly`, `SameSite=Lax`, `Secure` bei TLS; in der Datenbank nur der Hash |
+| Ablauf | `session_ttl`, danach neue Anmeldung; abgelaufene Sessions werden stündlich gelöscht |
+| Brute Force | nach 5 Fehlversuchen je Benutzer und IP Sperre: 1, 2, 4, 8, max. 15 Minuten |
+| Benutzer-Enumeration | gleiche Meldung und Laufzeit für „unbekannt“, „falsches Passwort“ und „deaktiviert“ (in iam) |
+| CSRF | verändernde Anfragen nur von der eigenen Seite (`Sec-Fetch-Site`/`Origin`), zusammen mit `SameSite=Lax` und GET ohne Seiteneffekte |
+| Header | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, HSTS bei TLS |
+
+Der WebServer greift über den Host auf seine Tabellen zu (`sdk.Host.Query`/`Exec`).
+Als Ingress-Plugin läuft jeder dieser Aufrufe als eigene kurze Wurzelanfrage.
+Transaktionen sind außerhalb einer Host-Anfrage deshalb nicht möglich, für die
+Anmeldung aber auch nicht nötig.
+
+## 12. Bauen, testen, austauschen
+
+Der WebServer ist ein **eigenes Go-Modul** (`go.mod` in diesem Verzeichnis). Er
+importiert nur `pkg/sdk`, `pkg/sdk/metamodel` und `pkg/sdk/plugin`. Den Zugriff
+auf `internal/` verhindert der Go-Compiler. Abhängigkeiten wie SQLite, Atlas oder pgx
+gelangen nicht in diese Binary.
+
+```bash
+cd cmd/plugins/webserver
+go test ./...
+go build -o ../../../bin/plugins/we/webserver-0.3.0-windows-amd64.exe .
+```
+
+Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`, Unterordner `we/`).
+
+- **Austauschen:** Jedes Plugin, das dieselben Payload-Konventionen nutzt, kann den
+  WebServer ersetzen, etwa eine JSON-REST-API oder ein anderes Frontend.
+- **Auslagern:** Für ein eigenes Repository genügt es, in `go.mod` die `replace`-Zeile durch
+  eine Version von `github.com/camel/coremesh` zu ersetzen.
+- **Debuggen:** Mit `-debug` starten und den Host mit `COREMESH_REATTACH_PLUGINS` anhängen,
+  siehe `pkg/sdk/plugin`.
+
+## 13. Grenzen und nächste Schritte
+
+- **SSO:** OIDC oder SAML fehlen noch. Benutzer und Rollen verwaltet `iam` über die Objects
+  `User` und `Role`.
+- **Login-Sperre im Speicher:** Sie gilt pro WebServer-Prozess. Bei mehreren Instanzen
+  hinter einem Load Balancer zählt jede für sich.
+- **IP hinter einem Proxy:** Die Sperre nutzt `RemoteAddr`. Hinter einem Reverse Proxy
+  wäre das immer die IP des Proxys, eine vertrauenswürdige `X-Forwarded-For`-Auswertung fehlt.
+- **Keine Content-Security-Policy:** htmx vom CDN und Inline-Handler (`onclick`)
+  bräuchten `unsafe-inline`. Mit lokal ausgeliefertem htmx und ohne Inline-Skripte wäre eine
+  strikte CSP möglich.
+- **htmx kommt per CDN** (unpkg, Version 2.0.4). Für den Betrieb ohne Internet: Block
+  `head` überschreiben und die Datei über `static_dir` lokal ausliefern.
+- **Löschen ohne JavaScript** geht nur aus der Detailansicht (Formular mit `_method=DELETE`).
+- **Blättern und Sortieren** werden nur als URL-Parameter durchgereicht. Bedienelemente dafür
+  folgen, sobald sich eine Konvention etwa für `total` etabliert hat.

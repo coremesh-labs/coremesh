@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package coremesh.plugin.v1;
+
+import "google/protobuf/struct.proto";
+import "plugin/v1/plugin.proto";
+
+option go_package = "github.com/camel/coremesh/internal/api/plugin/v1;pluginv1";
+
+// HostService wird vom Host implementiert und vom Plugin über den
+// go-plugin GRPCBroker aufgerufen (Rückkanal). So rufen Plugins andere
+// Plugins auf und nutzen Logging und die SQL-Pools des Hosts, ohne selbst
+// Zugangsdaten zu kennen.
+//
+// Jeder Request trägt den Context des auslösenden Handle-Aufrufs. Der Host
+// vertraut dabei nur der request_id: Er ordnet sie dem laufenden Handle-Aufruf
+// zu und verwendet dessen tenant_id/user_id – vom Plugin gesendete Werte für
+// Mandant und Benutzer werden ignoriert. Zusätzlich prüft der Host jeden
+// Aufruf gegen die Freigaben des Plugins in der Host-Config (welche
+// Datenbanken, nur lesend oder auch schreibend).
+service HostService {
+  // Dispatch übergibt eine (object, action)-Anfrage an den Dispatcher des
+  // Hosts, der sie an das zuständige Plugin weiterleitet – nach derselben
+  // Match-Logik wie bei Anfragen von außen (siehe PluginService). Das
+  // aufrufende Plugin kennt das Ziel-Plugin nicht.
+  //
+  // Der Host übernimmt request_id, tenant_id und user_id des auslösenden
+  // Handle-Aufrufs, sodass Mandant und Berechtigungen über die ganze
+  // Aufrufkette erhalten bleiben. Deadlines und Abbruch propagieren über gRPC.
+  // Zyklen (A -> B -> A ...) begrenzt der Host über eine maximale
+  // Verschachtelungstiefe pro request_id und antwortet dann mit
+  // FailedPrecondition. Kein Treffer: Unimplemented.
+  rpc Dispatch(HandleRequest) returns (HandleResponse);
+
+  rpc Log(LogRequest) returns (LogResponse);
+
+  // Query führt ein SELECT aus und liefert die Zeilen zurück.
+  rpc Query(QueryRequest) returns (QueryResponse);
+
+  // Exec führt INSERT/UPDATE/DELETE aus.
+  rpc Exec(ExecRequest) returns (ExecResponse);
+
+  // Transaktionen
+  //
+  // Eine Transaktion gilt für genau eine Datenbank und ist an die request_id
+  // der Aufrufkette gebunden. Query/Exec laufen in ihr, wenn
+  // Context.tx_ids[database] gesetzt ist – auch in Plugins, die über Dispatch
+  // aufgerufen wurden. Mehrere Datenbanken werden nicht atomar verbunden.
+  //
+  // Commit darf nur der Eröffner (gleiche request_id, gleiches Plugin).
+  // Rollback darf jeder Teilnehmer auslösen; danach ist die Transaktion
+  // abgebrochen und jeder weitere Zugriff bzw. Commit liefert Aborted.
+  //
+  // Der Host rollt automatisch zurück, wenn die äußerste Anfrage endet, die
+  // maximale Laufzeit überschritten ist oder der Plugin-Prozess abstürzt.
+  // Die Zahl offener Transaktionen pro Plugin ist begrenzt
+  // (ResourceExhausted).
+  rpc BeginTx(BeginTxRequest) returns (BeginTxResponse);
+  rpc CommitTx(CommitTxRequest) returns (CommitTxResponse);
+  rpc RollbackTx(RollbackTxRequest) returns (RollbackTxResponse);
+}
+
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_DEBUG = 1;
+  LOG_LEVEL_INFO = 2;
+  LOG_LEVEL_WARN = 3;
+  LOG_LEVEL_ERROR = 4;
+}
+
+message LogRequest {
+  Context context = 1;
+  LogLevel level = 2;
+  string message = 3;
+  map<string, string> fields = 4;
+}
+
+message LogResponse {}
+
+message QueryRequest {
+  Context context = 1;
+  // Logischer Pool-Name aus der Host-Config, z. B. "main".
+  string database = 2;
+  // SQL mit Platzhaltern; Werte immer über args, nie per String-Verkettung.
+  string sql = 3;
+  repeated google.protobuf.Value args = 4;
+}
+
+message Row {
+  repeated google.protobuf.Value values = 1;
+}
+
+message QueryResponse {
+  repeated string columns = 1;
+  repeated Row rows = 2;
+}
+
+message ExecRequest {
+  Context context = 1;
+  string database = 2;
+  string sql = 3;
+  repeated google.protobuf.Value args = 4;
+}
+
+message ExecResponse {
+  int64 rows_affected = 1;
+  int64 last_insert_id = 2;
+}
+
+// IsolationLevel entspricht database/sql.IsolationLevel (gleiche Nummerierung).
+enum IsolationLevel {
+  ISOLATION_LEVEL_DEFAULT = 0;
+  ISOLATION_LEVEL_READ_UNCOMMITTED = 1;
+  ISOLATION_LEVEL_READ_COMMITTED = 2;
+  ISOLATION_LEVEL_WRITE_COMMITTED = 3;
+  ISOLATION_LEVEL_REPEATABLE_READ = 4;
+  ISOLATION_LEVEL_SNAPSHOT = 5;
+  ISOLATION_LEVEL_SERIALIZABLE = 6;
+  ISOLATION_LEVEL_LINEARIZABLE = 7;
+}
+
+message BeginTxRequest {
+  Context context = 1;
+  string database = 2;
+  IsolationLevel isolation = 3;
+  // Nur lesend; auch für Plugins ohne Schreibrecht auf die Datenbank erlaubt.
+  bool read_only = 4;
+}
+
+message BeginTxResponse {
+  // Zufällige, nicht erratbare ID; gültig nur für diese request_id.
+  string tx_id = 1;
+}
+
+message CommitTxRequest {
+  Context context = 1;
+  string tx_id = 2;
+}
+
+message CommitTxResponse {}
+
+message RollbackTxRequest {
+  Context context = 1;
+  string tx_id = 2;
+}
+
+message RollbackTxResponse {}

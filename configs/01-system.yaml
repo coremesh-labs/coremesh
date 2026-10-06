@@ -1,0 +1,31 @@
+# Grundkonfiguration des Hosts. Dateien in configs/ werden alphanumerisch
+# eingelesen und gemergt: spätere Dateien ergänzen/überschreiben frühere.
+
+host:
+  plugin_dir: ./bin/plugins          # <dir>/<binary> oder <dir>/<xx>/<binary>
+  plugin_start_timeout: 10s
+  shutdown_timeout: 10s
+  max_call_depth: 8                  # verschachtelte Plugin-Aufrufe pro Anfrage
+  tx_timeout: 30s
+  max_tx_per_plugin: 16
+
+databases:
+  main:
+    driver: sqlite
+    dsn: "file:coremesh.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+    max_open_conns: 10
+  # PostgreSQL (Treiber "pgx"); für isolation: schema in 02-db-plugin.yaml:
+  # main:
+  #   driver: pgx
+  #   dsn: "postgres://coremesh:${env:COREMESH_DB_PASSWORD}@localhost:5432/coremesh?sslmode=disable"
+  #   max_open_conns: 20
+
+resolver:
+  download:
+    # Leer = nur lokale Suche. Beispiel GitLab Generic Package Registry:
+    # url_template: "https://gitlab.example.com/api/v4/projects/123/packages/generic/{name}/{version}/{binary}"
+    # checksum_url_template: "https://gitlab.example.com/api/v4/projects/123/packages/generic/{name}/{version}/{binary}.sha256"
+    url_template: ""
+    token_env: GITLAB_TOKEN          # Umgebungsvariable des Hosts
+    token_header: PRIVATE-TOKEN
+    timeout: 60s

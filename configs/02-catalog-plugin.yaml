@@ -1,0 +1,7 @@
+# Core-Plugin Catalog: Registry der Business-Objects und ihrer Metamodelle.
+plugins:
+  catalog:
+    kind: internal
+    settings:
+      # Letzter bekannter Metamodell-Stand je Modul; leer = kein Festplatten-Cache.
+      cache_dir: ./data/catalog

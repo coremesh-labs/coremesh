@@ -1,0 +1,18 @@
+# Codegenerierung ohne installiertes protoc (make proto-buf):
+#   go run github.com/bufbuild/buf/cmd/buf@latest generate
+#   go run github.com/bufbuild/buf/cmd/buf@latest generate --template buf.gen.console.yaml
+# Nutzt die lokal installierten Plugins (make tools).
+#
+# Plugin-Protokoll (Host <-> Plugins): proto/plugin -> internal/api (nicht importierbar)
+version: v2
+inputs:
+  - directory: proto
+    paths:
+      - proto/plugin
+plugins:
+  - local: protoc-gen-go
+    out: internal/api
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: internal/api
+    opt: paths=source_relative

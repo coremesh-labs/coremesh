@@ -1,0 +1,12 @@
+# Core-Plugin iam: Benutzer, Rollen, Berechtigungen (Object.Action mit Wildcards).
+# Ist es aktiv, prüft der Dispatcher jede Anfrage mit Benutzer gegen dessen Rollen.
+plugins:
+  iam:
+    kind: internal
+    databases:
+      main: { access: write }        # eigene Tabellen iam__* via DBSchema.Init
+    settings:
+      database: main
+      admin_user: admin              # erster Benutzer (Rolle Administrator = *.*)
+      tenant: demo                   # Mandant des ersten Benutzers
+      # admin_password: ${env:COREMESH_ADMIN_PASSWORD}   # sonst zufällig, einmalig im Log

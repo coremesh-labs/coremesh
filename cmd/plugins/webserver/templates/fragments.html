@@ -1,0 +1,66 @@
+{{/*
+  Antwort-Fragmente für HTMX-Swaps und kleine Seiten.
+  Blöcke: created, updated, modal-close, toast, result, home, error.
+*/}}
+
+{{/* POST /ui/{object}: neue Zeile (Haupt-Swap an #rows) + Dialog schließen + Toast. */}}
+{{define "created"}}{{template "row" .}}{{template "modal-close"}}{{template "toast" .Toast}}{{end}}
+
+{{/* PUT /ui/{object}/{id}: Zeile oder Detailansicht (outerHTML) + Dialog schließen + Toast. */}}
+{{define "updated"}}
+{{if eq .ViewParam "row"}}{{template "row" .}}{{else}}{{template "detail" .}}{{end}}
+{{template "modal-close"}}{{template "toast" .Toast}}
+{{end}}
+
+{{define "modal-close"}}<div id="modal" hx-swap-oob="innerHTML"></div>{{end}}
+
+{{/* Toast: als Out-of-Band-Swap in #toast-container. Daten: toast {Level, Message}. */}}
+{{define "toast"}}
+<div hx-swap-oob="beforeend:#toast-container">
+  <div class="toast {{.Level}}" role="status">
+    <span>{{.Message}}</span>
+    <button type="button" aria-label="Schließen" onclick="this.parentElement.remove()">×</button>
+  </div>
+</div>
+{{end}}
+
+{{/* POST /action/{object}/{name}: Ergebnis einer custom-Action. */}}
+{{define "result"}}
+{{if .Modal}}<dialog open class="modal"><article>{{end}}
+<h2>{{.Action.Label}}</h2>
+{{with .Message}}<p class="result-message">{{.}}</p>{{else}}<pre class="result">{{json .Result}}</pre>{{end}}
+<footer>
+  {{if .Modal}}
+  <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">Schließen</button>
+  {{else}}
+  <a class="btn primary" href="/ui/{{.Object}}">Zurück</a>
+  {{end}}
+</footer>
+{{if .Modal}}</article></dialog>{{end}}
+{{if .Modal}}{{template "toast" .Toast}}{{end}}
+{{end}}
+
+{{define "home"}}
+<section class="home">
+  <h1>{{.AppTitle}}</h1>
+  {{if .Nav}}
+  <ul class="cards">
+    {{range .Nav}}
+    <li><a href="/ui/{{.Object}}" hx-get="/ui/{{.Object}}" hx-target="#main-content" hx-push-url="true">
+      {{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{or .Title .Object}}</strong><small>{{.Object}}</small>
+    </a></li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="empty">Noch keine Objekte mit Metamodell registriert.</p>
+  {{end}}
+</section>
+{{end}}
+
+{{define "error"}}
+<section class="error-page">
+  <h1>Fehler {{.Status}}</h1>
+  <p>{{.Message}}</p>
+  <p><a href="/">Zur Startseite</a></p>
+</section>
+{{end}}

@@ -1,0 +1,60 @@
+{{/*
+  Generisches Formular für create, edit und custom-Actions.
+  Daten: view {Mode, Modal, FormTitle, FormAction, Target, ViewParam,
+               CancelURL, ActionID, FormFields, FormError}.
+  Blöcke: form, form-buttons, field.
+
+  Modal (HTMX):  hx-post / hx-put mit Ziel je Modus
+                 create → #rows (beforeend), edit → Target (outerHTML),
+                 action → #modal.
+  Seite (ohne JS): normales POST, bei edit mit _method=PUT; Antwort ist ein
+                 Redirect (Post/Redirect/Get).
+*/}}
+{{define "form"}}
+{{if .Modal}}<dialog open class="modal"><article>{{end}}
+<h2>{{.FormTitle}}</h2>
+{{with .FormError}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+<form method="post" action="{{.FormAction}}"
+  {{if .Modal}}
+    {{if eq .Mode "create"}}hx-post="{{.FormAction}}" hx-target="#rows" hx-swap="beforeend"
+    {{else if eq .Mode "edit"}}hx-put="{{.FormAction}}" hx-target="{{.Target}}" hx-swap="outerHTML"
+    {{else}}hx-post="{{.FormAction}}" hx-target="#modal"{{end}}
+  {{end}}>
+  {{if and (eq .Mode "edit") (not .Modal)}}<input type="hidden" name="_method" value="PUT">{{end}}
+  {{with .ViewParam}}<input type="hidden" name="_view" value="{{.}}">{{end}}
+  {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  {{range .FormFields}}{{template "field" .}}{{end}}
+  {{block "form-buttons" .}}
+  <footer>
+    <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}Speichern{{end}}</button>
+    {{if .Modal}}
+    <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">Abbrechen</button>
+    {{else}}
+    <a class="btn" href="{{.CancelURL}}">Abbrechen</a>
+    {{end}}
+  </footer>
+  {{end}}
+</form>
+{{if .Modal}}</article></dialog>{{end}}
+{{end}}
+
+{{/* Ein Formularfeld. Daten: fieldCtx {Field, Type, InputType, Value, Error, ReadOnly}. */}}
+{{define "field"}}
+<label class="field{{if .Error}} invalid{{end}}">
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="Pflichtfeld">*</abbr>{{end}}</span>
+  {{if eq .Type "select"}}
+  <select name="{{.Field.Key}}" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
+    {{if not .Field.Required}}<option value=""></option>{{end}}
+    {{range .Field.Options}}<option value="{{.Value}}" {{if eq .Value $.Value}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  {{else if eq .Type "textarea"}}
+  <textarea name="{{.Field.Key}}" rows="4" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
+  {{else if eq .Type "boolean"}}
+  <input type="checkbox" name="{{.Field.Key}}" {{if .Value}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>
+  {{else}}
+  <input type="{{.InputType}}" name="{{.Field.Key}}" value="{{.Value}}"
+         {{if eq .Type "number"}}step="any"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>
+  {{end}}
+  {{with .Error}}<small class="error">{{.}}</small>{{end}}
+</label>
+{{end}}

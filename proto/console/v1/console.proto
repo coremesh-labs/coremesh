@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package coremesh.console.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/camel/coremesh/pkg/consoleapi/console/v1;consolev1";
+
+// ConsoleService ist der Kommandozeilen-Zugang zu CoreMesh. Ihn stellt das
+// externe Plugin console bereit (Unix-Socket, optional TCP/TLS); die CLI
+// cmd/console ist ein Client.
+//
+// Anmeldung: Login liefert ein Token; alle anderen Aufrufe senden es als
+// gRPC-Metadatum "authorization: Bearer <token>". Benutzer, Rollen und
+// Buchungskreise kommen aus dem Core-Plugin iam – es gelten dieselben Rechte
+// wie in der Weboberfläche. Fehler kommen als gRPC-Status (Unauthenticated,
+// PermissionDenied, InvalidArgument, NotFound …).
+service ConsoleService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // Execute ruft target_object.target_action eines Moduls auf. Enthält die
+  // Antwort zip_content und ist target_directory gesetzt, entpackt das
+  // Console-Plugin das ZIP dort (Berechtigung Console.ExtractZip).
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+
+  // SampleFile erzeugt aus dem Metamodell (Catalog) eine Beispieldatei.
+  rpc SampleFile(SampleFileRequest) returns (SampleFileResponse);
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  int64 expires_unix = 2;
+  string display_name = 3;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message ExecuteRequest {
+  string target_object = 1;
+  string target_action = 2;
+  // Payload für das Modul. Ein Eintrag "target_directory" wird wie das
+  // Feld target_directory behandelt und nicht an das Modul weitergegeben.
+  google.protobuf.Struct parameters = 3;
+  // Optional: absolutes Verzeichnis auf dem Server, in das zip_content der
+  // Antwort entpackt wird.
+  string target_directory = 4;
+}
+
+message ExecuteResponse {
+  // Antwort des Moduls (ohne zip_content).
+  google.protobuf.Value payload = 1;
+  // Gesetzt, wenn entpackt wurde.
+  ExtractResult extract = 2;
+  string message = 3;
+}
+
+message ExtractResult {
+  string directory = 1;
+  int32 files = 2;
+  int32 directories = 3;
+  int64 bytes = 4;
+}
+
+message SampleFileRequest {
+  string target_object = 1;
+  // yaml (Standard) | json | csv
+  string format = 2;
+}
+
+message SampleFileResponse {
+  bytes content = 1;
+  string format = 2;
+  // Vorschlag für den Dateinamen, z. B. "business_partner_sample.yaml"
+  string filename = 3;
+  string content_type = 4;
+}

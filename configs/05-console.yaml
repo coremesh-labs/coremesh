@@ -1,0 +1,15 @@
+# Kommandozeilen-Zugang (externes Plugin, eigenes Go-Modul unter cmd/plugins/console).
+# Client: cmd/console (CLI). Anmeldung über iam; Rechte wie in der Weboberfläche.
+plugins:
+  console:
+    version: 0.1.0
+    ingress: true                    # startet eigene Wurzelanfragen (CLI-Aufrufe)
+    settings:
+      listen: unix://./data/console.sock    # oder tcp://0.0.0.0:7443 (dann tls_cert/tls_key!)
+      token_ttl: 8h
+      max_extract_bytes: 1073741824         # 1 GiB entpackt
+      max_extract_files: 10000
+      # blocked_directories:                # zusätzlich zu den Systemverzeichnissen gesperrt
+      #   - /srv/geheim
+      # tls_cert: ./certs/console.crt
+      # tls_key: ./certs/console.key

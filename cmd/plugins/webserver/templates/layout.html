@@ -1,0 +1,54 @@
+{{/*
+  Base-Layout für Full-Page-Requests (Seitenaufruf, F5).
+  Daten: pageData {AppTitle, Title, Active, Nav, Content}.
+
+  Überschreibbare Blöcke: head, brand, sidebar, nav-item, user-menu, content, footer, scripts.
+  Pflicht-IDs für HTMX: #main-content, #modal, #toast-container.
+*/}}
+{{define "layout"}}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{with .Title}}{{.}} · {{end}}{{.AppTitle}}</title>
+  {{/* responseHandling: auch 4xx/5xx swappen – Fehler kommen als Toast (HX-Retarget).
+       disableInheritance: hx-Attribute gelten nur am eigenen Element; jedes
+       Element nennt Ziel und Swap selbst (wichtig für überschriebene Blöcke). */}}
+  <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}],"disableInheritance":true}'>
+  {{block "head" .}}
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  {{end}}
+</head>
+<body>
+  <aside class="sidebar">
+    {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
+    {{block "sidebar" .}}
+    <nav>
+      {{range .Nav}}{{block "nav-item" (navCtx . $.Active)}}
+      <a href="/ui/{{.Object}}" hx-get="/ui/{{.Object}}" hx-target="#main-content" hx-push-url="true"
+         {{if .Active}}class="active" aria-current="page"{{end}}>
+        {{with .Icon}}<i class="{{.}}"></i>{{end}}{{or .Title .Object}}
+      </a>
+      {{end}}{{end}}
+    </nav>
+    {{end}}
+    {{template "user-menu" .}}
+  </aside>
+  <main id="main-content">{{block "content" .}}{{.Content}}{{end}}</main>
+  <div id="modal"></div>
+  <div id="toast-container" aria-live="polite"></div>
+  {{block "footer" .}}{{end}}
+  {{block "scripts" .}}
+  <script>
+    // Aktiven Navigationspunkt nach HTMX-Navigation nachziehen.
+    document.addEventListener("htmx:pushedIntoHistory", function (e) {
+      document.querySelectorAll(".sidebar nav a").forEach(function (a) {
+        var on = e.detail.path.indexOf(a.getAttribute("href")) === 0;
+        a.classList.toggle("active", on);
+      });
+    });
+  </script>
+  {{end}}
+</body>
+</html>{{end}}
