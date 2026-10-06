@@ -62,7 +62,7 @@ type endBtn struct {
 
 func newEndBtn(oc objectCtx, rec record, view, class string) endBtn {
 	b := endBtn{URL: oc.URL, ID: recordID(rec), View: view, Class: class}
-	if kind := oc.Def.Lifecycle.EndAction(); kind != "" {
+	if kind := oc.Def.Lifecycle.EndAction(); kind != "" && !locked(rec) {
 		b.Action = oc.Has[string(kind)]
 	}
 	if l := oc.Def.Lifecycle; l.Kind() == metamodel.LifecycleStatus {
@@ -206,3 +206,9 @@ type historyCtx struct {
 	URL, Target, Swap string
 	On                bool
 }
+
+// locked: Das Modul hat den Datensatz als nicht mehr änderbar gekennzeichnet
+// ("_locked": true, z. B. eine gebuchte Vorerfassung). Die Oberfläche blendet
+// dann Bearbeiten, Beenden und Aktionen je Datensatz aus; prüfen muss weiterhin
+// das Modul.
+func locked(rec record) bool { b, _ := rec["_locked"].(bool); return b }

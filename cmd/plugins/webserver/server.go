@@ -559,7 +559,12 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PostForm.Get("_id")
-	data, raw, errs := parseFields(actionDef(oc.Def, act.Fields), r.PostForm)
+	// Aktion ohne Formular (Confirm ohne Fields): nur bestätigt, keine Eingaben.
+	direct := act.Confirm != "" && len(act.Fields) == 0
+	data, raw, errs := map[string]any{}, map[string]string{}, map[string]string{}
+	if !direct {
+		data, raw, errs = parseFields(actionDef(oc.Def, act.Fields), r.PostForm)
+	}
 	if len(errs) > 0 {
 		s.formAgain(w, r, s.actionView(r, oc, act, id, raw, errs), "")
 		return
@@ -570,7 +575,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := s.call(r, oc.Object, act.Name, payload)
 	if err != nil {
-		if errors.Is(err, sdk.ErrInvalidArgument) {
+		if errors.Is(err, sdk.ErrInvalidArgument) && !direct {
 			s.formAgain(w, r, s.actionView(r, oc, act, id, raw, nil), err.Error())
 			return
 		}

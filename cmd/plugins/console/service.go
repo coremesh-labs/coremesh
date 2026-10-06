@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -160,10 +161,27 @@ func (s *service) authInterceptor(ctx context.Context, req any, info *grpc.Unary
 // --- Execute ---------------------------------------------------------------------
 
 func (s *service) Execute(ctx context.Context, req *consolev1.ExecuteRequest) (*consolev1.ExecuteResponse, error) {
-	if req.GetTargetObject() == "" || req.GetTargetAction() == "" {
-		return nil, status.Error(codes.InvalidArgument, "target_object und target_action sind Pflicht")
-	}
+	object, action := req.GetTargetObject(), req.GetTargetAction()
 	params := req.GetParameters().AsMap()
+	cctx := s.userCtx(ctx, current(ctx))
+	// Konsolenbefehl eines Moduls: target_object = "<modul>:<befehl>" (z. B. ledger:load-coa).
+	if mod, cmd, ok := strings.Cut(object, ":"); ok {
+		c, list, err := s.command(cctx, mod, cmd, params)
+		if err != nil {
+			return nil, toStatus(err)
+		}
+		if c == nil { // <modul>: oder <modul>:help – Befehle auflisten
+			v, err := toValue(map[string]any{"module": mod, "commands": list})
+			if err != nil {
+				return nil, toStatus(err)
+			}
+			return &consolev1.ExecuteResponse{Payload: v}, nil
+		}
+		object, action = c.Object, c.Action
+	}
+	if object == "" || action == "" {
+		return nil, status.Error(codes.InvalidArgument, "target_object und target_action sind Pflicht (oder target_object <modul>:<befehl>)")
+	}
 	dir := req.GetTargetDirectory()
 	if v, ok := params["target_directory"].(string); ok {
 		if dir == "" {
@@ -172,8 +190,7 @@ func (s *service) Execute(ctx context.Context, req *consolev1.ExecuteRequest) (*
 		delete(params, "target_directory") // nicht an das Modul weitergeben
 	}
 
-	cctx := s.userCtx(ctx, current(ctx))
-	resp, err := s.host.Handle(cctx, sdk.Request{Object: req.GetTargetObject(), Action: req.GetTargetAction(), Payload: params})
+	resp, err := s.host.Handle(cctx, sdk.Request{Object: object, Action: action, Payload: params})
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -196,7 +213,7 @@ func (s *service) Execute(ctx context.Context, req *consolev1.ExecuteRequest) (*
 			Directories: int32(res.Directories), Bytes: res.Bytes}
 		out.Message = fmt.Sprintf("%d Dateien (%d Bytes) nach %s entpackt", res.Files, res.Bytes, res.Directory)
 		_ = s.host.Log(cctx, sdk.LogInfo, "ZIP entpackt", map[string]string{
-			"object": req.GetTargetObject(), "action": req.GetTargetAction(), "directory": res.Directory,
+			"object": object, "action": action, "directory": res.Directory,
 			"files": fmt.Sprint(res.Files), "user": current(ctx).Username,
 		})
 	case zipData != nil:
@@ -413,4 +430,44 @@ func (l *limiter) reset(key string) {
 	l.mu.Lock()
 	delete(l.entries, key)
 	l.mu.Unlock()
+}
+
+// command löst einen Konsolenbefehl <modul>:<befehl> über den Catalog auf
+// (ModuleDefinition.Commands) und prüft die Parameter: Pflichtparameter
+// vorhanden, keine unbekannten. Ohne Befehl (oder "help") liefert es nur die
+// Liste der Befehle des Moduls.
+func (s *service) command(ctx context.Context, module, name string, params map[string]any) (*metamodel.CommandDefinition, []metamodel.CommandDefinition, error) {
+	resp, err := s.host.Handle(ctx, sdk.Request{Object: sdk.ObjectCatalog, Action: "GetModule", Payload: map[string]any{"module": module}})
+	if err != nil {
+		return nil, nil, err
+	}
+	var mi struct {
+		Commands []metamodel.CommandDefinition `json:"commands"`
+	}
+	if err := sdk.Decode(resp.Payload, &mi); err != nil {
+		return nil, nil, err
+	}
+	if name == "" || name == "help" {
+		return nil, mi.Commands, nil
+	}
+	i := slices.IndexFunc(mi.Commands, func(c metamodel.CommandDefinition) bool { return c.Name == name })
+	if i < 0 {
+		names := make([]string, len(mi.Commands))
+		for j, c := range mi.Commands {
+			names[j] = module + ":" + c.Name
+		}
+		return nil, nil, fmt.Errorf("%w: Befehl %s:%s – vorhanden: %s", sdk.ErrNotFound, module, name, strings.Join(names, ", "))
+	}
+	c := mi.Commands[i]
+	for _, p := range c.Params {
+		if _, ok := params[p.Name]; p.Required && !ok {
+			return nil, nil, fmt.Errorf("%w: %s:%s braucht --%s", sdk.ErrInvalidArgument, module, name, p.Name)
+		}
+	}
+	for k := range params {
+		if !slices.ContainsFunc(c.Params, func(p metamodel.CommandParam) bool { return p.Name == k }) {
+			return nil, nil, fmt.Errorf("%w: %s:%s kennt den Parameter --%s nicht", sdk.ErrInvalidArgument, module, name, k)
+		}
+	}
+	return &c, nil, nil
 }

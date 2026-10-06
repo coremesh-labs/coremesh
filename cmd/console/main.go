@@ -10,6 +10,12 @@
 //	console --object AssetsModule --action ExportBundle --param theme=dark --target-dir /var/www/coremesh/static
 //	console --logout
 //
+// Konsolenbefehle der Module (ModuleDefinition.Commands), aufgelöst vom Console-Plugin:
+//
+//	console ledger:help
+//	console ledger:load-coa --chart=SKR04
+//	console ledger:load-coa --chart=SKR25 --file=./skr25_komplett.csv
+//
 // Adresse: --addr oder COREMESH_CONSOLE (Standard unix://data/console.sock),
 // Benutzer: --user oder COREMESH_USER, Passwort: COREMESH_PASSWORD oder Abfrage.
 // Das Token wird im Benutzer-Konfigurationsverzeichnis zwischengespeichert.
@@ -67,6 +73,7 @@ func (p params) Set(s string) error {
 }
 
 type options struct {
+	command                   string // <modul>:<befehl>
 	addr, tlsCA, user         string
 	object, action, targetDir string
 	format, out               string
@@ -89,7 +96,13 @@ func main() {
 	flag.StringVar(&o.out, "out", "", "Ergebnis in diese Datei schreiben statt auf die Standardausgabe")
 	flag.BoolVar(&o.logout, "logout", false, "abmelden und gespeichertes Token löschen")
 	flag.DurationVar(&o.timeout, "timeout", 2*time.Minute, "Zeitlimit des Aufrufs")
-	flag.Parse()
+	args := os.Args[1:]
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") && strings.Contains(args[0], ":") {
+		o.command, args = args[0], commandArgs(args[1:], o.params)
+	}
+	if err := flag.CommandLine.Parse(args); err != nil {
+		os.Exit(2)
+	}
 
 	if err := run(o); err != nil {
 		fmt.Fprintln(os.Stderr, "console:", describe(err))
@@ -116,7 +129,7 @@ func run(o options) error {
 		fmt.Fprintln(os.Stderr, "abgemeldet")
 		return nil
 	}
-	if o.object == "" || (o.action == "" && !o.sample) {
+	if o.command == "" && (o.object == "" || (o.action == "" && !o.sample)) {
 		flag.Usage()
 		return errors.New("--object und --action (oder --sample) sind Pflicht")
 	}
@@ -135,6 +148,9 @@ func run(o options) error {
 }
 
 func call(ctx context.Context, c consolev1.ConsoleServiceClient, o options) error {
+	if o.command != "" {
+		return runCommand(ctx, c, o)
+	}
 	if o.sample || strings.EqualFold(o.action, "SampleFile") {
 		resp, err := c.SampleFile(ctx, &consolev1.SampleFileRequest{TargetObject: o.object, Format: o.format})
 		if err != nil {

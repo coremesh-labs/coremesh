@@ -144,6 +144,10 @@ var funcs = template.FuncMap{
 	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
 	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
 	"peekFor":    peekFor,
+	"locked":     locked,
+	"recordAction": func(url, id string, a metamodel.ActionConfig, class string) recordActionCtx {
+		return recordActionCtx{URL: url, ID: id, Action: a, Class: class}
+	},
 	"peekURL":    peekURL,
 	"pathEscape": url.PathEscape,
 	"domID":      domID,

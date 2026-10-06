@@ -48,6 +48,29 @@ sich einmal neu an.
 **Ausgabe:** Meldungen gehen auf stderr, Daten auf stdout. Bei einem Fehler ist der
 Exit-Code 1, mit lesbarer Meldung wie „keine Berechtigung: …“ oder „nicht gefunden: …“.
 
+### Konsolenbefehle der Module
+
+Module melden Befehle im Metamodell an (`ModuleDefinition.Commands`, im Modul per
+`r.Command(…)`). Die CLI ruft sie als `<modul>:<befehl>` mit `--parameter=wert` auf:
+
+```bash
+console ledger:help                                   # Befehle des Moduls auflisten
+console ledger:load-coa --chart=SKR04                 # mitgelieferten Kontenrahmen laden
+console ledger:load-coa --chart=SKR25 --file=./skr25.csv
+console ledger:setup-company --company=1000 --chart=SKR25 --currency=EUR --year=2026
+```
+
+- Das **Console-Plugin** löst den Befehl über `Catalog.GetModule` zu `Object.Action` auf.
+  Es prüft Pflichtparameter und lehnt unbekannte Parameter ab. Danach läuft der Aufruf
+  wie `--object/--action` mit den Rechten des angemeldeten Benutzers.
+- **Datei-Parameter** (`CommandParam.File`) liest die CLI lokal ein und sendet den Inhalt:
+  - `*.json` geparst,
+  - `*.csv` als Liste von Objekten (Kopfzeile = Feldnamen, Trenner `;` oder `,`,
+    Excel-BOM wird entfernt),
+  - sonst Text.
+- CLI-Optionen (`--addr`, `--user`, `--out`, `--tls-ca`, `--timeout`) dürfen hinter dem
+  Befehl stehen. Alle anderen `--name=wert` gehen als Parameter an den Befehl.
+
 ## Console-Plugin
 
 ```yaml

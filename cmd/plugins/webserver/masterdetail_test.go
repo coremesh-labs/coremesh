@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -84,12 +85,19 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		return sdk.Response{Payload: map[string]any{"actions": []any{
 			map[string]any{"action": "get"}, map[string]any{"action": "getAggregate"}}}}, nil
 	case "Customer.get":
-		return sdk.Response{Payload: map[string]any{"id": "c1", "name": "Muster AG", "note": "geheim"}}, nil
+		rec := map[string]any{"id": "c1", "name": "Muster AG", "note": "geheim"}
+		if lockedCustomer.Load() {
+			rec["_locked"] = true
+		}
+		return sdk.Response{Payload: rec}, nil
 	case "CustomerContact.list":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{
 			"id": "k1", "customer_id": "c1", "kind_code": "MAIL", "address_id": "a1", "value": "info@muster.ch",
 			"_labels": map[string]any{"kind_code": "E-Mail", "address_id": "Zürich"}}}}}, nil
+	case "Customer.lock":
+		h.fakeHost.record(ctx, req)
+		return sdk.Response{Payload: map[string]any{"message": "gesperrt"}}, nil
 	case "Address.get":
 		return sdk.Response{Payload: map[string]any{"id": "a1", "city": "Zürich"}}, nil
 	case "CustomerContact.expire":
@@ -169,9 +177,9 @@ func TestRelationSection(t *testing.T) {
 		t.Fatalf("Filter auf den Master: %v", p)
 	}
 	mustContain(t, b,
-		"<th>Art</th><th>Adresse</th><th>Wert</th>", // Columns der Relation, ohne Fremdschlüssel
+		"<th>Art</th><th>Adresse</th><th>Wert</th>",                               // Columns der Relation, ohne Fremdschlüssel
 		"<td>E-Mail&#8288;<span class=\"peek\" hx-get=\"/peek/ContactKind/MAIL\"", // Label statt Code, mit Kopfdaten-Vorschau
-		`hx-get="/m/crm/Address/a1/edit?view=refresh"`, // verknüpfte Adresse bearbeiten
+		`hx-get="/m/crm/Address/a1/edit?view=refresh"`,                            // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
 		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`, // Typ A: Beenden …
@@ -345,3 +353,6 @@ func TestTimeSliceRecordID(t *testing.T) {
 		t.Fatalf("Datensatz-ID: %s", v.ID())
 	}
 }
+
+// lockedCustomer: Customer.get liefert "_locked" (TestLockedRecord).
+var lockedCustomer atomic.Bool

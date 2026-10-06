@@ -67,3 +67,13 @@
   <p><a href="/">{{t "core.app.home"}}</a></p>
 </section>
 {{end}}
+
+{{/* Eine custom-Action je Datensatz (ActionConfig.Record). Daten: recordActionCtx {URL, ID, Action, Class}.
+     Mit Confirm und ohne Fields: Knopf, der nach der Sicherheitsabfrage direkt ausführt
+     (z. B. „Buchen“); sonst Link auf das Formular der Action im Dialog. */}}
+{{define "record-action"}}{{if and .Action.Confirm (not .Action.Fields)}}
+<button type="button" class="{{.Class}}" hx-post="{{.URL}}/{{.Action.Name}}" hx-vals='{"_id": "{{.ID}}"}'
+        hx-confirm="{{.Action.Confirm}}" hx-target="#modal">{{.Action.Label}}</button>
+{{- else}}
+<a class="{{.Class}}" href="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-get="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-target="#modal">{{.Action.Label}}</a>
+{{- end}}{{end}}

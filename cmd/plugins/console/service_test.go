@@ -64,6 +64,12 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 			return sdk.Response{Payload: map[string]any{"all": true, "company_codes": []any{}}}, nil
 		}
 		return sdk.Response{Payload: map[string]any{"all": false, "company_codes": []any{}}}, nil
+	case "Catalog.GetModule":
+		return sdk.Response{Payload: map[string]any{"name": "ledger", "commands": []any{map[string]any{
+			"name": "load-coa", "object": "ChartOfAccounts", "action": "load",
+			"params": []any{map[string]any{"name": "chart", "required": true}, map[string]any{"name": "file", "file": true}}}}}}, nil
+	case "ChartOfAccounts.load":
+		return sdk.Response{Payload: map[string]any{"loaded": req.Payload}}, nil
 	case "Catalog.GetDefinition":
 		return sdk.Response{Payload: map[string]any{"definition": partnerDef}}, nil
 	case "AssetsModule.ExportBundle":
@@ -179,5 +185,42 @@ func TestExecuteWithZip(t *testing.T) {
 	_, err = c.Execute(login(t, c, "admin"), &consolev1.ExecuteRequest{TargetObject: "AssetsModule", TargetAction: "ExportBundle", TargetDirectory: bad})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("Systemverzeichnis: %v", err)
+	}
+}
+
+// TestModuleCommand: <modul>:<befehl> wird über den Catalog zu Object.Action aufgelöst.
+func TestModuleCommand(t *testing.T) {
+	h := &fakeHost{t: t}
+	c := startService(t, h)
+	ctx := login(t, c, "admin")
+	p, _ := structpb.NewStruct(map[string]any{"chart": "SKR04"})
+	resp, err := c.Execute(ctx, &consolev1.ExecuteRequest{TargetObject: "ledger:load-coa", Parameters: p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.lastReq.Object != "ChartOfAccounts" || h.lastReq.Action != "load" || h.lastReq.Payload.(map[string]any)["chart"] != "SKR04" {
+		t.Fatalf("Aufruf: %+v", h.lastReq)
+	}
+	if !strings.Contains(resp.Payload.String(), "SKR04") {
+		t.Fatalf("Antwort: %v", resp.Payload)
+	}
+	// Liste der Befehle.
+	resp, err = c.Execute(ctx, &consolev1.ExecuteRequest{TargetObject: "ledger:help"})
+	if err != nil || !strings.Contains(resp.Payload.String(), "load-coa") {
+		t.Fatalf("help: %v %v", resp, err)
+	}
+	for name, tc := range map[string]struct {
+		target string
+		params map[string]any
+		code   codes.Code
+	}{
+		"unbekannter Befehl":    {"ledger:load-xyz", map[string]any{}, codes.NotFound},
+		"Pflichtparameter":      {"ledger:load-coa", map[string]any{}, codes.InvalidArgument},
+		"unbekannter Parameter": {"ledger:load-coa", map[string]any{"chart": "SKR04", "kontenplan": "x"}, codes.InvalidArgument},
+	} {
+		p, _ := structpb.NewStruct(tc.params)
+		if _, err := c.Execute(ctx, &consolev1.ExecuteRequest{TargetObject: tc.target, Parameters: p}); status.Code(err) != tc.code {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }
