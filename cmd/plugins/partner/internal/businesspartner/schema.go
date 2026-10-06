@@ -1,15 +1,14 @@
-package main
+package businesspartner
 
 import "github.com/camel/coremesh/pkg/sdk"
 
-// schemaHCL: alle Tabellen des Moduls partner (Präfix partner__, bei
-// PostgreSQL-Schema-Isolation im Schema mod_partner).
+// schemaHCL: alle Tabellen des Moduls businesspartner (Präfix partner__ des
+// Plugins, bei PostgreSQL-Schema-Isolation im Schema mod_partner). Nur
+// table-Blöcke: Den schema-Block ergänzt module.Plugin.
 //
 // Typen sind portabel zwischen SQLite und PostgreSQL: text, boolean, date.
 // Zeitscheiben: valid_from/valid_to (Datum), Standard valid_to = 9999-12-31.
 const schemaHCL = `
-schema "main" {}
-
 # --- Kataloge (Stammdaten) ---------------------------------------------------
 
 table "partner__address_roles" {

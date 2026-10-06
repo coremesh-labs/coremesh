@@ -3,10 +3,10 @@
   Blöcke: created, updated, modal-close, toast, result, home, error.
 */}}
 
-{{/* POST /ui/{object}: neue Zeile (Haupt-Swap an #rows) + Dialog schließen + Toast. */}}
+{{/* POST /m/{module}/{object}: neue Zeile (Haupt-Swap an #rows) + Dialog schließen + Toast. */}}
 {{define "created"}}{{template "row" .}}{{template "modal-close"}}{{template "toast" .Toast}}{{end}}
 
-{{/* PUT /ui/{object}/{id}: Zeile oder Detailansicht (outerHTML) + Dialog schließen + Toast. */}}
+{{/* PUT /m/{module}/{object}/{id}: Zeile oder Detailansicht (outerHTML) + Dialog schließen + Toast. */}}
 {{define "updated"}}
 {{if eq .ViewParam "row"}}{{template "row" .}}{{else}}{{template "detail" .}}{{end}}
 {{template "modal-close"}}{{template "toast" .Toast}}
@@ -24,7 +24,7 @@
 </div>
 {{end}}
 
-{{/* POST /action/{object}/{name}: Ergebnis einer custom-Action. */}}
+{{/* POST /action/{module}/{object}/{name}: Ergebnis einer custom-Action. */}}
 {{define "result"}}
 {{if .Modal}}<dialog open class="modal"><article>{{end}}
 <h2>{{.Action.Label}}</h2>
@@ -33,26 +33,29 @@
   {{if .Modal}}
   <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">Schließen</button>
   {{else}}
-  <a class="btn primary" href="/ui/{{.Object}}">Zurück</a>
+  <a class="btn primary" href="{{.URL}}">Zurück</a>
   {{end}}
 </footer>
 {{if .Modal}}</article></dialog>{{end}}
 {{if .Modal}}{{template "toast" .Toast}}{{end}}
 {{end}}
 
+{{/* Startseite: alle Module, die der Benutzer sehen darf. Daten: {AppTitle, Modules}. */}}
 {{define "home"}}
 <section class="home">
   <h1>{{.AppTitle}}</h1>
-  {{if .Nav}}
+  {{if .Modules}}
   <ul class="cards">
-    {{range .Nav}}
-    <li><a href="/ui/{{.Object}}" hx-get="/ui/{{.Object}}" hx-target="#main-content" hx-push-url="true">
-      {{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{or .Title .Object}}</strong><small>{{.Object}}</small>
+    {{range .Modules}}
+    <li><a href="/m/{{.Name}}">
+      {{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{.Title}}</strong>
+      {{with .Description}}<span>{{.}}</span>{{end}}
+      <small>{{len .Objects}} {{if eq (len .Objects) 1}}Objekt{{else}}Objekte{{end}}</small>
     </a></li>
     {{end}}
   </ul>
   {{else}}
-  <p class="empty">Noch keine Objekte mit Metamodell registriert.</p>
+  <p class="empty">Noch keine Module registriert oder keine Berechtigung.</p>
   {{end}}
 </section>
 {{end}}

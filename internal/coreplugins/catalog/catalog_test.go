@@ -172,7 +172,7 @@ func TestListObjectsAndActions(t *testing.T) {
 	if objs["Property"].Defined || !objs["Property"].Available {
 		t.Fatalf("Property: %+v", objs["Property"])
 	}
-	if objs["DBSchema"].Actions != 1 || objs["Catalog"].Actions != 3 { // ohne Host-Routen
+	if objs["DBSchema"].Actions != 1 || objs["Catalog"].Actions != 5 { // ohne Host-Routen
 		t.Fatalf("Host-Routen sichtbar: %+v / %+v", objs["DBSchema"], objs["Catalog"])
 	}
 
@@ -225,5 +225,69 @@ func TestDiskCache(t *testing.T) {
 	e4 := setup(t, dir)
 	if _, err := e4.register("partner", "1.2.0", partnerDef()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func (e *env) registerModules(module, version string, defs []metamodel.ObjectDefinition, mods ...metamodel.ModuleDefinition) error {
+	_, err := e.d.Call(e.ctx, sdk.Request{Object: Object, Action: "Register",
+		Payload: map[string]any{"module": module, "version": version, "objects": defs, "modules": mods}})
+	return err
+}
+
+func TestModules(t *testing.T) {
+	e := setup(t, t.TempDir())
+	bp := metamodel.ModuleDefinition{Name: "businesspartner", Title: "Geschäftspartner",
+		Objects: []metamodel.ModuleObject{{Object: "BusinessPartner"}}}
+
+	// Ein Modul bündelt nur eigene Objects mit Metamodell.
+	foreign := bp
+	foreign.Objects = []metamodel.ModuleObject{{Object: "BusinessPartner"}, {Object: "Property"}}
+	if err := e.registerModules("partner", "1.2.0", []metamodel.ObjectDefinition{partnerDef()}, foreign); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("fremdes Object im Modul: %v", err)
+	}
+	if err := e.registerModules("partner", "1.2.0", []metamodel.ObjectDefinition{partnerDef()}, bp); err != nil {
+		t.Fatal(err)
+	}
+
+	// Modulnamen sind systemweit eindeutig.
+	prop := metamodel.ObjectDefinition{Name: "Property", Title: "Liegenschaft",
+		Fields:  []metamodel.FieldDefinition{{Key: "name", Label: "Name", Type: metamodel.TypeText}},
+		Actions: []metamodel.ActionConfig{{Name: "list", Kind: metamodel.KindList, Label: "Übersicht"}}}
+	taken := metamodel.ModuleDefinition{Name: "businesspartner", Title: "X", Objects: []metamodel.ModuleObject{{Object: "Property"}}}
+	if err := e.registerModules("realestate", "1.0.0", []metamodel.ObjectDefinition{prop}, taken); !errors.Is(err, sdk.ErrAlreadyExists) {
+		t.Fatalf("doppelter Modulname: %v", err)
+	}
+	re := metamodel.ModuleDefinition{Name: "realestate", Title: "Immobilien",
+		Objects: []metamodel.ModuleObject{{Object: "Property", Section: "Bestand"}}}
+	if err := e.registerModules("realestate", "1.0.0", []metamodel.ObjectDefinition{prop}, re); err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := e.call("ListModules", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mods := p.(map[string]any)["modules"].([]ModuleInfo)
+	if len(mods) != 2 || mods[0].Name != "businesspartner" || mods[1].Name != "realestate" {
+		t.Fatalf("Module (nach Titel sortiert): %+v", mods)
+	}
+	if o := mods[1].Objects[0]; o.Title != "Liegenschaft" || o.Section != "Bestand" || !o.Available || mods[1].Plugin != "realestate" {
+		t.Fatalf("Modul-Object: %+v", mods[1])
+	}
+
+	resp, err := e.call("GetModule", map[string]any{"module": "realestate"})
+	if err != nil || resp.(ModuleInfo).Title != "Immobilien" {
+		t.Fatalf("GetModule: %+v %v", resp, err)
+	}
+	if _, err := e.call("GetModule", map[string]any{"module": "gibtsnicht"}); !errors.Is(err, sdk.ErrNotFound) {
+		t.Fatalf("unbekanntes Modul: %v", err)
+	}
+
+	// ListObjects nennt das Modul jedes Objects.
+	p, _ = e.call("ListObjects", nil)
+	for _, o := range p.(map[string]any)["objects"].([]ObjectInfo) {
+		if o.Object == "Property" && o.Module != "realestate" {
+			t.Fatalf("ListObjects: %+v", o)
+		}
 	}
 }

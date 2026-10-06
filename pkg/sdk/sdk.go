@@ -84,3 +84,11 @@ type Plugin interface {
 	Manifest(ctx context.Context) (Manifest, error)
 	Configure(ctx context.Context, cfg Config) error
 }
+
+// Shutdowner ist optional: Implementiert ein Plugin es, ruft das SDK Shutdown
+// auf, wenn der Host das Plugin beendet (nach dem letzten Handle), bzw. der
+// Host selbst bei internen Plugins. Hier werden Hintergrund-Goroutinen
+// gestoppt und Puffer geschrieben; ctx begrenzt die Dauer.
+type Shutdowner interface {
+	Shutdown(ctx context.Context) error
+}

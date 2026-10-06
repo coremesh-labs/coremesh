@@ -43,6 +43,13 @@ func WithHost(ctx context.Context, h Host) context.Context {
 	return context.WithValue(ctx, hostKey{}, h)
 }
 
+// HasHost meldet, ob ctx einen Host trägt (z. B. false in Hintergrund-Goroutinen
+// mit eigenem Kontext).
+func HasHost(ctx context.Context) bool {
+	h, ok := ctx.Value(hostKey{}).(Host)
+	return ok && h != nil
+}
+
 // HostFrom liefert den Host des laufenden Aufrufs, z. B. um ein anderes
 // Plugin aufzurufen:
 //

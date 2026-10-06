@@ -1,4 +1,4 @@
-package main
+package businesspartner
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 
 	"github.com/camel/coremesh/pkg/sdk"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/camel/coremesh/pkg/sdk/module"
 )
 
 // testHost: SQLite mit einer einzigen Verbindung (Transaktionen über
@@ -106,7 +107,7 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 
 type env struct {
 	t   *testing.T
-	p   *partner
+	p   *module.Plugin
 	h   *testHost
 	ctx context.Context
 }
@@ -122,12 +123,26 @@ func setup(t *testing.T) *env {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.Close() })
 
+	h := &testHost{db: db, companyCodes: []string{"1000", "2000"}, granted: map[string][]string{
+		"list": {"*"}, "get": {"*"}, "create": {"*"}, "update": {"*"}, "delete": {"*"},
+	}}
+	p := newPlugin(t)
+	if err := p.Configure(sdk.WithHost(ctx, h), sdk.Config{Host: h}); err != nil {
+		t.Fatal(err)
+	}
+	// Soll-Schema und Seeds so, wie der Host sie über DBSchema.Init abholt.
+	resp, err := p.Handle(ctx, sdk.Request{Object: sdk.ObjectDBSchema, Action: sdk.ActionInit, Payload: sdk.SchemaInitRequest{Module: "partner"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	si := resp.Payload.(sdk.SchemaInitResponse)
+
 	drv, err := sqlite.Open(db)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var desired schema.Schema
-	if err := sqlite.EvalHCLBytes([]byte(schemaHCL), &desired, nil); err != nil {
+	if err := sqlite.EvalHCLBytes([]byte(si.Schema), &desired, nil); err != nil {
 		t.Fatalf("schemaHCL: %v", err)
 	}
 	desired.Name = "main"
@@ -148,7 +163,7 @@ func setup(t *testing.T) *env {
 	if err := drv.ApplyChanges(ctx, changes); err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range seeds {
+	for _, s := range si.Seed {
 		for _, r := range s.Rows {
 			cols := slices.Sorted(maps.Keys(r))
 			args := make([]any, len(cols))
@@ -162,10 +177,7 @@ func setup(t *testing.T) *env {
 			}
 		}
 	}
-	h := &testHost{db: db, companyCodes: []string{"1000", "2000"}, granted: map[string][]string{
-		"list": {"*"}, "get": {"*"}, "create": {"*"}, "update": {"*"}, "delete": {"*"},
-	}}
-	return &env{t: t, p: newPartner(), h: h, ctx: sdk.WithHost(ctx, h)}
+	return &env{t: t, p: p, h: h, ctx: sdk.WithHost(ctx, h)}
 }
 
 func (e *env) do(object, action string, payload any) (map[string]any, error) {
@@ -365,12 +377,13 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 }
 
 func TestMetamodel(t *testing.T) {
-	p := newPartner()
+	p := newPlugin(t)
 	resp, err := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defs := resp.Payload.(metamodel.DescribeResponse).Objects
+	desc := resp.Payload.(metamodel.DescribeResponse)
+	defs := desc.Objects
 	if len(defs) != 11 {
 		t.Fatalf("Objects: %d", len(defs))
 	}
@@ -386,5 +399,52 @@ func TestMetamodel(t *testing.T) {
 				t.Errorf("%s.%s fehlt im Manifest", d.Name, a.Name)
 			}
 		}
+	}
+}
+
+func newPlugin(t *testing.T) *module.Plugin {
+	t.Helper()
+	p := module.NewPlugin(module.Info{Name: "partner", Version: "test"}, New())
+	if err := p.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// TestModule: Das Modul bündelt alle 11 Objects unter einem Namensraum,
+// Kataloge in einer eigenen Gruppe; das Schema kommt mit schema-Block.
+func TestModule(t *testing.T) {
+	p := newPlugin(t)
+	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	desc := resp.Payload.(metamodel.DescribeResponse)
+	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 11 {
+		t.Fatalf("Module: %+v", desc.Modules)
+	}
+	defined := map[string]bool{}
+	for _, d := range desc.Objects {
+		defined[d.Name] = true
+	}
+	if err := desc.Modules[0].Validate(defined); err != nil {
+		t.Fatal(err)
+	}
+	sections := map[string]int{}
+	for _, o := range desc.Modules[0].Objects {
+		sections[o.Section]++
+	}
+	if sections["Kataloge"] != 4 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
+		t.Fatalf("Navigation: %+v", desc.Modules[0].Objects)
+	}
+
+	resp, err := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectDBSchema, Action: sdk.ActionInit, Payload: sdk.SchemaInitRequest{Module: "partner"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := resp.Payload.(sdk.SchemaInitResponse).Schema; strings.Count(s, `schema "main"`) != 1 {
+		t.Fatalf("schema-Block: %d×", strings.Count(s, `schema "main"`))
+	}
+
+	// Nicht registrierte Routen lehnt das Plugin ab.
+	if _, err := p.Handle(context.Background(), sdk.Request{Object: "Unbekannt", Action: "list"}); !errors.Is(err, sdk.ErrUnimplemented) {
+		t.Fatalf("unbekanntes Object: %v", err)
 	}
 }

@@ -81,6 +81,10 @@ func (s *server) requireAuth(next http.Handler) http.Handler {
 			http.Error(w, "Anmeldung derzeit nicht möglich", http.StatusServiceUnavailable)
 			return
 		}
+		if u == nil && strings.HasPrefix(r.URL.Path, "/api/") {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Anmeldung erforderlich (Session-Cookie über /login)"})
+			return
+		}
 		if u == nil {
 			target := "/login"
 			if r.Method == http.MethodGet && r.URL.Path != "/" {

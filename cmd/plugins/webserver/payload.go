@@ -143,15 +143,19 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 
 // objectCtx ist ein Business-Object mit Metamodell und den Actions je Kind.
 type objectCtx struct {
-	Object string
-	Def    metamodel.ObjectDefinition
-	Has    map[string]*metamodel.ActionConfig // Kind → Action (list, item, create, update, delete)
-	Custom []metamodel.ActionConfig           // Kind custom
-	Denied map[string]bool                    // Kinds bzw. custom-Namen ohne Berechtigung
+	Module    string // Namensraum des Moduls
+	Object    string
+	URL       string // /m/{module}/{object}
+	ActionURL string // /action/{module}/{object}
+	Def       metamodel.ObjectDefinition
+	Has       map[string]*metamodel.ActionConfig // Kind → Action (list, item, create, update, delete)
+	Custom    []metamodel.ActionConfig           // Kind custom
+	Denied    map[string]bool                    // Kinds bzw. custom-Namen ohne Berechtigung
 }
 
-func newObjectCtx(object string, d metamodel.ObjectDefinition) objectCtx {
-	oc := objectCtx{Object: object, Def: d, Has: map[string]*metamodel.ActionConfig{}}
+func newObjectCtx(module, object string, d metamodel.ObjectDefinition) objectCtx {
+	oc := objectCtx{Module: module, Object: object, URL: moduleURL(module, object), ActionURL: actionURL(module, object),
+		Def: d, Has: map[string]*metamodel.ActionConfig{}}
 	for i := range d.Actions {
 		a := &d.Actions[i]
 		if a.Kind == metamodel.KindCustom {

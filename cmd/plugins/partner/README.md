@@ -11,8 +11,14 @@ Geschäftspartner nach dem Vorbild des SAP-Business-Partner-Modells:
 
 Alle Typen und Rollen sind **Stammdaten-Kataloge**.
 
-Das Modul ist ein externes Plugin mit eigenem Go-Modul und nutzt nur `pkg/sdk`.
-Es braucht `databases: { main: { access: write } }`.
+Das Plugin `partner` beherbergt das fachliche **Modul `businesspartner`**
+(`internal/businesspartner`, gebaut mit [`pkg/sdk/module`](../../../pkg/sdk/module/README.md)).
+Im WebServer erscheint es unter `/m/businesspartner`, die JSON-API liegt unter
+`/api/v1/businesspartner`. Die Navigation gruppiert die Objects in **Partnerdaten** und
+**Kataloge**.
+
+Das Plugin hat ein eigenes Go-Modul und nutzt nur `pkg/sdk`. Es braucht
+`databases: { main: { access: write } }`.
 
 ## Tabellen
 
@@ -122,11 +128,17 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
 
 | Datei | Inhalt |
 |---|---|
+| `main.go` | nur Verdrahtung: `module.NewPlugin(Info{partner, 0.2.0}, businesspartner.New())` |
+| `internal/businesspartner/module.go` | das **BusinessPartnerModule**: Descriptor, RegisterRoutes, Initialize (DB, Services, Logger), Schema |
 | `schema.go` | Atlas-HCL aller Tabellen und Seeds |
 | `engine.go` | tabellengesteuerte CRUD-Engine: Typumwandlung, Schlüssel, Verweise, Zeitscheiben, Transaktionen, Metamodell |
 | `entities.go` | Kataloge, Partner, Adressen, Kommunikation, Bank |
 | `finance.go` | Rollenzuordnung, Buchungskreisdaten, Zugriff je Buchungskreis |
 | `validate.go` | Zeitscheiben, E-Mail, Telefon, URL, IBAN, BIC, Land |
+
+Alle Fachdateien liegen in `internal/businesspartner/` und sind damit von außen nicht importierbar.
+Datenbankzugriffe laufen über das injizierte `module.DB`, Aufrufe an `iam` (Buchungskreise) über
+`module.Services`. Es gibt keine globalen Variablen für Ressourcen.
 
 Eine neue Entität ist eine Beschreibung in `entities.go` (Tabelle, Schlüssel, Felder,
 optionale Hooks) plus die Tabelle in `schema.go`. Version erhöhen, dann migriert
@@ -134,7 +146,7 @@ DBSchema beim nächsten Start.
 
 ## Tests
 
-`go test ./...` legt das Schema mit **Atlas aus `schemaHCL`** in SQLite an, spielt die
+`go test ./...` legt das Schema mit **Atlas aus dem Schema von `DBSchema.Init`** in SQLite an, spielt die
 Seeds ein und prüft unter anderem:
 
 - Seeds und die Eindeutigkeit von `is_main`,
@@ -143,7 +155,10 @@ Seeds ein und prüft unter anderem:
 - Katalogeinträge in Verwendung,
 - das Löschen eines Partners samt Beziehungen,
 - Finanzrollen mit Buchungskreis-Zwang, Rollback bei Fehlern und Sicht je Buchungskreis,
-- die Gültigkeit aller 11 Metamodelle.
+- die Gültigkeit aller 11 Metamodelle und das Modul (Gruppen, ein `schema`-Block).
+
+Die Tests laufen über `module.NewPlugin`, also über denselben Weg wie im Betrieb: Router,
+Dependency Injection und DBSchema.Init.
 
 ## Grenzen und nächste Schritte
 

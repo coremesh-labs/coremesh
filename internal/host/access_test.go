@@ -18,7 +18,9 @@ import (
 
 type handlerFunc func(context.Context, sdk.Request) (sdk.Response, error)
 
-func (f handlerFunc) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) { return f(ctx, req) }
+func (f handlerFunc) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+	return f(ctx, req)
+}
 
 // TestCheckAccessUsesTrustedUser: Ein Modul prüft per sdk.CheckAccess den
 // Buchungskreis. Selbst wenn es im Kontext einen anderen Benutzer einträgt,

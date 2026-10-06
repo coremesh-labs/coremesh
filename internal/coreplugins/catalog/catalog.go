@@ -12,6 +12,14 @@
 //     Titel/Icon aus dem Metamodell.
 //   - GetDefinition {object} – Metamodell-Definition eines Objects.
 //   - ListActions {object} – alle aufrufbaren Actions eines Objects.
+//   - ListModules {include_unavailable?} – alle fachlichen Module mit ihren
+//     Objects (metamodel.ModuleDefinition), ergänzt um Titel und Verfügbarkeit.
+//   - GetModule {module} – ein Modul.
+//
+// Module: Ein Plugin beschreibt neben Objects auch Module (Namensräume, die
+// Objects bündeln). Ein Modul enthält nur Objects mit Metamodell aus
+// demselben Plugin; Modulnamen sind systemweit eindeutig. Der WebServer
+// registriert ausschließlich Module.
 //
 // Verfügbarkeit kommt live aus der Routing-Tabelle des Dispatchers: Stürzt ein
 // Modul ab, sind seine Objects sofort nicht mehr verfügbar. Definitionen
@@ -35,7 +43,7 @@ import (
 
 const (
 	Name    = "catalog"
-	Version = "0.2.0"
+	Version = "0.3.0"
 	Object  = sdk.ObjectCatalog
 )
 
@@ -65,8 +73,8 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Version:     Version,
 		Description: "Registry der Business-Objects, ihrer Actions und Metamodelle",
 		Capabilities: []sdk.Capability{
-			{Object: Object, Actions: []string{"Register", "ListObjects", "GetDefinition", "ListActions"},
-				Description: "Verzeichnis der Business-Objects"},
+			{Object: Object, Actions: []string{"Register", "ListObjects", "GetDefinition", "ListActions", "ListModules", "GetModule"},
+				Description: "Verzeichnis der Module und Business-Objects"},
 		},
 	}, nil
 }
@@ -121,6 +129,22 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 			return sdk.Response{}, fmt.Errorf("%w: Object %q", sdk.ErrNotFound, object)
 		}
 		return sdk.Response{Payload: map[string]any{"object": object, "actions": actions}}, nil
+	case "ListModules":
+		var in struct {
+			IncludeUnavailable bool `json:"include_unavailable"`
+		}
+		if err := sdk.Decode(req.Payload, &in); err != nil {
+			return sdk.Response{}, err
+		}
+		return sdk.Response{Payload: map[string]any{"modules": p.listModules(in.IncludeUnavailable)}}, nil
+	case "GetModule":
+		var in struct {
+			Module string `json:"module"`
+		}
+		if err := sdk.Decode(req.Payload, &in); err != nil {
+			return sdk.Response{}, err
+		}
+		return p.getModule(in.Module)
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, Object, req.Action)
 }
@@ -129,6 +153,7 @@ type registerInput struct {
 	Module  string                       `json:"module"`
 	Version string                       `json:"version"`
 	Objects []metamodel.ObjectDefinition `json:"objects"`
+	Modules []metamodel.ModuleDefinition `json:"modules"`
 }
 
 func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error) {
@@ -139,10 +164,10 @@ func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error
 	if !config.ValidPluginName(in.Module) || in.Version == "" {
 		return sdk.Response{}, fmt.Errorf("%w: module und version sind Pflicht", sdk.ErrInvalidArgument)
 	}
-	if err := checkOwnership(in.Module, in.Objects, p.source()); err != nil {
+	if err := checkOwnership(in.Module, in.Objects, in.Modules, p.source()); err != nil {
 		return sdk.Response{}, err
 	}
-	entry, err := newEntry(in.Module, in.Version, in.Objects)
+	entry, err := newEntry(in.Module, in.Version, in.Objects, in.Modules)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -153,6 +178,12 @@ func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error
 	for _, d := range in.Objects {
 		if owner, ok := p.definitionOwner(d.Name); ok && owner != in.Module {
 			return sdk.Response{}, fmt.Errorf("%w: Object %s ist bereits von Modul %s definiert", sdk.ErrAlreadyExists, d.Name, owner)
+		}
+	}
+	// Modulnamen sind systemweit eindeutig (Namensraum in URLs).
+	for _, md := range in.Modules {
+		if owner, ok := p.moduleOwner(md.Name); ok && owner != in.Module {
+			return sdk.Response{}, fmt.Errorf("%w: Modul %s ist bereits von Plugin %s registriert", sdk.ErrAlreadyExists, md.Name, owner)
 		}
 	}
 	p.modules[in.Module] = entry
@@ -173,8 +204,12 @@ func (p *Plugin) register(ctx context.Context, payload any) (sdk.Response, error
 	for i, d := range in.Objects {
 		names[i] = d.Name
 	}
+	modules := make([]string, len(in.Modules))
+	for i, md := range in.Modules {
+		modules[i] = md.Name
+	}
 	return sdk.Response{Payload: map[string]any{
-		"module": in.Module, "version": in.Version, "objects": names, "changed": changed,
+		"module": in.Module, "version": in.Version, "objects": names, "modules": modules, "changed": changed,
 	}}, nil
 }
 
@@ -216,6 +251,7 @@ type ObjectInfo struct {
 	Title       string   `json:"title,omitempty"`
 	Icon        string   `json:"icon,omitempty"`
 	Description string   `json:"description,omitempty"`
+	Module      string   `json:"module,omitempty"` // fachliches Modul (leer = keinem zugeordnet)
 	Plugins     []string `json:"plugins"`
 	Actions     int      `json:"actions"`
 	Defined     bool     `json:"defined"`   // Metamodell vorhanden
@@ -253,6 +289,7 @@ func (p *Plugin) listObjects(includeUnavailable bool) []ObjectInfo {
 		if d, _, _, ok := p.definition(out[i].Object); ok {
 			out[i].Title, out[i].Icon, out[i].Defined = d.Title, d.Icon, true
 		}
+		out[i].Module = p.moduleOf(out[i].Object)
 	}
 
 	if includeUnavailable {
@@ -260,7 +297,7 @@ func (p *Plugin) listObjects(includeUnavailable bool) []ObjectInfo {
 		for _, name := range slices.Sorted(maps.Keys(p.cached)) {
 			for _, d := range p.cached[name].Objects {
 				if !slices.ContainsFunc(out, func(o ObjectInfo) bool { return o.Object == d.Name }) {
-					out = append(out, ObjectInfo{Object: d.Name, Title: d.Title, Icon: d.Icon,
+					out = append(out, ObjectInfo{Object: d.Name, Title: d.Title, Icon: d.Icon, Module: p.moduleOf(d.Name),
 						Plugins: []string{name}, Defined: true, Available: false})
 				}
 			}

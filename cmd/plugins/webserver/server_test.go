@@ -47,6 +47,10 @@ var partnerDef = metamodel.ObjectDefinition{
 	},
 }
 
+// crmModule bündelt Partner; Fremd ist ein Object außerhalb des Moduls.
+var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm", "available": true,
+	"objects": []any{map[string]any{"object": "Partner", "title": "Geschäftspartner", "section": "Stammdaten", "available": true}}}
+
 func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	h.mu.Lock()
 	h.calls = append(h.calls, req)
@@ -61,6 +65,16 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	switch req.Object + "." + req.Action {
 	case "Catalog.GetDefinition":
 		return sdk.Response{Payload: map[string]any{"definition": partnerDef, "available": true}}, nil
+	case "Catalog.GetModule":
+		if p, _ := req.Payload.(map[string]any); p["module"] != "crm" {
+			return sdk.Response{}, fmt.Errorf("%w: Modul %v", sdk.ErrNotFound, p["module"])
+		}
+		return sdk.Response{Payload: crmModule}, nil
+	case "Catalog.ListActions":
+		return sdk.Response{Payload: map[string]any{"object": "Partner", "actions": []any{
+			map[string]any{"action": "List"}, map[string]any{"action": "Delete"}}}}, nil
+	case "Catalog.ListModules":
+		return sdk.Response{Payload: map[string]any{"modules": []any{crmModule}}}, nil
 	case "Catalog.ListObjects":
 		return sdk.Response{Payload: map[string]any{"objects": []any{
 			map[string]any{"object": "Partner", "title": "Geschäftspartner", "defined": true, "available": true},
@@ -191,20 +205,20 @@ func mustNotContain(t *testing.T, body string, parts ...string) {
 func TestListFullPageVsFragment(t *testing.T) {
 	s, h := newTestServer(t, "")
 
-	full := do(s, "GET", "/ui/Partner?page=2", nil, false)
+	full := do(s, "GET", "/m/crm/Partner?page=2", nil, false)
 	if full.Code != 200 {
 		t.Fatalf("Status %d: %s", full.Code, full.Body)
 	}
 	body := full.Body.String()
 	mustContain(t, body,
 		"<!doctype html>", "htmx.min.js", `id="main-content"`, `id="toast-container"`,
-		`href="/ui/Partner" hx-get="/ui/Partner"`, // Sidebar aus dem Catalog
+		`href="/m/crm/Partner" hx-get="/m/crm/Partner"`, // Sidebar aus dem Catalog
 		`class="active"`,                           // aktives Object
 		"<th>Firmenname</th>", "<th>Angelegt</th>", // listable
 		"ACME &lt;AG&gt;", // escaped
 		"Kunde", "Ja",     // select-Label, boolean
 		`id="row-702f31"`, // hex("p/1")
-		`/ui/Partner/p%2F1`,
+		`/m/crm/Partner/p%2F1`,
 	)
 	mustNotContain(t, body, "<th>Mitarbeitende</th>", "DBSchema") // nicht listable; ohne Metamodell
 
@@ -217,7 +231,7 @@ func TestListFullPageVsFragment(t *testing.T) {
 		t.Fatalf("CallContext: %+v", c)
 	}
 
-	frag := do(s, "GET", "/ui/Partner", nil, true)
+	frag := do(s, "GET", "/m/crm/Partner", nil, true)
 	fb := frag.Body.String()
 	mustContain(t, fb, `<section id="list"`, `hx-trigger="coremesh-changed from:body"`)
 	mustNotContain(t, fb, "<!doctype html>", "<aside")
@@ -228,10 +242,10 @@ func TestListFullPageVsFragment(t *testing.T) {
 
 func TestNewFormGeneratesFields(t *testing.T) {
 	s, _ := newTestServer(t, "")
-	b := do(s, "GET", "/ui/Partner/new", nil, true).Body.String()
+	b := do(s, "GET", "/m/crm/Partner/new", nil, true).Body.String()
 	mustContain(t, b,
 		`<dialog open class="modal">`,
-		`hx-post="/ui/Partner" hx-target="#rows" hx-swap="beforeend"`,
+		`hx-post="/m/crm/Partner" hx-target="#rows" hx-swap="beforeend"`,
 		`<input type="text" name="company_name" value=""`, "required",
 		`<input type="email" name="email"`,
 		`<input type="number" name="employees"`, `step="any"`,
@@ -240,8 +254,8 @@ func TestNewFormGeneratesFields(t *testing.T) {
 	)
 	mustNotContain(t, b, `name="created_at"`) // nicht editierbar → nicht im Neu-Formular
 
-	page := do(s, "GET", "/ui/Partner/new", nil, false).Body.String()
-	mustContain(t, page, "<!doctype html>", `<form method="post" action="/ui/Partner"`)
+	page := do(s, "GET", "/m/crm/Partner/new", nil, false).Body.String()
+	mustContain(t, page, "<!doctype html>", `<form method="post" action="/m/crm/Partner"`)
 	mustNotContain(t, page, "hx-post=") // ohne JS: normales POST
 }
 
@@ -252,7 +266,7 @@ func TestCreate(t *testing.T) {
 		"active": {"on"}, "kind": {"supplier"},
 		"created_at": {"1999-01-01"}, "evil": {"x"}, // nicht editierbar / unbekannt → ignoriert
 	}
-	w := do(s, "POST", "/ui/Partner", form, true)
+	w := do(s, "POST", "/m/crm/Partner", form, true)
 	if w.Code != 200 {
 		t.Fatalf("Status %d: %s", w.Code, w.Body)
 	}
@@ -273,7 +287,7 @@ func TestCreate(t *testing.T) {
 	)
 
 	// Ohne HTMX: Post/Redirect/Get.
-	if w := do(s, "POST", "/ui/Partner", form, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/ui/Partner" {
+	if w := do(s, "POST", "/m/crm/Partner", form, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Partner" {
 		t.Fatalf("Redirect: %d %s", w.Code, w.Header().Get("Location"))
 	}
 }
@@ -281,7 +295,7 @@ func TestCreate(t *testing.T) {
 func TestCreateValidation(t *testing.T) {
 	s, h := newTestServer(t, "")
 	n := len(h.calls)
-	w := do(s, "POST", "/ui/Partner", url.Values{"email": {"kein-mail"}, "employees": {"viele"}, "kind": {"x"}}, true)
+	w := do(s, "POST", "/m/crm/Partner", url.Values{"email": {"kein-mail"}, "employees": {"viele"}, "kind": {"x"}}, true)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("Status %d", w.Code)
 	}
@@ -300,52 +314,52 @@ func TestCreateValidation(t *testing.T) {
 func TestDetailEditUpdate(t *testing.T) {
 	s, h := newTestServer(t, "")
 
-	detail := do(s, "GET", "/ui/Partner/p%2F1", nil, true).Body.String()
-	mustContain(t, detail, `<section id="detail"`, "<dt>Mitarbeitende</dt><dd>42</dd>", `hx-delete="/ui/Partner/p%2F1"`)
+	detail := do(s, "GET", "/m/crm/Partner/p%2F1", nil, true).Body.String()
+	mustContain(t, detail, `<section id="detail"`, "<dt>Mitarbeitende</dt><dd>42</dd>", `hx-delete="/m/crm/Partner/p%2F1"`)
 	if req := h.last(); req.Action != "Item" || req.Payload.(map[string]any)["id"] != "p/1" {
 		t.Fatalf("Item-Aufruf: %+v", req)
 	}
 
-	edit := do(s, "GET", "/ui/Partner/p%2F1/edit?view=row", nil, true).Body.String()
+	edit := do(s, "GET", "/m/crm/Partner/p%2F1/edit?view=row", nil, true).Body.String()
 	mustContain(t, edit,
-		`hx-put="/ui/Partner/p%2F1" hx-target="#row-702f31" hx-swap="outerHTML"`,
+		`hx-put="/m/crm/Partner/p%2F1" hx-target="#row-702f31" hx-swap="outerHTML"`,
 		`name="_view" value="row"`,
 		`value="ACME &lt;AG&gt;"`, `<option value="customer" selected>`,
 		`name="created_at" value="2026-10-05"`, "readonly", // nicht editierbar → schreibgeschützt
 	)
 
 	upd := url.Values{"company_name": {"ACME Holding"}, "kind": {"customer"}, "_view": {"row"}}
-	w := do(s, "PUT", "/ui/Partner/p%2F1", upd, true)
+	w := do(s, "PUT", "/m/crm/Partner/p%2F1", upd, true)
 	mustContain(t, w.Body.String(), "<tr id=", "ACME Holding", "gespeichert")
 	if req := h.last(); req.Action != "Update" || req.Payload.(map[string]any)["id"] != "p/1" {
 		t.Fatalf("Update-Aufruf: %+v", req)
 	}
 
 	upd.Set("_view", "detail")
-	mustContain(t, do(s, "PUT", "/ui/Partner/p%2F1", upd, true).Body.String(), `<section id="detail"`)
+	mustContain(t, do(s, "PUT", "/m/crm/Partner/p%2F1", upd, true).Body.String(), `<section id="detail"`)
 
 	// Ohne JavaScript: POST + _method=PUT → Redirect auf die Detailansicht.
 	upd.Set("_method", "PUT")
-	if w := do(s, "POST", "/ui/Partner/p%2F1", upd, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/ui/Partner/p%2F1" {
+	if w := do(s, "POST", "/m/crm/Partner/p%2F1", upd, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Partner/p%2F1" {
 		t.Fatalf("Method-Override: %d %s", w.Code, w.Header().Get("Location"))
 	}
 }
 
 func TestDeleteAndCustomAction(t *testing.T) {
 	s, h := newTestServer(t, "")
-	w := do(s, "DELETE", "/ui/Partner/p%2F1", nil, true)
+	w := do(s, "DELETE", "/m/crm/Partner/p%2F1", nil, true)
 	mustContain(t, w.Body.String(), "gelöscht")
 	mustNotContain(t, w.Body.String(), "<tr")
 
-	w = do(s, "DELETE", "/ui/Partner/p%2F1?_view=detail", nil, true)
-	if !strings.Contains(w.Header().Get("HX-Location"), `"/ui/Partner"`) {
+	w = do(s, "DELETE", "/m/crm/Partner/p%2F1?_view=detail", nil, true)
+	if !strings.Contains(w.Header().Get("HX-Location"), `"/m/crm/Partner"`) {
 		t.Fatalf("Delete aus Detail: HX-Location %q", w.Header().Get("HX-Location"))
 	}
 
-	form := do(s, "GET", "/action/Partner/Notify?id=p1", nil, true).Body.String()
-	mustContain(t, form, `hx-post="/action/Partner/Notify" hx-target="#modal"`, `name="_id" value="p1"`)
+	form := do(s, "GET", "/action/crm/Partner/Notify?id=p1", nil, true).Body.String()
+	mustContain(t, form, `hx-post="/action/crm/Partner/Notify" hx-target="#modal"`, `name="_id" value="p1"`)
 
-	w = do(s, "POST", "/action/Partner/Notify", url.Values{"_id": {"p1"}, "company_name": {"x"}}, true)
+	w = do(s, "POST", "/action/crm/Partner/Notify", url.Values{"_id": {"p1"}, "company_name": {"x"}}, true)
 	mustContain(t, w.Body.String(), "Benachrichtigung verschickt")
 	if w.Header().Get("HX-Trigger") != "coremesh-changed" {
 		t.Fatal("HX-Trigger fehlt")
@@ -353,7 +367,7 @@ func TestDeleteAndCustomAction(t *testing.T) {
 	if p := h.last().Payload.(map[string]any); p["id"] != "p1" || p["data"] == nil {
 		t.Fatalf("custom-Payload: %v", p)
 	}
-	if w := do(s, "GET", "/action/Partner/Unbekannt", nil, true); w.Code != http.StatusNotFound {
+	if w := do(s, "GET", "/action/crm/Partner/Unbekannt", nil, true); w.Code != http.StatusNotFound {
 		t.Fatalf("unbekannte Action: %d", w.Code)
 	}
 }
@@ -362,20 +376,20 @@ func TestErrors(t *testing.T) {
 	s, h := newTestServer(t, "")
 	h.fail["Partner.Item"] = fmt.Errorf("%w: Partner 9", sdk.ErrNotFound)
 
-	w := do(s, "GET", "/ui/Partner/9", nil, true)
+	w := do(s, "GET", "/m/crm/Partner/9", nil, true)
 	if w.Code != http.StatusNotFound || w.Header().Get("HX-Retarget") != "#toast-container" {
 		t.Fatalf("HTMX-Fehler: %d %q", w.Code, w.Header().Get("HX-Retarget"))
 	}
 	mustContain(t, w.Body.String(), `class="toast error"`, "Partner 9")
 
-	page := do(s, "GET", "/ui/Partner/9", nil, false)
+	page := do(s, "GET", "/m/crm/Partner/9", nil, false)
 	mustContain(t, page.Body.String(), "<!doctype html>", "Fehler 404")
 
-	if w := do(s, "GET", "/ui/kleingeschrieben", nil, false); w.Code != http.StatusNotFound {
+	if w := do(s, "GET", "/m/crm/kleingeschrieben", nil, false); w.Code != http.StatusNotFound {
 		t.Fatalf("ungültiger Object-Name: %d", w.Code)
 	}
 	h.fail["Partner.List"] = fmt.Errorf("Datenbank weg")
-	if w := do(s, "GET", "/ui/Partner", nil, true); w.Code != 500 || strings.Contains(w.Body.String(), "Datenbank weg") {
+	if w := do(s, "GET", "/m/crm/Partner", nil, true); w.Code != 500 || strings.Contains(w.Body.String(), "Datenbank weg") {
 		t.Fatalf("interne Fehler nicht nach außen geben: %d %s", w.Code, w.Body)
 	}
 }
@@ -386,7 +400,7 @@ func TestTemplateOverride(t *testing.T) {
 		`{{define "brand"}}<a class="brand" href="/">Mein Portal</a>{{end}}`+
 			`{{define "row-actions"}}<a href="/eigene/{{.ID}}">Eigene Aktion</a>{{end}}`), 0o644)
 	s, _ := newTestServer(t, dir)
-	b := do(s, "GET", "/ui/Partner", nil, false).Body.String()
+	b := do(s, "GET", "/m/crm/Partner", nil, false).Body.String()
 	mustContain(t, b, "Mein Portal", "Eigene Aktion")
 	mustNotContain(t, b, ">Anzeigen<")
 }

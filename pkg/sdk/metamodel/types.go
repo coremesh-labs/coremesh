@@ -77,4 +77,7 @@ type DescribeRequest struct {
 // DescribeResponse ist die Antwort von Catalog.Describe.
 type DescribeResponse struct {
 	Objects []ObjectDefinition `json:"objects"`
+	// Module dieses Plugins. Jedes Object, das in der Oberfläche erscheinen
+	// soll, gehört zu genau einem Modul (siehe ModuleDefinition).
+	Modules []ModuleDefinition `json:"modules,omitempty"`
 }

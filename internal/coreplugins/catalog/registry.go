@@ -23,6 +23,7 @@ type moduleEntry struct {
 	Checksum     string                       `json:"checksum"`
 	RegisteredAt string                       `json:"registered_at"`
 	Objects      []metamodel.ObjectDefinition `json:"objects"`
+	Modules      []metamodel.ModuleDefinition `json:"modules,omitempty"`
 }
 
 // cacheFile ist das Format der Cache-Datei.
@@ -34,7 +35,7 @@ const cacheName = "catalog-cache.json"
 
 // checkOwnership prüft, dass ein Modul nur Objects beschreibt, die es selbst
 // bedient, und nur Actions anbietet, die als Route dieses Moduls existieren.
-func checkOwnership(module string, defs []metamodel.ObjectDefinition, routes []dispatcher.Entry) error {
+func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition, routes []dispatcher.Entry) error {
 	own := map[string][]string{} // Object -> Actions dieses Moduls
 	for _, e := range routes {
 		if e.Plugin == module {
@@ -63,14 +64,35 @@ func checkOwnership(module string, defs []metamodel.ObjectDefinition, routes []d
 			}
 		}
 	}
+	// Module bündeln nur eigene, beschriebene Objects; jedes Object höchstens einmal.
+	inModule := map[string]string{}
+	names := map[string]bool{}
+	for _, md := range mods {
+		if err := md.Validate(seen); err != nil {
+			errs = append(errs, err)
+		}
+		if names[md.Name] {
+			errs = append(errs, fmt.Errorf("Modul %s: doppelt", md.Name))
+		}
+		names[md.Name] = true
+		for _, o := range md.Objects {
+			if other, ok := inModule[o.Object]; ok && other != md.Name {
+				errs = append(errs, fmt.Errorf("Object %s: gehört zu Modul %s und %s", o.Object, other, md.Name))
+			}
+			inModule[o.Object] = md.Name
+		}
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%w: Metamodell von Modul %s abgelehnt:\n%w", sdk.ErrPermissionDenied, module, errors.Join(errs...))
 	}
 	return nil
 }
 
-func newEntry(module, version string, defs []metamodel.ObjectDefinition) (*moduleEntry, error) {
-	b, err := json.Marshal(defs)
+func newEntry(module, version string, defs []metamodel.ObjectDefinition, mods []metamodel.ModuleDefinition) (*moduleEntry, error) {
+	b, err := json.Marshal(struct {
+		Objects []metamodel.ObjectDefinition
+		Modules []metamodel.ModuleDefinition
+	}{defs, mods})
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +103,7 @@ func newEntry(module, version string, defs []metamodel.ObjectDefinition) (*modul
 		Checksum:     hex.EncodeToString(sum[:]),
 		RegisteredAt: time.Now().UTC().Format(time.RFC3339),
 		Objects:      defs,
+		Modules:      mods,
 	}, nil
 }
 
