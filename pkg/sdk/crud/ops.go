@@ -288,7 +288,7 @@ func (e *Entity) Create(ctx context.Context, payload any) (sdk.Response, error) 
 	if err := e.DB().InTx(ctx, nil, func(ctx context.Context) error { return e.Insert(ctx, rec) }); err != nil {
 		return sdk.Response{}, err
 	}
-	return e.respond(ctx, rec)
+	return e.respondEvent(ctx, rec, "create")
 }
 
 func (e *Entity) respond(ctx context.Context, key Record) (sdk.Response, error) {
@@ -355,5 +355,5 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	return e.respond(ctx, key)
+	return e.respondEvent(ctx, key, "update")
 }

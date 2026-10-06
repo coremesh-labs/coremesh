@@ -100,6 +100,11 @@ type Entity struct {
 	ReadOnly bool
 	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
 	Actions []Action
+	// Events: Bewegungsdaten – nach create, update, expire und deactivate geht ein
+	// SystemEvent an den Event-Dispatcher (Set.Events). CompanyCodeField ist das Feld
+	// des Buchungskreises im Event (Standard: company_code_id bzw. company_code).
+	Events           bool
+	CompanyCodeField string
 
 	// Hooks
 	Validate    func(ctx context.Context, rec, old Record) error // nach der Typprüfung, in der Transaktion

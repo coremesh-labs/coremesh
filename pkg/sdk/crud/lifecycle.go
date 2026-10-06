@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/events"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 )
 
@@ -103,7 +104,7 @@ func (e *Entity) endWith(ctx context.Context, key Record, action string, change 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	return e.respond(ctx, key)
+	return e.respondEvent(ctx, key, action)
 }
 
 // checkOverlap: Zeitscheiben desselben fachlichen Schlüssels (alle
@@ -126,4 +127,31 @@ func (e *Entity) checkOverlap(ctx context.Context, rec Record) error {
 		return Invalid("Zeitscheibe %s–%s überschneidet sich mit der bestehenden Zeitscheibe %s–%s", Str(rec["valid_from"]), Str(rec["valid_to"]), from, to)
 	}
 	return nil
+}
+
+// respondEvent liefert den gespeicherten Datensatz und meldet die Änderung bei
+// Entities mit Events: true an den Event-Dispatcher. Fehler beim Melden brechen
+// die (bereits festgeschriebene) Änderung nicht ab. Läuft die Action innerhalb
+// einer äußeren Transaktion (z. B. saveAggregate), geht das Event vor deren
+// Commit hinaus.
+func (e *Entity) respondEvent(ctx context.Context, key Record, action string) (sdk.Response, error) {
+	resp, err := e.respond(ctx, key)
+	if err != nil || !e.Events || e.set.services == nil {
+		return resp, err
+	}
+	rec, _ := resp.Payload.(Record)
+	cc := e.CompanyCodeField
+	if cc == "" {
+		cc = "company_code_id"
+		if e.Field(cc) == nil {
+			cc = "company_code"
+		}
+	}
+	ev := events.Event{Object: e.Object, Action: action, CompanyCode: Str(rec[cc]), EntityID: e.RecordID(rec),
+		Source: e.set.source, Data: map[string]any{"id": rec["id"]}}
+	if err := events.Push(ctx, e.set.services, ev); err != nil {
+		_ = sdk.HostFrom(ctx).Log(ctx, sdk.LogWarn, "SystemEvent nicht gemeldet", map[string]string{
+			"object": e.Object, "action": action, "err": err.Error()})
+	}
+	return resp, nil
 }

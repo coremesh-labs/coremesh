@@ -30,6 +30,7 @@ import (
 	"github.com/camel/coremesh/internal/config"
 	"github.com/camel/coremesh/internal/coreplugins/catalog"
 	"github.com/camel/coremesh/internal/coreplugins/dbschema"
+	"github.com/camel/coremesh/internal/coreplugins/event"
 	"github.com/camel/coremesh/internal/coreplugins/iam"
 	"github.com/camel/coremesh/internal/database"
 	"github.com/camel/coremesh/internal/host"
@@ -94,6 +95,7 @@ func run() error {
 	if err := h.StartInternal(ctx, map[string]host.InternalFactory{
 		dbschema.Name: func(d host.InternalDeps) sdk.Plugin { return dbschema.New(d.DB) },
 		catalog.Name:  func(d host.InternalDeps) sdk.Plugin { return catalog.New(d.Catalog) },
+		event.Name:    func(d host.InternalDeps) sdk.Plugin { return event.New(d.Catalog) },
 		iam.Name:      func(d host.InternalDeps) sdk.Plugin { return iam.New(d.DB) },
 	}); err != nil {
 		return err

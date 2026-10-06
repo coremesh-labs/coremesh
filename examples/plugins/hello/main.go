@@ -13,18 +13,25 @@ import (
 	"crypto/rand"
 	"encoding/csv"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/camel/coremesh/pkg/sdk/events"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 	"github.com/camel/coremesh/pkg/sdk/plugin"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 type hello struct {
 	greeting string
+
+	mu     sync.Mutex
+	events []events.Event // letzte SystemEvents (EventLog, höchstens 50)
 }
 
 var _ sdk.Plugin = (*hello)(nil)
@@ -35,6 +42,8 @@ func (h *hello) Manifest(context.Context) (sdk.Manifest, error) {
 		Version: version,
 		Capabilities: []sdk.Capability{
 			{Object: "Greeting", Actions: []string{"say", "list", "export"}, Description: "Begrüßt eine Person"},
+			// Empfänger des Event-Dispatchers: onEvent nimmt SystemEvents entgegen.
+			{Object: "EventLog", Actions: []string{events.CallbackAction, "list"}, Description: "Zuletzt empfangene SystemEvents"},
 			// Reservierte Lebenszyklus-Capability: Der Host ruft Init einmal pro Version auf.
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
@@ -42,10 +51,16 @@ func (h *hello) Manifest(context.Context) (sdk.Manifest, error) {
 	}, nil
 }
 
-func (h *hello) Configure(_ context.Context, cfg sdk.Config) error {
+func (h *hello) Configure(ctx context.Context, cfg sdk.Config) error {
 	h.greeting = "Hallo"
 	if g, ok := cfg.Settings["greeting"].(string); ok && g != "" {
 		h.greeting = g
+	}
+	// Alle SystemEvents abonnieren (Beispiel). Ohne Event-Dispatcher: kein Fehler.
+	_, err := cfg.Host.Handle(ctx, sdk.Request{Object: events.Object, Action: events.ActionRegister,
+		Payload: map[string]any{"object": events.All, "action": events.All, "company_code": events.All, "callback": "EventLog"}})
+	if err != nil && !errors.Is(err, sdk.ErrUnimplemented) {
+		_ = cfg.Host.Log(ctx, sdk.LogWarn, "SystemEvents nicht abonniert", map[string]string{"err": err.Error()})
 	}
 	return nil
 }
@@ -67,6 +82,12 @@ func (h *hello) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		return h.list(ctx)
 	case req.Object == "Greeting" && req.Action == "export":
 		return h.export(ctx)
+	case req.Object == "EventLog" && req.Action == events.CallbackAction:
+		return h.onEvent(ctx, req)
+	case req.Object == "EventLog" && req.Action == "list":
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return sdk.Response{Payload: map[string]any{"events": slices.Clone(h.events)}}, nil
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
 }
@@ -220,4 +241,22 @@ func (h *hello) export(ctx context.Context) (sdk.Response, error) {
 		"zip_content": buf.Bytes(),
 		"greetings":   len(res.Rows),
 	}}, nil
+}
+
+// onEvent nimmt ein SystemEvent entgegen (Zustellung des Event-Dispatchers) und
+// protokolliert es.
+func (h *hello) onEvent(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+	ev, err := events.Decode(req.Payload)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	h.mu.Lock()
+	h.events = append(h.events, ev)
+	if len(h.events) > 50 {
+		h.events = h.events[len(h.events)-50:]
+	}
+	h.mu.Unlock()
+	_ = sdk.HostFrom(ctx).Log(ctx, sdk.LogInfo, "SystemEvent empfangen", map[string]string{
+		"object": ev.Object, "action": ev.Action, "company_code": ev.CompanyCode, "entity_id": ev.EntityID, "user": ev.UserID})
+	return sdk.Response{}, nil
 }

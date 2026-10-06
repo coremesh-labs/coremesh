@@ -47,7 +47,7 @@ var (
 )
 
 // reserved sind Objects der Lebenszyklus- bzw. Core-Plugins.
-var reserved = map[string]bool{sdk.ObjectDBSchema: true, sdk.ObjectCatalog: true}
+var reserved = map[string]bool{sdk.ObjectDBSchema: true, sdk.ObjectCatalog: true, "SystemEvent": true}
 
 func (r *Router) fail(format string, args ...any) {
 	*r.errs = append(*r.errs, fmt.Errorf("Modul %s: "+format, append([]any{r.module}, args...)...))
