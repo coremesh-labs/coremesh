@@ -23,6 +23,16 @@ type ObjectDefinition struct {
 	// Lifecycle bestimmt, ob und wie ein Datensatz enden kann (kein
 	// physisches Löschen). Leer = immutable.
 	Lifecycle Lifecycle `json:"lifecycle"`
+
+	// FormState: Action, die die Maske für die aktuellen Formularwerte bestimmt
+	// (sichtbar, Pflicht, schreibgeschützt, Vorbelegung, Auswahlwerte je Feld).
+	// Der WebServer ruft sie beim Öffnen des Formulars und bei jeder Änderung
+	// eines Felds mit Trigger auf (Payload FormStateRequest, Antwort FormState).
+	FormState string `json:"form_state,omitempty"`
+	// Filters sind die Felder, nach denen die Übersicht filtern kann (Parameter
+	// der list-Action); Search: list versteht den Suchparameter q.
+	Filters []string `json:"filters,omitempty"`
+	Search  bool     `json:"search,omitempty"`
 }
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).
@@ -38,6 +48,16 @@ type FieldDefinition struct {
 	// Lookup: Der Wert ist der Schlüssel eines Datensatzes eines anderen
 	// Objects (Fremdschlüssel). Die Oberfläche bietet einen Auswahldialog an.
 	Lookup *Lookup `json:"lookup,omitempty"`
+	// Group gliedert das Formular (Feldgruppe, z. B. "Kontierung"); leere bzw.
+	// ausgeblendete Gruppen entfallen.
+	Group    string `json:"group,omitempty"`
+	GroupKey string `json:"group_key,omitempty"` // Übersetzungsschlüssel der Gruppe
+	// Trigger: Eine Änderung wertet die Maske neu aus (FormState, ShowIf, RequiredIf).
+	Trigger bool `json:"trigger,omitempty"`
+	// Deklarative Regeln ohne Plugin-Aufruf: sichtbar bzw. Pflicht, wenn das Feld
+	// Field einen der Werte hat.
+	ShowIf     *Condition `json:"show_if,omitempty"`
+	RequiredIf *Condition `json:"required_if,omitempty"`
 }
 
 // Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object
@@ -51,6 +71,10 @@ type Lookup struct {
 	ValueField  string   `json:"value_field"`       // Feld des Ziels, dessen Wert übernommen wird (z. B. "code")
 	LabelFields []string `json:"label_fields"`      // Felder des Ziels für den lesbaren Text (mit Leerzeichen verbunden)
 	Columns     []string `json:"columns,omitempty"` // Spalten im Dialog (Standard: listable Felder des Ziels)
+	// Filters schränkt die Auswahl ein: Zielfeld → Quelle. Quelle ist ein Feld des
+	// Formulars ("company_code_id") oder ein Feld des Datensatzes, auf den ein
+	// Lookup-Feld des Formulars zeigt ("draft_id.company_code_id"), "=wert" ein fester Wert.
+	Filters map[string]string `json:"filters,omitempty"`
 }
 
 // SectionDefinition ist ein aufklappbarer Abschnitt der Detailansicht.
@@ -201,4 +225,47 @@ func (l Lifecycle) EndAction() ActionKind {
 		return KindDeactivate
 	}
 	return ""
+}
+
+// Condition: Das Feld Field hat einen der Werte Values.
+type Condition struct {
+	Field  string   `json:"field"`
+	Values []string `json:"values"`
+}
+
+// Holds wertet die Bedingung für Formularwerte aus.
+func (c *Condition) Holds(values map[string]string) bool {
+	if c == nil {
+		return true
+	}
+	for _, v := range c.Values {
+		if values[c.Field] == v {
+			return true
+		}
+	}
+	return false
+}
+
+// FormStateRequest fragt die Maske eines Formulars ab (ObjectDefinition.FormState).
+type FormStateRequest struct {
+	Mode   string            `json:"mode"`             // create | edit
+	ID     string            `json:"id,omitempty"`     // edit: Datensatz
+	Values map[string]string `json:"values"`           // aktuelle Formularwerte
+	Locked []string          `json:"locked,omitempty"` // feste Felder (Master-Detail)
+}
+
+// FormState ist die Maske für die aktuellen Werte. Felder ohne Eintrag bleiben
+// wie im Metamodell.
+type FormState struct {
+	Fields  map[string]FieldState `json:"fields"`
+	Message string                `json:"message,omitempty"` // Hinweis über dem Formular
+}
+
+// FieldState überschreibt die Eigenschaften eines Felds; nil = unverändert.
+type FieldState struct {
+	Visible  *bool    `json:"visible,omitempty"`
+	Required *bool    `json:"required,omitempty"`
+	ReadOnly *bool    `json:"readonly,omitempty"`
+	Value    *string  `json:"value,omitempty"`   // gesetzter Wert (z. B. abgeleitet)
+	Options  []Option `json:"options,omitempty"` // erlaubte Werte (Auswahlfeld)
 }

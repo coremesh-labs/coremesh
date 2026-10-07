@@ -61,6 +61,20 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		for _, a := range e.Actions {
 			o.Handle(a.Name, a.Handle)
 		}
+		if e.FormState != nil {
+			f := e.FormState
+			o.Handle(formStateAction, func(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+				var in metamodel.FormStateRequest
+				if err := sdk.Decode(req.Payload, &in); err != nil {
+					return sdk.Response{}, err
+				}
+				if in.Values == nil {
+					in.Values = map[string]string{}
+				}
+				st, err := f(ctx, in)
+				return sdk.Response{Payload: st}, err
+			})
+		}
 		switch e.Lifecycle().Kind() {
 		case metamodel.LifecycleTimeSlice:
 			o.Handle("expire", payloadOnly(e.Expire))
@@ -77,11 +91,21 @@ func payloadOnly(f func(ctx context.Context, payload any) (sdk.Response, error))
 // Definition liefert das Metamodell der Entity.
 func (e *Entity) Definition() metamodel.ObjectDefinition {
 	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections}
+	if e.FormState != nil {
+		d.FormState = formStateAction
+	}
+	d.Search = len(e.Search) > 0
+	for _, k := range e.Filters {
+		if e.Field(k) != nil {
+			d.Filters = append(d.Filters, k)
+		}
+	}
 	for i := range e.Fields {
 		f := &e.Fields[i]
 		d.Fields = append(d.Fields, metamodel.FieldDefinition{
 			Key: f.Key, Label: f.Label, Type: f.Type, Required: f.Required,
 			Listable: f.Listable, Editable: !f.ReadOnly, Options: f.Options, Lookup: f.lookup(),
+			Group: f.Group, Trigger: f.Trigger, ShowIf: f.ShowIf, RequiredIf: f.RequiredIf,
 		})
 	}
 	d.Actions = []metamodel.ActionConfig{
@@ -108,3 +132,6 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 	}
 	return d
 }
+
+// formStateAction ist die Action des FormState-Hooks.
+const formStateAction = "formState"

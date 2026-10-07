@@ -106,6 +106,11 @@ Soll = Haben), gibt es `Entity.ReadOnly` (kein generisches create/update; ein Ag
 dann nur `getAggregate`) und `Entity.Actions` (eigene Actions mit `metamodel.ActionConfig`,
 etwa `post` oder `reverse` mit `Record: true`).
 
+
+Masken: `Field.Group`, `Field.Trigger`, `Field.ShowIf`/`RequiredIf` und der Hook
+`Entity.FormState` (meldet die Action `formState` an); `Entity.Filters` und `Search`
+erscheinen als Filterleiste der Übersicht. Siehe WebServer-README, Abschnitt „Dynamische Masken“.
+
 ## SystemEvents
 
 Änderungen an Bewegungsdaten meldet ein Modul an den Event-Dispatcher (Core-Plugin `event`,
@@ -209,6 +214,7 @@ Die Schlüssel setzt das Plugin automatisch, wo das Metamodell keine angibt
 | **Datenbank zwischen Modulen eines Plugins** | `NewPlugin`: Haben mehrere Module ein Schema, darf jedes nur Tabellen mit `module.TablePrefix(<plugin>, <modul>)` nutzen, z. B. `erp__sales_`. |
 | **Zugriff auf fremde Daten** | nur `env.Services.Call(…)`, also über die Actions des anderen Moduls, mit Berechtigungsprüfung des Dispatchers |
 | **Routen** | Ein Object gehört genau einem Modul. Der WebServer erreicht es nur in dessen Namensraum. |
+| **Objects zwischen Plugins** | Ein Object gehört genau einem Plugin. Meldet ein zweites Plugin Actions zu einem vorhandenen Object an, lehnt der Dispatcher dessen Start ab (Ausnahme: Lebenszyklus-Capabilities wie `DBSchema.Init`). |
 | **Oberfläche** | Ein Object ohne Modul erscheint nicht im WebServer. |
 
 Beispiel: `businesspartner` prüft Buchungskreise über

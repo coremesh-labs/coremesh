@@ -252,7 +252,22 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "list", view{objectCtx: oc, Rows: rows, History: includeHistory(r)}, oc.Def.Title, oc.Object)
+	v := view{objectCtx: oc, Rows: rows, History: includeHistory(r), Filter: map[string]string{}}
+	q := url.Values{}
+	for _, k := range append([]string{"q"}, oc.Def.Filters...) {
+		if val := strings.TrimSpace(r.URL.Query().Get(k)); val != "" {
+			v.Filter[k] = val
+			q.Set(k, val)
+		}
+	}
+	if v.History {
+		q.Set("includeHistory", "true")
+	}
+	v.ListURL = oc.URL
+	if len(q) > 0 {
+		v.ListURL += "?" + q.Encode()
+	}
+	s.render(w, r, http.StatusOK, "list", v, oc.Def.Title, oc.Object)
 }
 
 // GET /m/{module}/{object}/new
@@ -283,10 +298,14 @@ func (s *server) createView(r *http.Request, oc objectCtx, values, errs map[stri
 		}
 	}
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
+	m := s.mask(r, oc, "create", "", values, locked)
 	v := view{
 		objectCtx: oc, Mode: "create", Modal: isHTMX(r), ViewParam: refreshParam(r), Locked: lockList,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, oc.Has["create"].Label), FormAction: oc.URL,
-		CancelURL: oc.URL, FormFields: buildFields(oc.Def, "create", values, errs, formOpts{locked: locked}),
+		CancelURL: oc.URL, FormMessage: m.message, FormStateURL: formStateURL(oc),
+		FormFields: buildFields(m.def, "create", m.values, errs, formOpts{locked: locked,
+			readonly: m.readonly,
+			labels:   s.lookupLabels(r, m.def, m.values, nil), trigger: formStateURL(oc)}),
 	}
 	return v
 }
@@ -324,7 +343,7 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err))
 		return
 	}
-	data, raw, errs := parseFields(oc.Def, r.PostForm)
+	data, raw, errs := s.parseMasked(r, oc, "create", "")
 	if len(errs) > 0 {
 		s.formAgain(w, r, s.createView(r, oc, raw, errs), "")
 		return
@@ -425,11 +444,15 @@ func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, err
 		target = "#modal"
 	}
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
+	m := s.mask(r, oc, "edit", id, values, locked)
 	return view{
 		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target, Locked: lockList,
 		FormTitle:  s.T(r, "core.form.title", oc.Def.Title, oc.Has["update"].Label),
 		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
-		FormFields: buildFields(oc.Def, "edit", values, errs, formOpts{labels: labelsOf(rec), locked: locked}),
+		FormMessage: m.message, FormStateURL: formStateURL(oc),
+		FormFields: buildFields(m.def, "edit", m.values, errs, formOpts{locked: locked,
+			readonly: m.readonly,
+			labels:   s.lookupLabels(r, m.def, m.values, labelsOf(rec)), trigger: formStateURL(oc)}),
 	}
 }
 
@@ -450,7 +473,7 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	data, raw, errs := parseFields(oc.Def, r.PostForm)
+	data, raw, errs := s.parseMasked(r, oc, "edit", id)
 	if len(errs) > 0 {
 		s.formAgain(w, r, s.editView(r, oc, record{"id": id}, raw, errs, r.PostForm.Get("_view")), "")
 		return

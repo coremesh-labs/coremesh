@@ -286,6 +286,18 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 	if search != "" {
 		query["q"] = search
 	}
+	// Filter aus dem Formular (Lookup.Filters); die aufgelösten Werte wandern
+	// als filter.<feld> mit, damit die Suche im Dialog sie behält.
+	for target, src := range lk.Filters {
+		v := q.Get("filter." + target)
+		if v == "" {
+			v = s.filterValue(r, from, src, q)
+		}
+		if v != "" {
+			query[target] = v
+			srcParams.Set("filter."+target, v)
+		}
+	}
 	resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": query})
 	if err != nil {
 		s.fail(w, r, err)
@@ -356,4 +368,36 @@ type relRow struct {
 	Rel relationView
 	Row record
 	ID  string
+}
+
+// filterValue löst die Quelle eines Lookup-Filters auf: "feld" ist ein Feld
+// des Formulars, "feld.zielfeld" das Feld des Datensatzes, auf den das
+// Lookup-Feld feld des Formulars zeigt (z. B. draft_id.company_code_id),
+// "=wert" ein fester Wert.
+func (s *server) filterValue(r *http.Request, from, src string, q url.Values) string {
+	if v, ok := strings.CutPrefix(src, "="); ok { // fester Wert, z. B. "=false"
+		return v
+	}
+	field, remote, nested := strings.Cut(src, ".")
+	v := strings.TrimSpace(q.Get(field))
+	if !nested || v == "" || from == "" {
+		return v
+	}
+	def, err := s.definition(r, from)
+	if err != nil {
+		return ""
+	}
+	i := slices.IndexFunc(def.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
+	if i < 0 {
+		return ""
+	}
+	tgt, err := s.targetDef(r, def.Def.Fields[i].Lookup.Object)
+	if err != nil {
+		return ""
+	}
+	rec, err := s.fetchRecord(r, tgt, v)
+	if err != nil {
+		return ""
+	}
+	return scalar(rec[remote])
 }

@@ -206,11 +206,23 @@ func (d *Dispatcher) Register(name string, m sdk.Manifest, h sdk.Handler) error 
 	if _, ok := d.plugins[name]; ok {
 		return fmt.Errorf("%w: Plugin %s ist bereits registriert", sdk.ErrAlreadyExists, name)
 	}
-	var conflicts []string
+	// Ein Object gehört genau einem Plugin – auch wenn sich die Actions
+	// unterscheiden (sonst mischten sich z. B. Account.Check von iam und
+	// Account.create eines Fachplugins unter einem Object, samt Rechten und
+	// Metamodell). Ausgenommen sind die Lebenszyklus-Capabilities.
+	objects := map[string]bool{}
 	for _, k := range keys {
-		if p, ok := d.routes[k]; ok {
-			conflicts = append(conflicts, fmt.Sprintf("%s.%s (gehört %s)", k.object, k.action, p.name))
+		objects[k.object] = true
+	}
+	owners := map[string]string{}
+	for k, p := range d.routes {
+		if objects[k.object] {
+			owners[k.object] = p.name
 		}
+	}
+	var conflicts []string
+	for _, o := range sortedKeys(owners) {
+		conflicts = append(conflicts, fmt.Sprintf("Object %s gehört bereits Plugin %s", o, owners[o]))
 	}
 	if len(conflicts) > 0 {
 		return fmt.Errorf("%w: Plugin %s: %s", sdk.ErrAlreadyExists, name, strings.Join(conflicts, ", "))
@@ -430,4 +442,13 @@ func NewRequestID() string {
 	b := make([]byte, 12)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

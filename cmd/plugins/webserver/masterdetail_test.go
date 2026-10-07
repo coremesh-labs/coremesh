@@ -95,6 +95,24 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{
 			"id": "k1", "customer_id": "c1", "kind_code": "MAIL", "address_id": "a1", "value": "info@muster.ch",
 			"_labels": map[string]any{"kind_code": "E-Mail", "address_id": "Zürich"}}}}}, nil
+	case "CustomerContact.formState":
+		h.fakeHost.record(ctx, req)
+		var in metamodel.FormStateRequest
+		_ = sdk.Decode(req.Payload, &in)
+		st := metamodel.FormState{Fields: map[string]metamodel.FieldState{}}
+		if in.Values["kind_code"] == "TEL" {
+			no, yes, v := false, true, "+41 "
+			st.Fields["address_id"] = metamodel.FieldState{Visible: &no}
+			st.Fields["value"] = metamodel.FieldState{Required: &yes}
+			if in.Values["value"] == "" {
+				st.Fields["value"] = metamodel.FieldState{Required: &yes, Value: &v}
+			}
+			st.Message = "Telefon: ohne Adresse"
+		}
+		return sdk.Response{Payload: st}, nil
+	case "Address.list":
+		h.fakeHost.record(ctx, req)
+		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "a1", "city": "Zürich"}}}}, nil
 	case "Customer.lock":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"message": "gesperrt"}}, nil

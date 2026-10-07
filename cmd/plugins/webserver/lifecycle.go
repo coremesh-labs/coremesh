@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/camel/coremesh/pkg/sdk"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
@@ -212,3 +213,17 @@ type historyCtx struct {
 // dann Bearbeiten, Beenden und Aktionen je Datensatz aus; prüfen muss weiterhin
 // das Modul.
 func locked(rec record) bool { b, _ := rec["_locked"].(bool); return b }
+
+// recordActions: Aktionen je Datensatz ohne die, die das Modul für diesen
+// Datensatz ausblendet ("_hidden_actions": ["unlock"], z. B. Entsperren bei
+// einem aktiven Konto).
+func recordActions(oc objectCtx, rec record) []metamodel.ActionConfig {
+	hidden, _ := rec["_hidden_actions"].([]any)
+	var out []metamodel.ActionConfig
+	for _, a := range oc.RecordActions() {
+		if !slices.ContainsFunc(hidden, func(h any) bool { return h == a.Name }) {
+			out = append(out, a)
+		}
+	}
+	return out
+}

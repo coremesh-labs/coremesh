@@ -576,6 +576,51 @@ Templates: `templates/tags.html` (Blöcke `tag-editor`, `tag-field`), überschre
 Blöcke. Ablauf, Regeln und Buchungskreis-Logik beschreibt
 [`cmd/plugins/tag/README.md`](../tag/README.md#ui-tageditor-entitytype-entityid).
 
+## Dynamische Masken, Feldgruppen und Filter
+
+**Masken aus dem Plugin.** Welche Felder ein Formular zeigt, kann vom Stand der Eingaben
+abhängen:
+
+- **Deklarativ** im Metamodell: `FieldDefinition.ShowIf` und `RequiredIf`
+  (`{field, values}`) – ohne Plugin-Aufruf.
+- **Im Plugin:** `ObjectDefinition.FormState` nennt eine Action. Der WebServer schickt
+  `FormStateRequest{mode, id, values, locked}` und erhält `FormState`: je Feld `visible`,
+  `required`, `readonly`, `value` (Vorbelegung oder abgeleiteter Wert) und `options`,
+  dazu einen Hinweis (`message`) über dem Formular. In `pkg/sdk/crud` genügt der Hook
+  `Entity.FormState`.
+- Felder mit `Trigger: true` laden bei jeder Änderung nur den Formularinhalt neu
+  (`POST /m/{module}/{object}/_form` → Block `form-body`), auch nach der Wahl im
+  Lookup-Dialog.
+- **Beim Speichern gilt dieselbe Maske:** Ausgeblendete Felder sind nie Pflicht und werden
+  geleert (`nil`), schreibgeschützte erhalten den Wert des Plugins. Prüfen muss weiterhin
+  das Plugin.
+
+**Feldgruppen.** `FieldDefinition.Group` gliedert das Formular in Abschnitte (zweispaltig,
+Übersetzungsschlüssel `<modul>.<Object>.groups.<gruppe>`). Leere Gruppen entfallen. Der
+Dialog scrollt, die Knöpfe bleiben unten sichtbar.
+
+**Lookup-Filter.** `Lookup.Filters` schränkt den Auswahldialog ein: Zielfeld → Quelle.
+Mögliche Quellen:
+
+- Feld des Formulars, z. B. `company_code_id`.
+- Feld des Datensatzes hinter einem Lookup-Feld, z. B. `draft_id.company_code_id`.
+- Fester Wert, z. B. `=false`.
+
+Der Lookup-Knopf schickt dazu die Formularwerte mit, die Suche im Dialog behält die Filter.
+
+**Filter in der Übersicht.** `ObjectDefinition.Filters` (in crud aus `Entity.Filters`) und
+`Search` erzeugen eine Filterleiste über der Tabelle:
+
+- Suchfeld,
+- Auswahl bei Optionen und Ja/Nein, sonst Textfeld,
+- „Filter zurücksetzen“.
+
+Filter stehen in der URL und überleben das Neuladen der Liste. crud wandelt Filterwerte
+nach dem Feldtyp um (Ja/Nein, Zahl).
+
+**Aktionen je Datensatz ausblenden.** Liefert ein Modul `"_hidden_actions": ["unlock"]`,
+fehlen diese Aktionen bei diesem Datensatz, z. B. „Entsperren“ bei einem aktiven Konto.
+
 ## 9. Fehlerbehandlung
 
 | Fehler des Moduls (`errors.Is`) | HTTP-Status |

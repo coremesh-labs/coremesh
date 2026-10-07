@@ -124,6 +124,9 @@ func (r *Router) check() {
 		if len(o.actions) == 0 {
 			r.fail("Object %s hat keine Actions", o.name)
 		}
+		if o.def != nil && o.def.FormState != "" && o.handlers[o.def.FormState] == nil {
+			r.fail("Object %s: FormState-Action %s ist nicht registriert", o.name, o.def.FormState)
+		}
 	}
 	for _, c := range r.commands {
 		i := slices.IndexFunc(r.objects, func(o *ObjectRoutes) bool { return o.name == c.Object })
