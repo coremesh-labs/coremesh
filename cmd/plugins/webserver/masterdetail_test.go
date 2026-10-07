@@ -121,6 +121,11 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "Address.list":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "a1", "city": "Zürich"}}}}, nil
+	case "Account.Display":
+		if rules, ok := displayRulesForTest.Load().([]any); ok && p["object"] == "Customer" {
+			return sdk.Response{Payload: map[string]any{"rules": rules}}, nil
+		}
+		return sdk.Response{Payload: map[string]any{"rules": []any{}}}, nil
 	case "Customer.update":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"id": "c1"}}, nil
@@ -436,5 +441,36 @@ func TestHiddenEverywhere(t *testing.T) {
 	}
 	if got := hiddenEverywhere(rows); len(got) != 1 || !got["iban"] {
 		t.Fatalf("%v", got)
+	}
+}
+
+// displayRulesForTest: Account.Display für Customer (TestDisplayRulesUI).
+var displayRulesForTest atomic.Value
+
+// TestDisplayRulesUI: Regel „wenn Name = Muster AG: Notiz ausblenden“ wirkt in
+// Detail und Formular, das Bedingungsfeld wertet die Maske neu aus.
+func TestDisplayRulesUI(t *testing.T) {
+	t.Cleanup(func() { displayRulesForTest.Store([]any{}) })
+	displayRulesForTest.Store([]any{map[string]any{
+		"conditions": []any{map[string]any{"field": "name", "values": []any{"Muster AG"}}},
+		"hidden":     []any{"note"},
+	}})
+	s, h := newMDServer(t)
+	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String(), "geheim")
+
+	edit := do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String()
+	mustNotContain(t, edit, `name="note"`)
+	mustContain(t, edit, `hx-post="/m/crm/Customer/_form"`) // Name ist jetzt Trigger
+
+	// Anderer Name: Bedingung trifft nicht zu, Notiz erscheint.
+	form := url.Values{"_mode": {"edit"}, "_rid": {"c1"}, "name": {"Andere AG"}, "note": {""}}
+	mustContain(t, do(s, "POST", "/m/crm/Customer/_form", form, true).Body.String(), `name="note"`)
+
+	// Speichern mit zutreffender Bedingung: Notiz geht nicht mit (Wert bleibt).
+	if w := do(s, "PUT", "/m/crm/Customer/c1", url.Values{"name": {"Muster AG"}}, true); w.Code >= 400 {
+		t.Fatalf("Speichern: %d", w.Code)
+	}
+	if _, sent := h.find("update").Payload.(map[string]any)["data"].(map[string]any)["note"]; sent {
+		t.Fatal("ausgeblendete Notiz mitgeschickt")
 	}
 }

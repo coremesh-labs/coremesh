@@ -187,6 +187,109 @@ table "iam__role_auth_value" {
   }
 }
 
+# Darstellungsregeln seit 0.6.0: je Object Regeln (optional für Rollen), die
+# bei erfüllten Bedingungen Felder ausblenden oder unänderbar machen.
+table "iam__display_rule" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "object" {
+    type = text
+  }
+  column "name" {
+    type = text
+  }
+  # Rollennamen, kommagetrennt; leer = alle Benutzer
+  column "roles" {
+    type = text
+    null = true
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__display_rule_object" {
+    columns = [column.object]
+  }
+}
+
+table "iam__display_rule_cond" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "rule_id" {
+    type = text
+  }
+  column "field" {
+    type = text
+  }
+  # erlaubte Werte, kommagetrennt
+  column "field_values" {
+    type = text
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__display_rule_cond_rule" {
+    columns = [column.rule_id]
+  }
+  foreign_key "iam__display_rule_cond_rule_fk" {
+    columns     = [column.rule_id]
+    ref_columns = [table.iam__display_rule.column.id]
+    on_delete   = CASCADE
+  }
+}
+
+table "iam__display_rule_field" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "rule_id" {
+    type = text
+  }
+  column "field" {
+    type = text
+  }
+  # hidden | readonly
+  column "mode" {
+    type = text
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__display_rule_field_rule" {
+    columns = [column.rule_id]
+  }
+  foreign_key "iam__display_rule_field_rule_fk" {
+    columns     = [column.rule_id]
+    ref_columns = [table.iam__display_rule.column.id]
+    on_delete   = CASCADE
+  }
+}
+
 table "iam__company_codes" {
   schema = schema.main
   column "id" {
@@ -310,6 +413,56 @@ var (
 		Actions: append(crud("Feldwert"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
 			Label: "Entfernen", Confirm: "Feldwert entfernen?"}),
 	}
+	// Darstellungsregeln: je Object, optional für Rollen; Bedingungen auf
+	// Feldwerte, Wirkung je Feld (ausblenden, unänderbar). Nur Darstellung –
+	// geschützt wird über Berechtigungen.
+	displayRuleDef = metamodel.ObjectDefinition{
+		Name: "DisplayRule", Title: "Darstellungsregeln", Icon: "icon-eye", FormState: formStateAction, TitleField: "name",
+		Fields: []metamodel.FieldDefinition{
+			{Key: "name", Label: "Bezeichnung", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
+			{Key: "object", Label: "Object", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true},
+			{Key: "roles", Label: "Nur für Rollen (kommagetrennt, leer = alle)", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "summary", Label: "Regel", Type: metamodel.TypeText, Listable: true},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Filters:   []string{"object"},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Darstellungsregel"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Inaktivieren", Confirm: "Darstellungsregel inaktivieren?"}),
+		Sections: []metamodel.SectionDefinition{
+			{Key: "bedingungen", Title: "Bedingungen (alle müssen zutreffen; keine = immer)", Relation: &metamodel.Relation{Object: "DisplayRuleCondition", ForeignKey: "rule_id",
+				Columns: []string{"field", "field_values"}}},
+			{Key: "felder", Title: "Felder", Relation: &metamodel.Relation{Object: "DisplayRuleField", ForeignKey: "rule_id",
+				Columns: []string{"field", "mode"}}},
+		},
+	}
+	displayRuleCondDef = metamodel.ObjectDefinition{
+		Name: "DisplayRuleCondition", Title: "Darstellungsregeln – Bedingungen", Icon: "icon-list", FormState: formStateAction,
+		Fields: []metamodel.FieldDefinition{
+			{Key: "rule_id", Label: "Regel", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+				Lookup: &metamodel.Lookup{Object: "DisplayRule", ValueField: "id", LabelFields: []string{"name"}}},
+			{Key: "field", Label: "Feld", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true, Trigger: true},
+			{Key: "field_values", Label: "Werte (kommagetrennt, einer muss zutreffen)", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Bedingung"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Entfernen", Confirm: "Bedingung entfernen?"}),
+	}
+	displayRuleFieldDef = metamodel.ObjectDefinition{
+		Name: "DisplayRuleField", Title: "Darstellungsregeln – Felder", Icon: "icon-list", FormState: formStateAction,
+		Fields: []metamodel.FieldDefinition{
+			{Key: "rule_id", Label: "Regel", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+				Lookup: &metamodel.Lookup{Object: "DisplayRule", ValueField: "id", LabelFields: []string{"name"}}},
+			{Key: "field", Label: "Feld", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true},
+			{Key: "mode", Label: "Darstellung", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true, Trigger: true, Options: displayModes},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Feld"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Entfernen", Confirm: "Feld aus der Regel entfernen?"}),
+	}
+	displayModes   = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"}}
 	companyCodeDef = metamodel.ObjectDefinition{
 		Name: "CompanyCode", Title: "Buchungskreise", Icon: "icon-building",
 		Fields: []metamodel.FieldDefinition{
@@ -330,6 +483,9 @@ var adminModule = metamodel.ModuleDefinition{
 		{Object: "Role", Section: "Zugriff"},
 		{Object: "RoleAuth", Section: "Zugriff"},
 		{Object: "RoleAuthValue", Section: "Zugriff"},
+		{Object: "DisplayRule", Section: "Darstellung"},
+		{Object: "DisplayRuleCondition", Section: "Darstellung"},
+		{Object: "DisplayRuleField", Section: "Darstellung"},
 		{Object: "CompanyCode", Section: "Organisation"},
 	},
 }

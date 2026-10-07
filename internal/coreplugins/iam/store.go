@@ -257,6 +257,7 @@ func (p *Plugin) userGrants(ctx context.Context, q database.Querier, userID stri
 		JOIN iam__users u ON u.id = ur.user_id
 		WHERE ur.user_id = ? AND u.active = 1 AND ra.active = 1`, userID)
 }
+
 // --- Rollen --------------------------------------------------------------------
 
 func (p *Plugin) listRoles(ctx context.Context) ([]roleRow, error) {

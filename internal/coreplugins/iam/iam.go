@@ -30,7 +30,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.5.1"
+	Version = "0.6.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -66,11 +66,14 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Version:     Version,
 		Description: "Benutzer, Rollen und Berechtigungen",
 		Capabilities: []sdk.Capability{
-			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung"},
+			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted", "Display"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung, Darstellungsregeln"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
 			{Object: "Role", Actions: []string{"list", "get", "create", "update"}, Description: "Rollen und Berechtigungen"},
 			{Object: "RoleAuth", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Berechtigungen je Rolle und Object.Action"},
 			{Object: "RoleAuthValue", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Erlaubte Feldwerte einer Berechtigung"},
+			{Object: "DisplayRule", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Darstellungsregeln"},
+			{Object: "DisplayRuleCondition", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Bedingungen der Darstellungsregeln"},
+			{Object: "DisplayRuleField", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Felder der Darstellungsregeln"},
 			{Object: "CompanyCode", Actions: []string{"list", "get", "create", "update"}, Description: "Buchungskreise"},
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
@@ -112,7 +115,8 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return sdk.Response{Payload: metamodel.DescribeResponse{
 			Objects: []metamodel.ObjectDefinition{
 				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef),
-				metamodel.WithKeys("admin", roleAuthDef), metamodel.WithKeys("admin", roleAuthValueDef)},
+				metamodel.WithKeys("admin", roleAuthDef), metamodel.WithKeys("admin", roleAuthValueDef),
+				metamodel.WithKeys("admin", displayRuleDef), metamodel.WithKeys("admin", displayRuleCondDef), metamodel.WithKeys("admin", displayRuleFieldDef)},
 			Modules:      []metamodel.ModuleDefinition{metamodel.ModuleKeys(adminModule)},
 			Translations: translations,
 		}}, nil
@@ -129,6 +133,8 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.check(ctx, req.Payload)
 	case "Account.Granted":
 		return p.granted(ctx, req.Payload)
+	case "Account.Display":
+		return p.display(ctx, req.Payload)
 
 	case "User.list":
 		return p.userList(ctx, req.Payload)
@@ -174,6 +180,43 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.roleAuthValueDeactivate(ctx, req.Payload)
 	case "RoleAuthValue." + formStateAction:
 		return p.roleAuthValueFormState(ctx, req.Payload)
+
+	case "DisplayRule.list":
+		return p.displayRuleList(ctx, req.Payload)
+	case "DisplayRule.get":
+		return p.displayRuleGet(ctx, req.Payload)
+	case "DisplayRule.create":
+		return p.displayRuleSave(ctx, req.Payload, true)
+	case "DisplayRule.update":
+		return p.displayRuleSave(ctx, req.Payload, false)
+	case "DisplayRule.deactivate":
+		return p.displayRuleDeactivate(ctx, req.Payload)
+	case "DisplayRule." + formStateAction:
+		return p.displayRuleFormState(ctx, req.Payload)
+	case "DisplayRuleCondition.list":
+		return p.childList(ctx, condTable, req.Payload)
+	case "DisplayRuleCondition.get":
+		return p.childGet(ctx, condTable, req.Payload)
+	case "DisplayRuleCondition.create":
+		return p.childSave(ctx, condTable, req.Payload, true)
+	case "DisplayRuleCondition.update":
+		return p.childSave(ctx, condTable, req.Payload, false)
+	case "DisplayRuleCondition.deactivate":
+		return p.childDeactivate(ctx, condTable, req.Payload)
+	case "DisplayRuleCondition." + formStateAction:
+		return p.childFormState(ctx, condTable, req.Payload)
+	case "DisplayRuleField.list":
+		return p.childList(ctx, fieldTable, req.Payload)
+	case "DisplayRuleField.get":
+		return p.childGet(ctx, fieldTable, req.Payload)
+	case "DisplayRuleField.create":
+		return p.childSave(ctx, fieldTable, req.Payload, true)
+	case "DisplayRuleField.update":
+		return p.childSave(ctx, fieldTable, req.Payload, false)
+	case "DisplayRuleField.deactivate":
+		return p.childDeactivate(ctx, fieldTable, req.Payload)
+	case "DisplayRuleField." + formStateAction:
+		return p.childFormState(ctx, fieldTable, req.Payload)
 
 	case "CompanyCode.list":
 		return p.ccList(ctx)
@@ -454,8 +497,8 @@ func (p *Plugin) roleSave(ctx context.Context, payload any, create bool) (sdk.Re
 	var in struct {
 		ID   string `json:"id"`
 		Data struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
+			Name        string  `json:"name"`
+			Description string  `json:"description"`
 			Permissions *string `json:"permissions"`
 		} `json:"data"`
 	}

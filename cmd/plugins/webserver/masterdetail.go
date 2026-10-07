@@ -110,7 +110,7 @@ func (s *server) definition(r *http.Request, object string) (objectCtx, error) {
 	if !def.Available {
 		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.unavailable", def.Definition.Title))
 	}
-	return s.withLocale(r, newObjectCtx(moduleFrom(r).Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r))), nil
+	return s.withDisplay(r, s.withLocale(r, newObjectCtx(moduleFrom(r).Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r)))), nil
 }
 
 // relationView ist eine eingebettete Tabelle (Fragment "relation").
@@ -178,6 +178,9 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	if rv.Rows, err = records(resp.Payload); err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	for _, row := range rv.Rows {
+		child.applyDisplay(row)
 	}
 	rv.Columns = relationColumns(withoutFields(child.Def, hiddenEverywhere(rv.Rows)), rel)
 	for _, f := range rv.Columns {

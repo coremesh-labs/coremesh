@@ -117,6 +117,7 @@ var userBaseline = map[key]bool{
 	{"Account", "ChangePassword"}:        true,
 	{"Account", "Check"}:                 true,
 	{"Account", "Granted"}:               true,
+	{"Account", "Display"}:               true,
 }
 
 // Authorizer entscheidet, ob ein Benutzer (object, action) aufrufen darf.

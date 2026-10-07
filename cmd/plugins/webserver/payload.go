@@ -165,6 +165,7 @@ type objectCtx struct {
 	ActionURL string // /action/{module}/{object}
 	Def       metamodel.ObjectDefinition
 	Has       map[string]*metamodel.ActionConfig // Kind → Action (list, item, create, update, delete)
+	Display   []displayRule                      // Darstellungsregeln des Benutzers (display.go)
 	Custom    []metamodel.ActionConfig           // Kind custom
 	Denied    map[string]bool                    // Kinds bzw. custom-Namen ohne Berechtigung
 }
