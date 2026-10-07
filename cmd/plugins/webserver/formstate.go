@@ -30,9 +30,10 @@ type mask struct {
 	readonly map[string]bool            // von der Maske schreibgeschützt (Wert aus values)
 	values   map[string]string          // Formularwerte inkl. Vorgaben des Plugins
 	message  string
+	denied   map[string]bool // ohne Änderungsrecht (Feldgruppe): nie mitschicken
 }
 
-func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map[string]string, locked map[string]bool) mask {
+func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map[string]string, locked map[string]bool, acc fieldAccess) mask {
 	vals := maps.Clone(values)
 	if vals == nil {
 		vals = map[string]string{}
@@ -51,9 +52,15 @@ func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map
 			vals[k] = *fs.Value
 		}
 	}
-	m := mask{def: oc.Def, hidden: map[string]bool{}, readonly: map[string]bool{}, values: vals, message: st.Message}
+	m := mask{def: oc.Def, hidden: map[string]bool{}, readonly: map[string]bool{}, denied: map[string]bool{}, values: vals, message: st.Message}
 	m.def.Fields = nil
 	for _, f := range oc.Def.Fields {
+		if acc.hidden[f.Key] && !locked[f.Key] {
+			continue // keine Leseberechtigung: weder anzeigen noch mitschicken
+		}
+		if acc.readonly[f.Key] && f.Editable {
+			m.readonly[f.Key], m.denied[f.Key] = true, true
+		}
 		fs := st.Fields[f.Key]
 		visible := f.ShowIf.Holds(vals)
 		if f.RequiredIf != nil && f.RequiredIf.Holds(vals) {
@@ -102,13 +109,20 @@ func formValues(d metamodel.ObjectDefinition, form url.Values) map[string]string
 // des Plugins gehen vor, ausgeblendete Felder werden geleert (nil).
 func (s *server) parseMasked(r *http.Request, oc objectCtx, mode, id string) (map[string]any, map[string]string, map[string]string) {
 	locked, _ := lockedFields(oc.Def, r.PostForm.Get("_lock"))
-	m := s.mask(r, oc, mode, id, formValues(oc.Def, r.PostForm), locked)
+	acc := decodeAccess(r.PostForm.Get("_access"))
+	if mode == "create" {
+		acc = s.createAccess(r, oc.Def)
+	}
+	m := s.mask(r, oc, mode, id, formValues(oc.Def, r.PostForm), locked, acc)
 	for k, v := range m.values {
 		r.PostForm.Set(k, v)
 	}
 	data, raw, errs := parseFields(m.def, r.PostForm)
 	for k := range m.hidden {
 		data[k] = nil
+	}
+	for k := range m.denied {
+		delete(data, k)
 	}
 	return data, raw, errs
 }

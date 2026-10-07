@@ -26,6 +26,14 @@ var periodDef = metamodel.ObjectDefinition{
 	Authorization: &metamodel.Authorization{Fields: []string{"ledger", "posting_period"}, Actions: []metamodel.AuthAction{{Name: "post", Label: "Buchen"}}},
 }
 
+var contractDef = metamodel.ObjectDefinition{
+	Name: "Contract", Title: "Mietverträge",
+	Fields: []metamodel.FieldDefinition{{Key: "iban", Label: "IBAN", Type: metamodel.TypeText}},
+	Authorization: &metamodel.Authorization{Fields: []string{metamodel.FieldGroupAttr},
+		Actions:     []metamodel.AuthAction{{Name: metamodel.ActionReadFields, Label: "Feldgruppe sehen"}},
+		FieldGroups: []metamodel.FieldGroup{{Key: "bank", Label: "Bankverbindung", Fields: []string{"iban"}}}},
+}
+
 func (catalogHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, error) {
 	switch req.Action {
 	case "Translations":
@@ -40,6 +48,9 @@ func (catalogHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 	case "GetDefinition":
 		if req.Payload.(map[string]any)["object"] == "FiscalPeriod" {
 			return sdk.Response{Payload: map[string]any{"definition": periodDef}}, nil
+		}
+		if req.Payload.(map[string]any)["object"] == "Contract" {
+			return sdk.Response{Payload: map[string]any{"definition": contractDef}}, nil
 		}
 	}
 	return sdk.Response{}, sdk.ErrNotFound
@@ -242,5 +253,32 @@ func TestAdminKeepsUnrestrictedAll(t *testing.T) {
 	}
 	if _, err := call(t, p, ctx, "RoleAuth", "deactivate", map[string]any{"id": authID}); !errors.Is(err, sdk.ErrFailedPrecondition) {
 		t.Fatalf("Entzug *.*: %v", err)
+	}
+}
+
+// TestFieldGroupValues: Für readFields bietet die Pflege das Feld field_group
+// mit den Feldgruppen des Objects als Werte an.
+func TestFieldGroupValues(t *testing.T) {
+	p, adminID := setup(t)
+	p.host = catalogHost{}
+	ctx := as(adminID)
+	role, _ := call(t, p, ctx, "Role", "create", map[string]any{"data": map[string]any{"name": "Vermietung"}})
+	auth, err := call(t, p, ctx, "RoleAuth", "create", map[string]any{"data": map[string]any{
+		"role_id": role["id"], "object": "Contract", "action": metamodel.ActionReadFields}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := p.Handle(ctx, sdk.Request{Object: "RoleAuthValue", Action: formStateAction, Payload: metamodel.FormStateRequest{
+		Mode: "create", Values: map[string]string{"auth_id": auth["id"].(string), "field": metamodel.FieldGroupAttr}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := resp.Payload.(metamodel.FormState)
+	if opts := st.Fields["field"].Options; len(opts) != 1 || opts[0].Label != "Feldgruppe" || !strings.Contains(st.Message, "bank = Bankverbindung") {
+		t.Fatalf("FormState: %+v", st)
+	}
+	if _, err := call(t, p, ctx, "RoleAuthValue", "create", map[string]any{"data": map[string]any{
+		"auth_id": auth["id"], "field": metamodel.FieldGroupAttr, "low": "bank"}}); err != nil {
+		t.Fatal(err)
 	}
 }

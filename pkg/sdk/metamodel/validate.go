@@ -152,6 +152,10 @@ func (d ObjectDefinition) Validate() error {
 			switch {
 			case k == "company_code":
 				add("authorization: company_code ist immer Dimension, kein Berechtigungsfeld")
+			case k == FieldGroupAttr:
+				if len(az.FieldGroups) == 0 {
+					add("authorization: field_group nur mit field_groups")
+				}
 			case !keys[k]:
 				add("authorization: Feld %q gibt es nicht", k)
 			}
@@ -164,6 +168,22 @@ func (d ObjectDefinition) Validate() error {
 				add("authorization: Action %q: label fehlt", a.Name)
 			}
 			names[a.Name] = true
+		}
+		groups, grouped := map[string]bool{}, map[string]string{}
+		for _, g := range az.FieldGroups {
+			if !keyRe.MatchString(g.Key) || groups[g.Key] || g.Label == "" || len(g.Fields) == 0 {
+				add("authorization: Feldgruppe %q braucht eindeutigen key, label und fields", g.Key)
+			}
+			groups[g.Key] = true
+			for _, k := range g.Fields {
+				switch {
+				case !keys[k]:
+					add("authorization: Feldgruppe %s: Feld %q gibt es nicht", g.Key, k)
+				case grouped[k] != "":
+					add("authorization: Feld %q steht schon in Feldgruppe %s", k, grouped[k])
+				}
+				grouped[k] = g.Key
+			}
 		}
 	}
 

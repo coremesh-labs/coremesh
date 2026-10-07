@@ -21,6 +21,9 @@ type Set struct {
 func NewSet(entities ...*Entity) *Set {
 	s := &Set{byObject: map[string]*Entity{}}
 	for _, e := range entities {
+		if err := e.checkAccess(); err != nil {
+			panic(err) // Programmierfehler im Modul – beim Start sichtbar
+		}
 		e.set = s
 		s.entities = append(s.entities, e)
 		s.byObject[e.Object] = e
@@ -59,7 +62,7 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 			o.Handle("create", payloadOnly(e.Create)).Handle("update", payloadOnly(e.Update))
 		}
 		for _, a := range e.Actions {
-			o.Handle(a.Name, a.Handle)
+			o.Handle(a.Name, e.guardRecord(a))
 		}
 		if e.FormState != nil {
 			f := e.FormState
@@ -84,13 +87,35 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 	}
 }
 
+// guardRecord: Eigene Actions auf einem Datensatz (Record) nur, wenn der
+// Benutzer ihn sehen darf (Access.Records).
+func (e *Entity) guardRecord(a Action) module.HandlerFunc {
+	if !a.Record || e.Access == nil || !e.Access.Records {
+		return a.Handle
+	}
+	return func(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+		key, err := e.ParseID(idOf(req.Payload))
+		if err != nil {
+			return sdk.Response{}, err
+		}
+		rec, err := e.Load(ctx, key)
+		if err != nil {
+			return sdk.Response{}, err
+		}
+		if _, err := e.checkReadable(ctx, rec); err != nil {
+			return sdk.Response{}, err
+		}
+		return a.Handle(ctx, req)
+	}
+}
+
 func payloadOnly(f func(ctx context.Context, payload any) (sdk.Response, error)) module.HandlerFunc {
 	return func(ctx context.Context, req sdk.Request) (sdk.Response, error) { return f(ctx, req.Payload) }
 }
 
 // Definition liefert das Metamodell der Entity.
 func (e *Entity) Definition() metamodel.ObjectDefinition {
-	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections, Authorization: e.Authorization}
+	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections, Authorization: e.authorization()}
 	if e.FormState != nil {
 		d.FormState = formStateAction
 	}

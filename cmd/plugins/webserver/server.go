@@ -252,6 +252,9 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if len(rows) > 0 {
+		oc.Def = withoutFields(oc.Def, hiddenEverywhere(rows)) // Spalten ohne Leserecht in allen Zeilen
+	}
 	v := view{objectCtx: oc, Rows: rows, History: includeHistory(r), Filter: map[string]string{}}
 	q := url.Values{}
 	for _, k := range append([]string{"q"}, oc.Def.Filters...) {
@@ -298,7 +301,7 @@ func (s *server) createView(r *http.Request, oc objectCtx, values, errs map[stri
 		}
 	}
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
-	m := s.mask(r, oc, "create", "", values, locked)
+	m := s.mask(r, oc, "create", "", values, locked, s.createAccess(r, oc.Def))
 	v := view{
 		objectCtx: oc, Mode: "create", Modal: isHTMX(r), ViewParam: refreshParam(r), Locked: lockList,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, oc.Has["create"].Label), FormAction: oc.URL,
@@ -387,6 +390,7 @@ func (s *server) item(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	oc.Def = withoutFields(oc.Def, accessOf(rec).hidden)
 	s.render(w, r, http.StatusOK, "detail", view{objectCtx: oc, Record: rec}, oc.Def.Title, oc.Object)
 }
 
@@ -444,8 +448,13 @@ func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, err
 		target = "#modal"
 	}
 	locked, lockList := lockedFields(oc.Def, r.FormValue("_lock"))
-	m := s.mask(r, oc, "edit", id, values, locked)
+	acc := accessOf(rec)
+	if acc.empty() {
+		acc = decodeAccess(r.FormValue("_access")) // Neuauswertung, erneutes Anzeigen
+	}
+	m := s.mask(r, oc, "edit", id, values, locked, acc)
 	return view{
+		Access:    acc.encode(),
 		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target, Locked: lockList,
 		FormTitle:  s.T(r, "core.form.title", oc.Def.Title, oc.Has["update"].Label),
 		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
