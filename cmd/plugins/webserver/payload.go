@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Payload-Konventionen zwischen WebServer und Fachmodulen (siehe README.md):

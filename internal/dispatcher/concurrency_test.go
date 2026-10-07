@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // TestConcurrentLoad: viele Goroutinen rufen gleichzeitig verschachtelte

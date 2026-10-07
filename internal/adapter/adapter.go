@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pluginv1 "github.com/coremesh-lab/coremesh/internal/api/plugin/v1"
-	"github.com/coremesh-lab/coremesh/internal/txctx"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	pluginv1 "github.com/coremesh-labs/coremesh/internal/api/plugin/v1"
+	"github.com/coremesh-labs/coremesh/internal/txctx"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // GRPCPlugin verbindet sdk.Plugin mit HashiCorp go-plugin.

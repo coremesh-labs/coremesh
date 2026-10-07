@@ -44,8 +44,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
 
 // Object und Actions des Hook-Dispatchers.

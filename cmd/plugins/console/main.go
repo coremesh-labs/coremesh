@@ -19,9 +19,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	consolev1 "github.com/coremesh-lab/coremesh/pkg/consoleapi/console/v1"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/plugin"
+	consolev1 "github.com/coremesh-labs/coremesh/pkg/consoleapi/console/v1"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/plugin"
 )
 
 const (

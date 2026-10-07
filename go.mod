@@ -1,4 +1,4 @@
-module github.com/coremesh-lab/coremesh
+module github.com/coremesh-labs/coremesh
 
 go 1.27.1
 

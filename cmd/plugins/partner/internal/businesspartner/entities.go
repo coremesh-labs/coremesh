@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 const (

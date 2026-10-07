@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Rollenpflege auf Basis des Catalogs: RoleAuth (je Object.Action eine Zeile)

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Masken: Welche Felder ein Formular zeigt, bestimmt nicht nur das Metamodell,

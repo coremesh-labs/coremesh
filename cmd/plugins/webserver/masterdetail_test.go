@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // mdHost ergänzt fakeHost um ein Master-Detail-Szenario im Modul crm:

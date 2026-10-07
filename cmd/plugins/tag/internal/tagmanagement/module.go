@@ -15,10 +15,10 @@ import (
 	"embed"
 	"log/slog"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk/crud"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/tagservice"
 )
 
 // Name ist der Namensraum des Moduls (/m/tagmanagement, /api/v1/tagmanagement).

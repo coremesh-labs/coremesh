@@ -4,10 +4,10 @@
 package main
 
 import (
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/plugin"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/plugin"
 
-	"github.com/coremesh-lab/coremesh/cmd/plugins/tag/internal/tagmanagement"
+	"github.com/coremesh-labs/coremesh/cmd/plugins/tag/internal/tagmanagement"
 )
 
 const version = "0.2.0"

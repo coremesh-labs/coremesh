@@ -9,7 +9,7 @@ import (
 
 	goplugin "github.com/hashicorp/go-plugin"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // testPlugin ruft bei Handle den Host per Query zurück, um den Rückkanal zu prüfen.

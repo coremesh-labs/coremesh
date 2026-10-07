@@ -20,11 +20,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/events"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/hook"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/plugin"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/events"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/hook"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/plugin"
 )
 
 const version = "0.3.0"

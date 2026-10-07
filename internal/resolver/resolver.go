@@ -25,7 +25,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/config"
 )
 
 // ErrNotFound: Binary weder lokal vorhanden noch herunterladbar.

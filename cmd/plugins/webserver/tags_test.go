@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/tagservice"
 )
 
 // tagsHost spielt den TagService: Tag Set RISK mit Auswahlwert, Betrag, Datum;

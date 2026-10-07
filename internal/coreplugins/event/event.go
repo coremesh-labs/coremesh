@@ -29,9 +29,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/internal/dispatcher"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/events"
+	"github.com/coremesh-labs/coremesh/internal/dispatcher"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/events"
 )
 
 const (

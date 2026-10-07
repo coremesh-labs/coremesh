@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 type services struct {

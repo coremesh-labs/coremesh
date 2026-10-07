@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Anmeldung im WebServer.

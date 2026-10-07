@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/internal/dispatcher"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/internal/dispatcher"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // moduleEntry ist der Metamodell-Stand eines Moduls.

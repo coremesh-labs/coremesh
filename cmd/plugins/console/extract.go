@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Sicheres Entpacken von ZIP-Archiven, die ein Fachmodul als zip_content

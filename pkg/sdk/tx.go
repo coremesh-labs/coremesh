@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/coremesh-lab/coremesh/internal/txctx"
+	"github.com/coremesh-labs/coremesh/internal/txctx"
 )
 
 // InTx führt fn in einer Transaktion auf der Datenbank database aus.
