@@ -124,6 +124,8 @@ type Entity struct {
 	// Objects für die Rollenpflege (geprüft wird im Modul mit sdk.Authorize
 	// bzw. sdk.Grants).
 	Authorization *metamodel.Authorization
+	// Access: Datensatz- und Feldberechtigungen, von crud durchgesetzt (access.go).
+	Access *Access
 
 	set *Set
 }

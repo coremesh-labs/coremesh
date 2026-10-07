@@ -88,6 +88,9 @@ func (e *Entity) endWith(ctx context.Context, key Record, action string, change 
 			return err
 		}
 		key = e.KeyOf(rec) // genau diese Zeitscheibe
+		if _, err := e.checkReadable(ctx, rec); err != nil {
+			return err
+		}
 		if e.CheckRecord != nil {
 			if err := e.CheckRecord(ctx, action, rec); err != nil {
 				return err

@@ -79,6 +79,9 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 		"t":      t,
 		"locale": func() string { return loc },
 		"value": func(rec record, f metamodel.FieldDefinition) string {
+			if hiddenIn(rec, f.Key) {
+				return "—" // keine Berechtigung für die Feldgruppe
+			}
 			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
 		},
 	}

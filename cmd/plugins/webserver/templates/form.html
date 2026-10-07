@@ -26,6 +26,7 @@
   {{if and (eq .Mode "edit") (not .Modal)}}<input type="hidden" name="_method" value="PUT">{{end}}
   {{with .ViewParam}}<input type="hidden" name="_view" value="{{.}}">{{end}}
   {{with .Locked}}<input type="hidden" name="_lock" value="{{.}}">{{end}}
+  {{with .Access}}<input type="hidden" name="_access" value="{{.}}">{{end}}
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
   {{if .FormStateURL}}<input type="hidden" name="_mode" value="{{.Mode}}">{{if eq .Mode "edit"}}<input type="hidden" name="_rid" value="{{.ID}}">{{end}}{{end}}
   {{template "form-body" .}}

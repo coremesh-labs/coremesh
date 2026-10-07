@@ -37,5 +37,8 @@
   "admin.RoleAuthValue.fields.high": "to (empty = single value)",
   "admin.RoleAuthValue.fields.active": "Active",
   "admin.RoleAuthValue.actions.deactivate": "Remove",
-  "admin.RoleAuthValue.actions.deactivate.confirm": "Remove field value?"
+  "admin.RoleAuthValue.actions.deactivate.confirm": "Remove field value?",
+  "admin.auth.read": "See records",
+  "admin.auth.readFields": "See field group",
+  "admin.auth.changeFields": "Change field group"
 }

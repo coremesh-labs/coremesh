@@ -49,7 +49,26 @@ type ObjectDefinition struct {
 type Authorization struct {
 	Fields  []string     `json:"fields,omitempty"`  // Feld-Keys des Objects
 	Actions []AuthAction `json:"actions,omitempty"` // zusätzliche Actions ohne Route
+	// FieldGroups: Felder, die nur mit Recht readFields bzw. changeFields
+	// (Berechtigungsfeld field_group) sichtbar bzw. änderbar sind.
+	FieldGroups []FieldGroup `json:"field_groups,omitempty"`
 }
+
+// FieldGroup: sensible Felder eines Objects, z. B. Bankverbindung.
+type FieldGroup struct {
+	Key      string   `json:"key"` // [a-z][a-z0-9_]*, Wert des Berechtigungsfelds field_group
+	Label    string   `json:"label"`
+	LabelKey string   `json:"label_key,omitempty"`
+	Fields   []string `json:"fields"`
+}
+
+// Feldgruppen: Berechtigungsfeld und Actions.
+const (
+	FieldGroupAttr     = "field_group"
+	ActionReadFields   = "readFields"
+	ActionChangeFields = "changeFields"
+	ActionRead         = "read" // Datensatzberechtigung (Liste, Detail, Lookup)
+)
 
 // AuthAction ist eine Action, die nur geprüft, nie aufgerufen wird
 // (z. B. "post" auf FiscalPeriod: in dieser Periode buchen).

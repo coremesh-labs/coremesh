@@ -106,6 +106,11 @@ func (d ObjectDefinition) Localize(t Translations, locale string) ObjectDefiniti
 			a.Label = t.Lookup(locale, a.LabelKey, a.Label)
 			c.Actions[i] = a
 		}
+		c.FieldGroups = make([]FieldGroup, len(az.FieldGroups))
+		for i, g := range az.FieldGroups {
+			g.Label = t.Lookup(locale, g.LabelKey, g.Label)
+			c.FieldGroups[i] = g
+		}
 		out.Authorization = &c
 	}
 	return out
@@ -126,6 +131,7 @@ var reservedModules = map[string]bool{"i18n": true, "user": true}
 //	<modul>.<Object>.sections.<abschnitt>        Abschnitt der Detailansicht
 //	<modul>.<Object>.groups.<gruppe>             Feldgruppe im Formular
 //	<modul>.<Object>.auth.<action>               Berechtigungs-Action (Authorization.Actions)
+//	<modul>.<Object>.fieldgroups.<gruppe>        Feldgruppe (Authorization.FieldGroups)
 //
 // Für Actions der Kinds list, item, create, update, expire und deactivate
 // bringt das Frontend Standardtexte mit; ein Modul übersetzt sie nur, wenn es
@@ -170,6 +176,11 @@ func WithKeys(module string, d ObjectDefinition) ObjectDefinition {
 		for i, a := range c.Actions {
 			a.LabelKey = orKey(a.LabelKey, p+".auth."+a.Name)
 			c.Actions[i] = a
+		}
+		c.FieldGroups = slices.Clone(az.FieldGroups)
+		for i, g := range c.FieldGroups {
+			g.LabelKey = orKey(g.LabelKey, p+".fieldgroups."+g.Key)
+			c.FieldGroups[i] = g
 		}
 		d.Authorization = &c
 	}

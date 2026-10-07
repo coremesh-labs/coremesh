@@ -187,6 +187,47 @@ cc, err := sdk.GrantedCompanyCodes(ctx, "Partner", "list") // cc.All, cc.None(),
   übernimmt der erste Start die Zeilen aus `iam__role_permissions` nach
   `iam__role_auth` (je `Object.Action` eine Zeile mit allen Buchungskreisen).
 
+## Datensätze und Feldgruppen (crud.Access)
+
+Neben dem Vorgang („darf er buchen?“) gibt es zwei Ebenen der Sichtbarkeit. Für Module
+auf Basis von `pkg/sdk/crud` setzt **crud** sie selbst durch – in Liste, Detail,
+Lookup, Kopfdaten-Vorschau, API, beim Ändern und Beenden und bei eigenen
+Datensatz-Actions:
+
+| Ebene | Berechtigung | Wirkung |
+|---|---|---|
+| Datensatz | `<Object>.read` mit Buchungskreisen und Feldwerten | nicht abgedeckte Datensätze fehlen (Liste in der Datenbank gefiltert, sonst „nicht gefunden“); anlegen und ändern nur innerhalb des eigenen Bereichs |
+| Feldgruppe | `<Object>.readFields` / `<Object>.changeFields`, Feld `field_group` | ohne Leserecht fehlen die Felder in der Antwort; ohne Änderungsrecht werden Änderungen abgelehnt |
+
+```go
+&crud.Entity{
+	Object: "RentContract", …,
+	Access: &crud.Access{
+		Records:     true,
+		CompanyCode: "company_code_id",     // Attr company_code
+		Fields:      []string{"property_id"}, // weitere Berechtigungsfelder
+		FieldGroups: []metamodel.FieldGroup{
+			{Key: "bank", Label: "Bankverbindung", Fields: []string{"iban", "bic"}},
+		},
+	},
+}
+// Positionen folgen dem Beleg: Access{Object: "JournalEntry", Records: true, CompanyCode: …}
+```
+
+- `read` ersetzt für die Sichtbarkeit `list` und `get`; diese prüft der Dispatcher
+  weiter, ob die Seite überhaupt aufrufbar ist.
+- **Nur Erlaubnisse:** Eine Feldgruppe ist ausgeblendet, bis eine Rolle sie erlaubt
+  (z. B. `RentContract.readFields`, `field_group` = bank, Buchungskreis 1000).
+  Ungruppierte Felder sind normal sichtbar.
+- Die Rollenpflege bietet `read`, `readFields`, `changeFields`, das Feld `field_group`
+  und die Feldgruppen aus dem Metamodell an (Texte `admin.auth.*`).
+- **Oberfläche (WebServer):** crud markiert Datensätze mit `_hidden_fields` und
+  `_readonly_fields`. Detail und Formular blenden aus bzw. sperren; Listen zeigen „—“
+  und lassen Spalten weg, die in keiner Zeile sichtbar sind. Beim Speichern gehen beide
+  nie mit, die Werte bleiben erhalten.
+- Module ohne crud prüfen selbst mit `sdk.Authorize`/`sdk.Grants` (Aktionen
+  `read`, `readFields`, `changeFields`).
+
 ## Schutz vor Aussperren
 
 Jede Änderung läuft in einer Transaktion. Danach muss **mindestens ein aktiver Benutzer

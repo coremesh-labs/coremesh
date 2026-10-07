@@ -37,5 +37,8 @@
   "admin.RoleAuthValue.fields.high": "止（为空 = 单个值）",
   "admin.RoleAuthValue.fields.active": "有效",
   "admin.RoleAuthValue.actions.deactivate": "移除",
-  "admin.RoleAuthValue.actions.deactivate.confirm": "移除该字段值？"
+  "admin.RoleAuthValue.actions.deactivate.confirm": "移除该字段值？",
+  "admin.auth.read": "查看记录",
+  "admin.auth.readFields": "查看字段组",
+  "admin.auth.changeFields": "更改字段组"
 }

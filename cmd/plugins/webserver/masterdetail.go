@@ -179,7 +179,7 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	rv.Columns = relationColumns(child.Def, rel)
+	rv.Columns = relationColumns(withoutFields(child.Def, hiddenEverywhere(rv.Rows)), rel)
 	for _, f := range rv.Columns {
 		if f.Lookup == nil {
 			continue

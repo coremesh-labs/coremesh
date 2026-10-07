@@ -262,6 +262,7 @@ type view struct {
 	EndDate string // vorgeschlagenes/eingegebenes Enddatum (nie automatisch heute)
 	EndMin  string // frühestes Enddatum (gültig ab)
 	Locked  string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
+	Access  string // _access: Feldberechtigungen des Datensatzes (fieldaccess.go)
 
 	// Ergebnisse
 	Action  metamodel.ActionConfig

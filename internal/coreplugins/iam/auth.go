@@ -165,6 +165,9 @@ func (c *catalogView) authFields(object string) []metamodel.Option {
 				continue
 			}
 			label := k
+			if k == metamodel.FieldGroupAttr {
+				label = "Feldgruppe"
+			}
 			if i := slices.IndexFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
 				label = d.Fields[i].Label
 			}
@@ -188,6 +191,14 @@ func (c *catalogView) fieldDef(object, field string) *metamodel.FieldDefinition 
 	d := c.def(object)
 	if d == nil {
 		return nil
+	}
+	if field == metamodel.FieldGroupAttr && d.Authorization != nil {
+		// Werte des Berechtigungsfelds field_group: die Feldgruppen des Objects.
+		f := metamodel.FieldDefinition{Key: field, Label: "Feldgruppe", Type: metamodel.TypeSelect}
+		for _, g := range d.Authorization.FieldGroups {
+			f.Options = append(f.Options, metamodel.Option{Value: g.Key, Label: g.Label})
+		}
+		return &f
 	}
 	if i := slices.IndexFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field }); i >= 0 {
 		return &d.Fields[i]
@@ -544,10 +555,13 @@ func (p *Plugin) roleAuthValueFormState(ctx context.Context, payload any) (sdk.R
 	c := p.catalog(ctx)
 	fields := c.authFields(g.Object)
 	field := in.Values["field"]
+	if field == "" && len(fields) == 1 {
+		field = fields[0].Value // einziges Berechtigungsfeld vorbelegen
+	}
 	if field != "" && !slices.ContainsFunc(fields, func(o metamodel.Option) bool { return o.Value == field }) {
 		fields = append(fields, metamodel.Option{Value: field, Label: field})
 	}
-	st.Fields["field"] = metamodel.FieldState{Options: fields}
+	st.Fields["field"] = metamodel.FieldState{Options: fields, Value: &field}
 	if len(fields) == 0 {
 		st.Message = fmt.Sprintf("%s deklariert keine Berechtigungsfelder (metamodel.Authorization).", g.Object)
 	} else {

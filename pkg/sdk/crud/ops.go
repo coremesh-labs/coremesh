@@ -77,6 +77,13 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 			where, args = append(where, w), append(args, a...)
 		}
 	}
+	ac, err := e.accessCheck(ctx)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	if w, a := ac.scope(); w != "" {
+		where, args = append(where, w), append(args, a...)
+	}
 	sql := "SELECT " + strings.Join(cols, ", ") + " FROM " + e.Table
 	if len(where) > 0 {
 		sql += " WHERE " + strings.Join(where, " AND ")
@@ -101,6 +108,7 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 	}
 	items := make([]any, len(recs))
 	for i, r := range recs {
+		ac.filter(r)
 		items[i] = r
 	}
 	return sdk.Response{Payload: map[string]any{"items": items}}, nil
@@ -136,6 +144,10 @@ func (e *Entity) Get(ctx context.Context, payload any) (sdk.Response, error) {
 	if err != nil {
 		return sdk.Response{}, err
 	}
+	ac, err := e.checkReadable(ctx, rec)
+	if err != nil {
+		return sdk.Response{}, err
+	}
 	if e.CheckRecord != nil {
 		if err := e.CheckRecord(ctx, "get", rec); err != nil {
 			return sdk.Response{}, err
@@ -144,6 +156,7 @@ func (e *Entity) Get(ctx context.Context, payload any) (sdk.Response, error) {
 	if err := e.WithLabels(ctx, rec); err != nil {
 		return sdk.Response{}, err
 	}
+	ac.filter(rec)
 	return sdk.Response{Payload: rec}, nil
 }
 
@@ -251,6 +264,16 @@ func (e *Entity) Insert(ctx context.Context, rec Record) error {
 	if err := e.Check(ctx, rec, nil); err != nil {
 		return err
 	}
+	ac, err := e.accessCheck(ctx)
+	if err != nil {
+		return err
+	}
+	if !ac.canRead(rec) {
+		return fmt.Errorf("%w: %s außerhalb Ihrer Berechtigung (%s.read)", sdk.ErrPermissionDenied, e.Title, e.Object)
+	}
+	if err := ac.checkChange(rec, rec, nil); err != nil {
+		return err
+	}
 	if e.CheckRecord != nil {
 		if err := e.CheckRecord(ctx, "create", rec); err != nil {
 			return err
@@ -300,6 +323,11 @@ func (e *Entity) respond(ctx context.Context, key Record) (sdk.Response, error) 
 	if err := e.WithLabels(ctx, saved); err != nil {
 		return sdk.Response{}, err
 	}
+	ac, err := e.accessCheck(ctx)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	ac.filter(saved)
 	return sdk.Response{Payload: saved}, nil
 }
 
@@ -320,6 +348,10 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 			return err
 		}
 		key = e.KeyOf(old)
+		ac, err := e.checkReadable(ctx, old)
+		if err != nil {
+			return err
+		}
 		if e.CheckRecord != nil {
 			if err := e.CheckRecord(ctx, "update", old); err != nil {
 				return err
@@ -338,6 +370,12 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 				return Invalid("%s kann nach dem Anlegen nicht geändert werden", f.Label)
 			}
 			rec[k] = v
+		}
+		if !ac.canRead(rec) {
+			return fmt.Errorf("%w: %s außerhalb Ihrer Berechtigung (%s.read)", sdk.ErrPermissionDenied, e.Title, e.Object)
+		}
+		if err := ac.checkChange(in, rec, old); err != nil {
+			return err
 		}
 		if err := e.Check(ctx, rec, old); err != nil {
 			return err

@@ -89,6 +89,14 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		if lockedCustomer.Load() {
 			rec["_locked"] = true
 		}
+		if m, ok := customerMarkers.Load().(map[string]any); ok {
+			for k, v := range m {
+				rec[k] = v
+			}
+			if _, hide := m["_hidden_fields"]; hide {
+				delete(rec, "note") // wie crud: ohne Leserecht fehlt das Feld
+			}
+		}
 		return sdk.Response{Payload: rec}, nil
 	case "CustomerContact.list":
 		h.fakeHost.record(ctx, req)
@@ -113,6 +121,9 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "Address.list":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "a1", "city": "Zürich"}}}}, nil
+	case "Customer.update":
+		h.fakeHost.record(ctx, req)
+		return sdk.Response{Payload: map[string]any{"id": "c1"}}, nil
 	case "Customer.lock":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"message": "gesperrt"}}, nil
@@ -388,4 +399,42 @@ func TestNestedRelationDetailLink(t *testing.T) {
 	mdDefs["CustomerContact"] = d
 	s, _ = newMDServer(t)
 	mustContain(t, do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String(), `<a href="/m/crm/CustomerContact/k1">Anzeigen</a>`)
+}
+
+// customerMarkers: Customer.get liefert Feldberechtigungen (TestFieldAccessUI).
+var customerMarkers atomic.Value
+
+// TestFieldAccessUI: ausgeblendete Felder fehlen in Detail und Formular,
+// schreibgeschützte werden angezeigt, aber nie mitgeschickt.
+func TestFieldAccessUI(t *testing.T) {
+	t.Cleanup(func() { customerMarkers.Store(map[string]any{}) })
+	s, h := newMDServer(t)
+
+	customerMarkers.Store(map[string]any{"_hidden_fields": []any{"note"}})
+	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String(), "geheim", "<dt>Notiz</dt>")
+	edit := do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String()
+	mustNotContain(t, edit, `name="note"`)
+	mustContain(t, edit, `name="_access" value="note|"`)
+
+	customerMarkers.Store(map[string]any{"_readonly_fields": []any{"note"}})
+	edit = do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String()
+	mustContain(t, edit, "geheim", `name="_access" value="|note"`)
+	form := url.Values{"name": {"Muster AG"}, "note": {"manipuliert"}, "_access": {"|note"}}
+	if w := do(s, "PUT", "/m/crm/Customer/c1", form, true); w.Code >= 400 {
+		t.Fatalf("Speichern: %d %s", w.Code, w.Body.String())
+	}
+	data := h.find("update").Payload.(map[string]any)["data"].(map[string]any)
+	if _, sent := data["note"]; sent || data["name"] != "Muster AG" {
+		t.Fatalf("gesendet: %v", data)
+	}
+}
+
+func TestHiddenEverywhere(t *testing.T) {
+	rows := []record{
+		{"_hidden_fields": []any{"iban", "bic"}},
+		{"_hidden_fields": []any{"iban"}},
+	}
+	if got := hiddenEverywhere(rows); len(got) != 1 || !got["iban"] {
+		t.Fatalf("%v", got)
+	}
 }
