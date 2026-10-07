@@ -92,10 +92,12 @@ type Entity struct {
 	// Werte des Status-Felds; Standard true/false (boolean). Bei einem
 	// Auswahlfeld z. B. "ACTIVE"/"DEPRECATED".
 	StatusActive, StatusInactive any
-	Fields                       []Field
-	Order                        string   // ORDER BY
-	Filters                      []string // erlaubte Filter in list
-	Search                       []string // Spalten für den Suchparameter q (LIKE)
+	// EndLabel/EndConfirm ersetzen Text und Rückfrage der Ende-Action (z. B. „Schließen“).
+	EndLabel, EndConfirm string
+	Fields               []Field
+	Order                string   // ORDER BY
+	Filters              []string // erlaubte Filter in list
+	Search               []string // Spalten für den Suchparameter q (LIKE)
 
 	TitleField string
 	Sections   []metamodel.SectionDefinition
@@ -103,6 +105,8 @@ type Entity struct {
 	// ReadOnly: keine generischen create/update – Datensätze entstehen nur über
 	// eigene Actions (z. B. Buchungen, die Soll und Haben gemeinsam prüfen).
 	ReadOnly bool
+	// CreateOnly: anlegen ja, ändern nein (alle Felder fest, z. B. Einträge einer Liste).
+	CreateOnly bool
 	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
 	Actions []Action
 	// Events: Bewegungsdaten – nach create, update, expire und deactivate geht ein
@@ -117,6 +121,9 @@ type Entity struct {
 	ListScope   func(ctx context.Context) (where string, args []any, none bool, err error)
 	CheckRecord func(ctx context.Context, action string, rec Record) error // Zugriff je Datensatz
 	Decorate    func(ctx context.Context, rec Record) error                // virtuelle Felder füllen
+	// OnEnd liefert beim Beenden (expire, deactivate) weitere Spalten, z. B.
+	// geschlossen am/von.
+	OnEnd func(ctx context.Context, action string, rec Record) (map[string]any, error)
 	// FormState bestimmt die Maske für die aktuellen Formularwerte (Action
 	// formState, siehe metamodel.FormState).
 	FormState func(ctx context.Context, req metamodel.FormStateRequest) (metamodel.FormState, error)

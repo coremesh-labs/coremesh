@@ -3,6 +3,8 @@ package crud
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/camel/coremesh/pkg/sdk"
@@ -100,8 +102,18 @@ func (e *Entity) endWith(ctx context.Context, key Record, action string, change 
 		if err != nil {
 			return err
 		}
+		sets, vals := []string{col + " = ?"}, []any{value}
+		if e.OnEnd != nil {
+			extra, err := e.OnEnd(ctx, action, rec)
+			if err != nil {
+				return err
+			}
+			for _, k := range slices.Sorted(maps.Keys(extra)) {
+				sets, vals = append(sets, k+" = ?"), append(vals, extra[k])
+			}
+		}
 		w, args := e.keyWhere(key)
-		_, err = e.DB().Exec(ctx, "UPDATE "+e.Table+" SET "+col+" = ? WHERE "+w, append([]any{value}, args...)...)
+		_, err = e.DB().Exec(ctx, "UPDATE "+e.Table+" SET "+strings.Join(sets, ", ")+" WHERE "+w, append(vals, args...)...)
 		return err
 	})
 	if err != nil {
