@@ -148,3 +148,26 @@ func TestLookupFilters(t *testing.T) {
 		`<span class="lookup-label" data-lookup-label="kind_code">Telefon</span>`,
 		`<option value="a1" >Zürich</option>`) // Adresse: ein Eintrag, weiter Auswahl
 }
+
+// TestLookupFilterCompositeKey: Liefert das Lookup-Ziel den Datensatz nicht
+// über get (zusammengesetzter Schlüssel wie Buchungskreis|Code), sucht der
+// WebServer ihn in dessen Liste.
+func TestLookupFilterCompositeKey(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		f := field(d, "address_id")
+		l := *f.Lookup
+		l.Filters = map[string]string{"city": "kind_code.description"}
+		f.Lookup = &l
+	})
+	s, h := newMDServer(t)
+	do(s, "GET", "/lookup?from=CustomerContact&field=address_id&kind_code=TEL", nil, true)
+	var q map[string]any
+	for _, c := range h.calls {
+		if c.Object == "Address" && c.Action == "list" {
+			q = c.Payload.(map[string]any)["query"].(map[string]any)
+		}
+	}
+	if q["city"] != "Telefon" {
+		t.Fatalf("Filter aus der Liste des Ziels: %v", q)
+	}
+}

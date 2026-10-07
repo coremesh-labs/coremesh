@@ -420,15 +420,47 @@ func (s *server) filterValue(r *http.Request, from, src string, q url.Values) st
 	if i < 0 {
 		return ""
 	}
-	tgt, err := s.targetDef(r, def.Def.Fields[i].Lookup.Object)
+	lk := def.Def.Fields[i].Lookup
+	tgt, err := s.targetDef(r, lk.Object)
 	if err != nil {
 		return ""
 	}
 	rec, err := s.fetchRecord(r, tgt, v)
 	if err != nil {
-		return ""
+		// Zusammengesetzter Schlüssel (z. B. Buchungskreis|Code): den Datensatz in der
+		// Liste des Ziels suchen – mit den Filtern des Lookups (z. B. Buchungskreis).
+		if rec = s.findByValue(r, tgt, lk, v, from, q); rec == nil {
+			return ""
+		}
 	}
 	return scalar(rec[remote])
+}
+
+// findByValue: Datensatz des Lookup-Ziels mit ValueField = v aus dessen Liste.
+func (s *server) findByValue(r *http.Request, tgt objectCtx, lk *metamodel.Lookup, v, from string, q url.Values) record {
+	act, err := need(tgt, metamodel.KindList)
+	if err != nil {
+		return nil
+	}
+	query := map[string]any{}
+	for target, src := range lk.Filters {
+		if !strings.Contains(src, ".") { // keine weitere Verschachtelung
+			if fv := s.filterValue(r, from, src, q); fv != "" {
+				query[target] = fv
+			}
+		}
+	}
+	resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": query})
+	if err != nil {
+		return nil
+	}
+	recs, _ := records(resp.Payload)
+	for _, rec := range recs {
+		if scalar(rec[lk.ValueField]) == v {
+			return rec
+		}
+	}
+	return nil
 }
 
 // relationLink: Werte, über die das Unter-Object am Master hängt.
