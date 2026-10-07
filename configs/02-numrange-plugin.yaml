@@ -1,0 +1,11 @@
+# Core-Plugin Nummernkreise (Object NumberRange): fortlaufende Nummern für alle
+# Module. Module melden ihr Nummernkreis-Objekt an (Define) und ziehen Nummern
+# (Next); Intervalle, Format, Überlauf und das Protokoll der vergebenen Nummern
+# pflegt der Administrator unter Nummernkreise.
+plugins:
+  numrange:
+    kind: internal
+    databases:
+      main: { access: write }        # Tabellen numrange__* via DBSchema.Init
+    settings:
+      database: main

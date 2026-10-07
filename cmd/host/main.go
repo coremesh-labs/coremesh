@@ -33,6 +33,7 @@ import (
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/event"
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/hook"
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/iam"
+	"github.com/coremesh-labs/coremesh/internal/coreplugins/numrange"
 	"github.com/coremesh-labs/coremesh/internal/database"
 	"github.com/coremesh-labs/coremesh/internal/host"
 	"github.com/coremesh-labs/coremesh/internal/resolver"
@@ -99,6 +100,7 @@ func run() error {
 		event.Name:    func(d host.InternalDeps) sdk.Plugin { return event.New(d.Catalog) },
 		iam.Name:      func(d host.InternalDeps) sdk.Plugin { return iam.New(d.DB) },
 		hook.Name:     func(d host.InternalDeps) sdk.Plugin { return hook.New(d.DB, d.Catalog) },
+		numrange.Name: func(d host.InternalDeps) sdk.Plugin { return numrange.New(d.DB) },
 	}); err != nil {
 		return err
 	}
