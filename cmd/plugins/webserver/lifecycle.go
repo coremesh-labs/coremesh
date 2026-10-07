@@ -166,7 +166,7 @@ func (s *server) end(w http.ResponseWriter, r *http.Request) {
 		if recordID(saved) == "" {
 			saved = rec
 		}
-		out := view{objectCtx: oc, Record: saved, ViewParam: v.ViewParam, Toast: &toast{Level: "success", Message: msg}}
+		out := view{objectCtx: oc.forRow(saved, v.ViewParam), Record: saved, ViewParam: v.ViewParam, Toast: &toast{Level: "success", Message: msg}}
 		s.render(w, r, http.StatusOK, "updated", out, "", "")
 	}
 }

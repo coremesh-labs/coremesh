@@ -72,6 +72,8 @@ plugins:
   `update`, `expire` und `deactivate` ein Event. Der Buchungskreis kommt aus
   `company_code_id` bzw. `company_code`, sonst aus `CompanyCodeField`. Eingeschaltet wird
   das im Modul mit `set.Events(env.Services, "<modul>")`.
+  `EventFields` gibt Felder des Datensatzes in `data` mit (neben `id`), damit Abonnenten
+  filtern können, ohne nachzuladen – z. B. Art und Gebäude eines Mietobjekts.
 - **Explizit:** fachliche Vorgänge mit `events.Push` **nach dem Commit**, zum Beispiel das
   Hauptbuch in coremesh-erp: `JournalEntry.post`, `JournalEntry.reverse`,
   `JournalDraft.post`.

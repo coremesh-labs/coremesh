@@ -65,6 +65,8 @@
   "admin.DisplayRuleField.fields.active": "Active",
   "admin.DisplayRuleField.options.mode.hidden": "hide",
   "admin.DisplayRuleField.options.mode.readonly": "read-only",
+  "admin.DisplayRuleField.options.mode.column": "hide column",
+  "admin.DisplayRuleField.options.mode.section": "hide section",
   "admin.DisplayRuleField.actions.deactivate": "Remove",
   "admin.DisplayRuleField.actions.deactivate.confirm": "Remove field from rule?"
 }

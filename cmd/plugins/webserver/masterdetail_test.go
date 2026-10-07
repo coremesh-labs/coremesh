@@ -122,8 +122,8 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "a1", "city": "Zürich"}}}}, nil
 	case "Account.Display":
-		if rules, ok := displayRulesForTest.Load().([]any); ok && p["object"] == "Customer" {
-			return sdk.Response{Payload: map[string]any{"rules": rules}}, nil
+		if byObject, ok := displayRulesForTest.Load().(map[string]any); ok && byObject[fmt.Sprint(p["object"])] != nil {
+			return sdk.Response{Payload: map[string]any{"rules": byObject[fmt.Sprint(p["object"])]}}, nil
 		}
 		return sdk.Response{Payload: map[string]any{"rules": []any{}}}, nil
 	case "Customer.update":
@@ -444,17 +444,17 @@ func TestHiddenEverywhere(t *testing.T) {
 	}
 }
 
-// displayRulesForTest: Account.Display für Customer (TestDisplayRulesUI).
+// displayRulesForTest: Account.Display je Object (TestDisplayRulesUI u. a.).
 var displayRulesForTest atomic.Value
 
 // TestDisplayRulesUI: Regel „wenn Name = Muster AG: Notiz ausblenden“ wirkt in
 // Detail und Formular, das Bedingungsfeld wertet die Maske neu aus.
 func TestDisplayRulesUI(t *testing.T) {
-	t.Cleanup(func() { displayRulesForTest.Store([]any{}) })
-	displayRulesForTest.Store([]any{map[string]any{
+	t.Cleanup(func() { displayRulesForTest.Store(map[string]any{}) })
+	displayRulesForTest.Store(map[string]any{"Customer": []any{map[string]any{
 		"conditions": []any{map[string]any{"field": "name", "values": []any{"Muster AG"}}},
 		"hidden":     []any{"note"},
-	}})
+	}}})
 	s, h := newMDServer(t)
 	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String(), "geheim")
 
@@ -496,4 +496,29 @@ func TestRelationMatch(t *testing.T) {
 		t.Fatalf("Filter aus dem Master-Feld: %v", q)
 	}
 	mustContain(t, b, `hx-get="/m/crm/CustomerContact/new?customer_id=Muster%20AG&amp;_lock=customer_id&amp;_view=refresh"`)
+}
+
+// TestDisplayColumnsAndSections: „Spalte ausblenden“ wirkt nur in Listen und
+// Unterzeilen (Detail und Formular behalten das Feld), „Abschnitt ausblenden“
+// nimmt den Abschnitt aus dem Detail und seine Felder aus dem Formular.
+func TestDisplayColumnsAndSections(t *testing.T) {
+	t.Cleanup(func() { displayRulesForTest.Store(map[string]any{}) })
+	displayRulesForTest.Store(map[string]any{
+		"Customer": []any{map[string]any{
+			"conditions": []any{map[string]any{"field": "name", "values": []any{"Muster AG"}}},
+			"sections":   []any{"archive"},
+		}},
+		"CustomerContact": []any{map[string]any{"columns": []any{"kind_code"}}},
+	})
+	s, _ := newMDServer(t)
+	rel := do(s, "GET", "/m/crm/CustomerContact/k1", nil, true).Body.String()
+	mustContain(t, rel, "E-Mail") // Detail: Spalte ausgeblendet, Feld bleibt
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustNotContain(t, b, "<th>Art</th>", "E-Mail")
+	mustContain(t, b, "<th>Wert</th>", "info@muster.ch")
+
+	detail := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustNotContain(t, detail, "Archiv", "geheim")
+	mustContain(t, detail, "Kontakte")
+	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String(), `name="note"`)
 }

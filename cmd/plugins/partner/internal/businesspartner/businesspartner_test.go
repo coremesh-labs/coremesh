@@ -779,3 +779,19 @@ func TestHistoryFilter(t *testing.T) {
 		t.Fatalf("mit Historie: %s", got)
 	}
 }
+
+// TestFilterByRole: list mit role liefert nur Partner, die die Rolle heute haben
+// (Auswahl in anderen Modulen, z. B. Eigentümer eines Mietobjekts).
+func TestFilterByRole(t *testing.T) {
+	e := setup(t)
+	a, b := e.newBP("Mieter AG"), e.newBP("Andere AG")
+	e.must("PartnerRole", "create", data("bp_id", a, "role_code", "TENANT", "valid_from", "2000-01-01"))
+	e.must("PartnerRole", "create", data("bp_id", b, "role_code", "TENANT", "valid_from", "2000-01-01", "valid_to", "2001-12-31"))
+	got := e.items("BusinessPartner", map[string]any{"role": "TENANT"})
+	if len(got) != 1 || got[0]["id"] != a {
+		t.Fatalf("Mieter heute: %v", got)
+	}
+	if n := len(e.items("BusinessPartner", map[string]any{})); n < 2 {
+		t.Fatalf("ohne Filter: %d", n)
+	}
+}

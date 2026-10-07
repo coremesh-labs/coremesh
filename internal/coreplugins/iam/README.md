@@ -239,7 +239,7 @@ optional nur für bestimmte Rollen:
 |---|---|
 | Regel (`DisplayRule`) | Bezeichnung, Object (Auswahl aus dem Catalog), Rollen (leer = alle), aktiv |
 | Bedingungen (`DisplayRuleCondition`) | Feld und Werte (kommagetrennt, einer muss zutreffen); alle Bedingungen müssen zutreffen, keine = immer |
-| Felder (`DisplayRuleField`) | Feld und Darstellung `ausblenden` oder `unänderbar` |
+| Felder (`DisplayRuleField`) | Feld und Darstellung `ausblenden`, `unänderbar`, `Spalte ausblenden` oder `Abschnitt ausblenden` (dann Abschnitt statt Feld) |
 
 Beispiel: `JournalEntryItem`, Bedingung *Herkunft* = RENT → *Kundenauftrag (SD)* und
 *Verkaufsorganisation (SD)* ausblenden (den Kunden nicht – dort steht bei RENT der Mieter).
@@ -249,6 +249,11 @@ Beispiel: `JournalEntryItem`, Bedingung *Herkunft* = RENT → *Kundenauftrag (SD
   fehlen sie bzw. sind schreibgeschützt und werden nicht mitgeschickt – ihr Wert bleibt.
   Felder aus Bedingungen werten die Maske bei Änderung neu aus: Ändert sich der Typ,
   ändert sich die Darstellung sofort.
+- **Spalte ausblenden** (seit 0.7.0): nur in Listen und Unterzeilen – Detail und
+  Formular behalten das Feld. Erlaubt auch für Schlüssel- und Pflichtfelder, z. B. den
+  Kontenplan in den Sachkonten, wenn die Kontonummer ihn schon enthält.
+- **Abschnitt ausblenden** (seit 0.7.0): Der Abschnitt der Detailansicht fehlt, seine
+  Felder gelten überall als ausgeblendet. Beispiel: „Flächen“ nur bei Art = POOL.
 - **Nur einschränken:** Regeln wirken nach Metamodell, FormState und
   Feldberechtigungen und können nichts einblenden. Pflichtfelder lassen sich nicht
   ausblenden (Pflege lehnt ab, der WebServer zeigt sie trotzdem), nur „unänderbar“.

@@ -65,6 +65,8 @@
   "admin.DisplayRuleField.fields.active": "有效",
   "admin.DisplayRuleField.options.mode.hidden": "隐藏",
   "admin.DisplayRuleField.options.mode.readonly": "只读",
+  "admin.DisplayRuleField.options.mode.column": "隐藏列",
+  "admin.DisplayRuleField.options.mode.section": "隐藏分区",
   "admin.DisplayRuleField.actions.deactivate": "移除",
   "admin.DisplayRuleField.actions.deactivate.confirm": "从规则中移除该字段？"
 }

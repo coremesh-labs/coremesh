@@ -32,9 +32,17 @@
       <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
         <option value="true" {{if eq $v "true"}}selected{{end}}>{{t "core.app.yes"}}</option>
         <option value="false" {{if eq $v "false"}}selected{{end}}>{{t "core.app.no"}}</option></select>
-      {{else if .Options}}
+      {{else if .Select}}
       <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
-        {{range .Options}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+        {{range .Choices}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+      {{else if .Search}}
+      <span class="lookup">
+        <input type="text" name="{{.Key}}" value="{{$v}}" size="10" autocomplete="off"
+               oninput="var l=this.parentNode.querySelector('.lookup-label');if(l)l.textContent=''">
+        <button type="button" class="btn lookup-btn" title="{{t "core.lookup.select_from" .Label}}"
+                hx-get="/lookup?from={{$.Object}}&field={{.Key}}" hx-target="#lookup" hx-swap="innerHTML" hx-include="closest form">{{t "core.lookup.select"}}</button>
+        <span class="lookup-label" data-lookup-label="{{.Key}}">{{.ValueLabel}}</span>
+      </span>
       {{else}}
       <input type="text" name="{{.Key}}" value="{{$v}}" size="10">
       {{end}}

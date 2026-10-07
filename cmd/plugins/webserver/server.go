@@ -252,13 +252,14 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	filterBar := s.filterFields(r, oc, r.URL.Query())
 	if len(rows) > 0 {
 		for _, row := range rows {
-			oc.applyDisplay(row)
+			oc.applyListDisplay(row)
 		}
 		oc.Def = withoutFields(oc.Def, hiddenEverywhere(rows)) // Spalten ohne Leserecht in allen Zeilen
 	}
-	v := view{objectCtx: oc, Rows: rows, History: includeHistory(r), Filter: map[string]string{}}
+	v := view{objectCtx: oc, Rows: rows, History: includeHistory(r), Filter: map[string]string{}, FilterBar: filterBar}
 	q := url.Values{}
 	for _, k := range append([]string{"q"}, oc.Def.Filters...) {
 		if val := strings.TrimSpace(r.URL.Query().Get(k)); val != "" {
@@ -516,6 +517,7 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	if viewParam != "row" {
 		viewParam = "detail"
 	}
+	oc = oc.forRow(rec, viewParam)
 	v := view{objectCtx: oc, Record: rec, ViewParam: viewParam, Toast: &toast{Level: "success", Message: s.T(r, "core.toast.saved", oc.Def.Title)}}
 	s.render(w, r, http.StatusOK, "updated", v, "", "")
 }

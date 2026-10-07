@@ -30,7 +30,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.6.0"
+	Version = "0.7.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"

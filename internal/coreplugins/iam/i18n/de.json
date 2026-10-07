@@ -65,6 +65,8 @@
   "admin.DisplayRuleField.fields.active": "Aktiv",
   "admin.DisplayRuleField.options.mode.hidden": "ausblenden",
   "admin.DisplayRuleField.options.mode.readonly": "unänderbar",
+  "admin.DisplayRuleField.options.mode.column": "Spalte ausblenden",
+  "admin.DisplayRuleField.options.mode.section": "Abschnitt ausblenden",
   "admin.DisplayRuleField.actions.deactivate": "Entfernen",
   "admin.DisplayRuleField.actions.deactivate.confirm": "Feld aus der Regel entfernen?"
 }

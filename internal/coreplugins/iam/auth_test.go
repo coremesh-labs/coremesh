@@ -18,10 +18,11 @@ type catalogHost struct{ nopHost }
 var periodDef = metamodel.ObjectDefinition{
 	Name: "FiscalPeriod", Title: "Buchungsperioden",
 	Fields: []metamodel.FieldDefinition{
-		{Key: "ledger", Label: "Ledger", Type: metamodel.TypeText, Required: true},
+		{Key: "ledger", Label: "Ledger", Type: metamodel.TypeText, Required: true, Listable: true},
 		{Key: "posting_period", Label: "Periode", Type: metamodel.TypeNumber},
 		{Key: "status", Label: "Status", Type: metamodel.TypeSelect, Options: []metamodel.Option{{Value: "OPEN", Label: "offen"}}},
 	},
+	Sections:      []metamodel.SectionDefinition{{Key: "details", Title: "Details", Fields: []string{"posting_period"}}},
 	Actions:       []metamodel.ActionConfig{{Name: "list", Kind: metamodel.KindList, Label: "Übersicht"}},
 	Authorization: &metamodel.Authorization{Fields: []string{"ledger", "posting_period"}, Actions: []metamodel.AuthAction{{Name: "post", Label: "Buchen"}}},
 }

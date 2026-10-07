@@ -128,3 +128,23 @@ func TestHiddenRecordActions(t *testing.T) {
 		t.Fatalf("Aktionen: %v", got)
 	}
 }
+
+// TestLookupFilters: Verweisfelder in der Filterleiste zeigen Texte – kleine
+// Ziele als Auswahl, große als Eingabe mit Auswahldialog und Text zum Wert.
+func TestLookupFilters(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.Filters = []string{"kind_code", "address_id"}
+	})
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/m/crm/CustomerContact?kind_code=TEL", nil, true).Body.String()
+	mustContain(t, b, `<option value="MAIL" >E-Mail</option>`, `<option value="TEL" selected>Telefon</option>`,
+		`<option value="a1" >Zürich</option>`)
+
+	old := filterChoiceLimit
+	filterChoiceLimit = 1
+	t.Cleanup(func() { filterChoiceLimit = old })
+	b = do(s, "GET", "/m/crm/CustomerContact?kind_code=TEL", nil, true).Body.String()
+	mustContain(t, b, `name="kind_code" value="TEL"`, `hx-get="/lookup?from=CustomerContact&field=kind_code"`,
+		`<span class="lookup-label" data-lookup-label="kind_code">Telefon</span>`,
+		`<option value="a1" >Zürich</option>`) // Adresse: ein Eintrag, weiter Auswahl
+}
