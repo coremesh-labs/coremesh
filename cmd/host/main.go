@@ -31,6 +31,7 @@ import (
 	"github.com/camel/coremesh/internal/coreplugins/catalog"
 	"github.com/camel/coremesh/internal/coreplugins/dbschema"
 	"github.com/camel/coremesh/internal/coreplugins/event"
+	"github.com/camel/coremesh/internal/coreplugins/hook"
 	"github.com/camel/coremesh/internal/coreplugins/iam"
 	"github.com/camel/coremesh/internal/database"
 	"github.com/camel/coremesh/internal/host"
@@ -97,6 +98,7 @@ func run() error {
 		catalog.Name:  func(d host.InternalDeps) sdk.Plugin { return catalog.New(d.Catalog) },
 		event.Name:    func(d host.InternalDeps) sdk.Plugin { return event.New(d.Catalog) },
 		iam.Name:      func(d host.InternalDeps) sdk.Plugin { return iam.New(d.DB) },
+		hook.Name:     func(d host.InternalDeps) sdk.Plugin { return hook.New(d.DB, d.Catalog) },
 	}); err != nil {
 		return err
 	}
