@@ -98,6 +98,9 @@ type Entity struct {
 	Order                string   // ORDER BY
 	Filters              []string // erlaubte Filter in list
 	Search               []string // Spalten für den Suchparameter q (LIKE)
+	// FilterExpr: eigene Bedingung für einen Filter statt "feld = ?" (z. B. Kontonummer
+	// mit oder ohne Kontenplan).
+	FilterExpr map[string]func(v any) (string, []any)
 
 	TitleField string
 	Sections   []metamodel.SectionDefinition

@@ -46,6 +46,11 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 	var args []any
 	for _, f := range e.Filters {
 		if v, ok := query[f]; ok && Str(v) != "" {
+			if fx := e.FilterExpr[f]; fx != nil {
+				w, a := fx(v)
+				where, args = append(where, w), append(args, a...)
+				continue
+			}
 			where, args = append(where, f+" = ?"), append(args, e.filterArg(f, v))
 		}
 	}
