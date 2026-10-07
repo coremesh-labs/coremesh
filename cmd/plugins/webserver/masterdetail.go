@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -166,7 +167,17 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "relation", rv, "", "")
 		return
 	}
-	query := map[string]any{rel.ForeignKey: id}
+	// Verknüpfung: id des Masters oder – bei zusammengesetzten Schlüsseln – die
+	// Felder aus Relation.Match (aus dem Datensatz des Masters).
+	link, err := s.relationLink(r, oc, id, rel)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	query := map[string]any{}
+	for k, v := range link {
+		query[k] = v
+	}
 	if includeHistory(r) {
 		query["includeHistory"] = "true"
 	}
@@ -195,7 +206,12 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		rv.DetailURL = child.URL
 	}
 	if child.Has["create"] != nil {
-		rv.AddURL = child.URL + "/new?" + rel.ForeignKey + "=" + pathEscape(id) + "&_lock=" + rel.ForeignKey + "&_view=refresh"
+		keys := slices.Sorted(maps.Keys(link))
+		var q []string
+		for _, k := range keys {
+			q = append(q, url.QueryEscape(k)+"="+pathEscape(link[k]))
+		}
+		rv.AddURL = child.URL + "/new?" + strings.Join(q, "&") + "&_lock=" + strings.Join(keys, ",") + "&_view=refresh"
 	}
 	s.render(w, r, http.StatusOK, "relation", rv, "", "")
 }
@@ -409,4 +425,25 @@ func (s *server) filterValue(r *http.Request, from, src string, q url.Values) st
 		return ""
 	}
 	return scalar(rec[remote])
+}
+
+// relationLink: Werte, über die das Unter-Object am Master hängt.
+func (s *server) relationLink(r *http.Request, oc objectCtx, id string, rel *metamodel.Relation) (map[string]string, error) {
+	if len(rel.Match) == 0 {
+		return map[string]string{rel.ForeignKey: id}, nil
+	}
+	act, err := need(oc, metamodel.KindItem)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.call(r, oc.Object, act.Name, map[string]any{"id": id})
+	if err != nil {
+		return nil, err
+	}
+	master := asRecord(resp.Payload)
+	out := map[string]string{}
+	for child, field := range rel.Match {
+		out[child] = scalar(master[field])
+	}
+	return out, nil
 }

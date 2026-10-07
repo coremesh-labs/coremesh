@@ -139,6 +139,14 @@ func (d ObjectDefinition) Validate() error {
 			if !objectRe.MatchString(r.Object) || !keyRe.MatchString(r.ForeignKey) {
 				add("%s: relation braucht object (PascalCase) und foreign_key", where)
 			}
+			if _, ok := r.Match[r.ForeignKey]; len(r.Match) > 0 && !ok {
+				add("%s: relation.match muss foreign_key %q enthalten", where, r.ForeignKey)
+			}
+			for child, master := range r.Match {
+				if !keyRe.MatchString(child) || !keyRe.MatchString(master) {
+					add("%s: relation.match: ungültiges Feld %q → %q", where, child, master)
+				}
+			}
 			for _, k := range r.Columns {
 				if !keyRe.MatchString(k) {
 					add("%s: relation: ungültige Spalte %q", where, k)
