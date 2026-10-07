@@ -147,6 +147,11 @@ type Relation struct {
 	Object     string   `json:"object"`            // Unter-Object, z. B. "PartnerAddress"
 	ForeignKey string   `json:"foreign_key"`       // Feld des Unter-Objects mit der id des Masters, z. B. "bp_id"
 	Columns    []string `json:"columns,omitempty"` // Spalten der eingebetteten Tabelle (Standard: listable ohne ForeignKey)
+	// Match: Felder des Unter-Objects → Felder des Masters, wenn der Master einen
+	// zusammengesetzten Schlüssel hat (z. B. {"company_code": "company_code",
+	// "building_id": "building_id"}). Gesetzt muss es ForeignKey enthalten; ohne
+	// Match erhält ForeignKey die id des Masters.
+	Match map[string]string `json:"match,omitempty"`
 }
 
 // FieldType bestimmt Darstellung und Eingabe eines Felds.

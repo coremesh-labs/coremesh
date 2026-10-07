@@ -474,3 +474,26 @@ func TestDisplayRulesUI(t *testing.T) {
 		t.Fatal("ausgeblendete Notiz mitgeschickt")
 	}
 }
+
+// TestRelationMatch: Bei zusammengesetzten Schlüsseln hängt das Unter-Object
+// über Felder des Masters (Relation.Match) – Filter und Vorbelegung.
+func TestRelationMatch(t *testing.T) {
+	old := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = old })
+	d := old
+	d.Sections = slices.Clone(old.Sections)
+	for i, sec := range d.Sections {
+		if sec.Relation != nil {
+			rel := *sec.Relation
+			rel.Match = map[string]string{"customer_id": "name"}
+			d.Sections[i].Relation = &rel
+		}
+	}
+	mdDefs["Customer"] = d
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	if q := h.find("list").Payload.(map[string]any)["query"].(map[string]any); q["customer_id"] != "Muster AG" {
+		t.Fatalf("Filter aus dem Master-Feld: %v", q)
+	}
+	mustContain(t, b, `hx-get="/m/crm/CustomerContact/new?customer_id=Muster%20AG&amp;_lock=customer_id&amp;_view=refresh"`)
+}
