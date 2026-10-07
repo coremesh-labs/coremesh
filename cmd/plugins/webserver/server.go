@@ -136,7 +136,7 @@ func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 	if !def.Available {
 		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.unavailable", def.Definition.Title))
 	}
-	return s.withLocale(r, newObjectCtx(mod.Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r))), nil
+	return s.withDisplay(r, s.withLocale(r, newObjectCtx(mod.Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r)))), nil
 }
 
 // need liefert die Action eines Kinds oder einen Fehler, wenn das Object sie nicht anbietet.
@@ -253,6 +253,9 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(rows) > 0 {
+		for _, row := range rows {
+			oc.applyDisplay(row)
+		}
 		oc.Def = withoutFields(oc.Def, hiddenEverywhere(rows)) // Spalten ohne Leserecht in allen Zeilen
 	}
 	v := view{objectCtx: oc, Rows: rows, History: includeHistory(r), Filter: map[string]string{}}
@@ -390,6 +393,7 @@ func (s *server) item(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	oc.applyDisplay(rec)
 	oc.Def = withoutFields(oc.Def, accessOf(rec).hidden)
 	s.render(w, r, http.StatusOK, "detail", view{objectCtx: oc, Record: rec}, oc.Def.Title, oc.Object)
 }

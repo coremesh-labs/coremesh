@@ -131,6 +131,7 @@ aber immer der Dispatcher, unabhängig davon, über welchen Weg eine Anfrage kom
 | `Account.ChangePassword {current, new}` | eigenes Passwort | jeder angemeldete Benutzer |
 | `Account.Check {object, action, attrs}` | → `{allowed}`: darf der Benutzer das mit diesen Werten? (`company_code` als Kurzform für `attrs.company_code`) | jeder angemeldete Benutzer, v. a. Module (`sdk.Authorize`, `sdk.CheckAccess`) |
 | `Account.Granted {object, action}` | → `{all, company_codes, rules}` (`sdk.GrantSet`): alle Erlaubnisse mit Feldwerten | jeder angemeldete Benutzer, v. a. Module (`sdk.Grants`, `sdk.GrantedCompanyCodes`) |
+| `Account.Display {object}` | → `{rules}`: Darstellungsregeln des Benutzers für das Object | jeder angemeldete Benutzer, v. a. WebServer |
 | `User.list/get/create/update/deactivate` | Benutzerverwaltung. Lebenszyklus **status** (`active`): inaktivieren statt löschen; `list` nur aktive, mit `includeHistory=true` alle | mit Berechtigung, z. B. `User.*` |
 | `Role.list/get/create/update` | Rollenverwaltung. **immutable**: kein Löschen | mit Berechtigung, z. B. `Role.*` |
 | `RoleAuth.list/get/create/update/deactivate/formState` | Berechtigung je Rolle und `Object.Action`. Lebenszyklus **status**; `list` filtert nach `role_id`, `object` | mit Berechtigung, z. B. `RoleAuth.*` |
@@ -227,6 +228,35 @@ Datensatz-Actions:
   nie mit, die Werte bleiben erhalten.
 - Module ohne crud prüfen selbst mit `sdk.Authorize`/`sdk.Grants` (Aktionen
   `read`, `readFields`, `changeFields`).
+
+## Darstellungsregeln (Administration → Darstellung)
+
+Unabhängig von den Plugins legt der Administrator fest, welche Felder eines Objects in
+der Oberfläche **ausgeblendet** oder **unänderbar** sind – abhängig von Feldwerten und
+optional nur für bestimmte Rollen:
+
+| Teil | Inhalt |
+|---|---|
+| Regel (`DisplayRule`) | Bezeichnung, Object (Auswahl aus dem Catalog), Rollen (leer = alle), aktiv |
+| Bedingungen (`DisplayRuleCondition`) | Feld und Werte (kommagetrennt, einer muss zutreffen); alle Bedingungen müssen zutreffen, keine = immer |
+| Felder (`DisplayRuleField`) | Feld und Darstellung `ausblenden` oder `unänderbar` |
+
+Beispiel: `JournalEntryItem`, Bedingung *Herkunft* = RENT → *Kundenauftrag (SD)* und
+*Verkaufsorganisation (SD)* ausblenden (den Kunden nicht – dort steht bei RENT der Mieter).
+
+- **Wirkung (WebServer):** Liste, Detail und Unterzeilen zeigen ausgeblendete Felder
+  nicht („—“; Spalten fehlen, wenn sie in keiner Zeile sichtbar sind). Im Formular
+  fehlen sie bzw. sind schreibgeschützt und werden nicht mitgeschickt – ihr Wert bleibt.
+  Felder aus Bedingungen werten die Maske bei Änderung neu aus: Ändert sich der Typ,
+  ändert sich die Darstellung sofort.
+- **Nur einschränken:** Regeln wirken nach Metamodell, FormState und
+  Feldberechtigungen und können nichts einblenden. Pflichtfelder lassen sich nicht
+  ausblenden (Pflege lehnt ab, der WebServer zeigt sie trotzdem), nur „unänderbar“.
+- **Kein Schutz:** Über die API bleiben die Felder sichtbar. Schützen über
+  Feldgruppen (`readFields`/`changeFields`).
+- `Account.Display {object}` liefert die Regeln des aufrufenden Benutzers (für jeden
+  angemeldeten Benutzer erlaubt); Tabellen `iam__display_rule`, `iam__display_rule_cond`,
+  `iam__display_rule_field` (seit 0.6.0).
 
 ## Schutz vor Aussperren
 

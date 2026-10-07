@@ -18,7 +18,7 @@ type catalogHost struct{ nopHost }
 var periodDef = metamodel.ObjectDefinition{
 	Name: "FiscalPeriod", Title: "Buchungsperioden",
 	Fields: []metamodel.FieldDefinition{
-		{Key: "ledger", Label: "Ledger", Type: metamodel.TypeText},
+		{Key: "ledger", Label: "Ledger", Type: metamodel.TypeText, Required: true},
 		{Key: "posting_period", Label: "Periode", Type: metamodel.TypeNumber},
 		{Key: "status", Label: "Status", Type: metamodel.TypeSelect, Options: []metamodel.Option{{Value: "OPEN", Label: "offen"}}},
 	},

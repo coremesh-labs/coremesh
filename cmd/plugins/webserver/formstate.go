@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/camel/coremesh/pkg/sdk"
@@ -53,6 +54,7 @@ func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map
 		}
 	}
 	m := mask{def: oc.Def, hidden: map[string]bool{}, readonly: map[string]bool{}, denied: map[string]bool{}, values: vals, message: st.Message}
+	dispHidden, dispReadonly := oc.displayFor(displayValues(oc.Def, vals))
 	m.def.Fields = nil
 	for _, f := range oc.Def.Fields {
 		if acc.hidden[f.Key] && !locked[f.Key] {
@@ -78,6 +80,13 @@ func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map
 		if fs.Options != nil {
 			f.Options = fs.Options
 		}
+		// Darstellungsregeln: nur weiter einschränken; Pflichtfelder bleiben sichtbar.
+		if dispHidden[f.Key] && visible && !f.Required && !locked[f.Key] {
+			continue // nicht anzeigen, nicht mitschicken – der Wert bleibt
+		}
+		if dispReadonly[f.Key] && f.Editable && !locked[f.Key] {
+			m.readonly[f.Key], m.denied[f.Key] = true, true
+		}
 		if !visible && !locked[f.Key] {
 			if f.Editable {
 				m.hidden[f.Key] = true
@@ -87,6 +96,17 @@ func (s *server) mask(r *http.Request, oc objectCtx, mode, id string, values map
 		m.def.Fields = append(m.def.Fields, f)
 	}
 	return m
+}
+
+// displayValues: Formularwerte für Bedingungen – Ja/Nein wie in Datensätzen.
+func displayValues(d metamodel.ObjectDefinition, vals map[string]string) map[string]string {
+	out := maps.Clone(vals)
+	for _, f := range d.Fields {
+		if f.Type == metamodel.TypeBoolean {
+			out[f.Key] = strconv.FormatBool(vals[f.Key] == "on" || vals[f.Key] == "true")
+		}
+	}
+	return out
 }
 
 // dynamic: Das Formular hat eine Maske, die sich mit den Eingaben ändert.
