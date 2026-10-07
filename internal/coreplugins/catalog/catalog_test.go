@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/camel/coremesh/internal/dispatcher"
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/internal/dispatcher"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 type nop struct{}

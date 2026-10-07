@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/camel/coremesh/internal/txctx"
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/internal/txctx"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // txHost ist ein Fake-Host mit Transaktionsverwaltung. Er protokolliert alle

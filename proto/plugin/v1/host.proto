@@ -5,7 +5,7 @@ package coremesh.plugin.v1;
 import "google/protobuf/struct.proto";
 import "plugin/v1/plugin.proto";
 
-option go_package = "github.com/camel/coremesh/internal/api/plugin/v1;pluginv1";
+option go_package = "github.com/coremesh-lab/coremesh/internal/api/plugin/v1;pluginv1";
 
 // HostService wird vom Host implementiert und vom Plugin über den
 // go-plugin GRPCBroker aufgerufen (Rückkanal). So rufen Plugins andere

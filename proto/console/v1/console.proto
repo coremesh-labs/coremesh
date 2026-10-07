@@ -4,7 +4,7 @@ package coremesh.console.v1;
 
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/camel/coremesh/pkg/consoleapi/console/v1;consolev1";
+option go_package = "github.com/coremesh-lab/coremesh/pkg/consoleapi/console/v1;consolev1";
 
 // ConsoleService ist der Kommandozeilen-Zugang zu CoreMesh. Ihn stellt das
 // externe Plugin console bereit (Unix-Socket, optional TCP/TLS); die CLI

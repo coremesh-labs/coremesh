@@ -10,12 +10,12 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/camel/coremesh/internal/config"
-	"github.com/camel/coremesh/internal/coreplugins/dbschema"
-	"github.com/camel/coremesh/internal/database"
-	"github.com/camel/coremesh/internal/dispatcher"
-	"github.com/camel/coremesh/pkg/sdk"
-	hookapi "github.com/camel/coremesh/pkg/sdk/hook"
+	"github.com/coremesh-lab/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/dbschema"
+	"github.com/coremesh-lab/coremesh/internal/database"
+	"github.com/coremesh-lab/coremesh/internal/dispatcher"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	hookapi "github.com/coremesh-lab/coremesh/pkg/sdk/hook"
 )
 
 // subscriberHost spielt die Abonnenten (<Callback>.onHook).
@@ -24,7 +24,9 @@ type subscriberHost struct {
 	calls []string
 }
 
-func (h *subscriberHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error { return nil }
+func (h *subscriberHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error {
+	return nil
+}
 
 func (h *subscriberHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, error) {
 	in := req.Payload.(hookapi.Request)

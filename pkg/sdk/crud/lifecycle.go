@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/events"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/events"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // Lebenszyklus: Physisch gelöscht wird nichts.

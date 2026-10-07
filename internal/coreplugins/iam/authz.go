@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // Berechtigungen einer Rolle: je Object.Action eine Zeile (iam__role_auth)

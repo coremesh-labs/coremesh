@@ -14,9 +14,9 @@ import (
 	"embed"
 	"log/slog"
 
-	"github.com/camel/coremesh/pkg/sdk/crud"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
-	"github.com/camel/coremesh/pkg/sdk/module"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/crud"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
 )
 
 // Name ist der Namensraum des Moduls (/m/businesspartner, /api/v1/businesspartner).

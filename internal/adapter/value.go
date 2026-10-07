@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // toValue wandelt beliebige JSON-darstellbare Go-Werte in google.protobuf.Value.

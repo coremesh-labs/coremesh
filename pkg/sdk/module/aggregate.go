@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // Aggregate (Master-Detail): Für jedes Object, dessen Metamodell Relationen

@@ -6,8 +6,8 @@ import (
 
 	goplugin "github.com/hashicorp/go-plugin"
 
-	"github.com/camel/coremesh/internal/adapter"
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/internal/adapter"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 type echoPlugin struct{}

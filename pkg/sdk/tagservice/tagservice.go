@@ -27,8 +27,8 @@ package tagservice
 import (
 	"context"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/module"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
 )
 
 // Object ist das Business-Object des TagService im Dispatcher.

@@ -8,10 +8,10 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/camel/coremesh/internal/config"
-	"github.com/camel/coremesh/internal/database"
-	"github.com/camel/coremesh/internal/txctx"
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/internal/database"
+	"github.com/coremesh-lab/coremesh/internal/txctx"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // pluginHost sind die Host-Dienste für genau ein Plugin. Jeder Aufruf wird

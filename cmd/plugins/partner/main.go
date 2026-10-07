@@ -5,10 +5,10 @@
 package main
 
 import (
-	"github.com/camel/coremesh/pkg/sdk/module"
-	"github.com/camel/coremesh/pkg/sdk/plugin"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/plugin"
 
-	"github.com/camel/coremesh/cmd/plugins/partner/internal/businesspartner"
+	"github.com/coremesh-lab/coremesh/cmd/plugins/partner/internal/businesspartner"
 )
 
 const version = "0.7.0"

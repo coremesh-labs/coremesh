@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/camel/coremesh/pkg/sdk/crud"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
-	"github.com/camel/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/crud"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
 )
 
 // Verwaltung der Tag-Definitionen (Oberfläche /m/tagmanagement, Engine

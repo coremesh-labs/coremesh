@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // fakeModule ist ein konfigurierbares Test-Modul.

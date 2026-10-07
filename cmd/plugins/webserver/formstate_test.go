@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // withDef ersetzt eine Testdefinition für die Dauer eines Tests.

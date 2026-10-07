@@ -25,7 +25,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/camel/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/internal/config"
 )
 
 // ErrNotFound: Binary weder lokal vorhanden noch herunterladbar.

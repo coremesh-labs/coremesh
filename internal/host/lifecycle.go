@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // checkVersionResult ist die Antwort von DBSchema.CheckVersion.

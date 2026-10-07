@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // JSON-API je Modul (Präfix /api/v1/{module}), angemeldet über die Session

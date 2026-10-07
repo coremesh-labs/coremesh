@@ -14,10 +14,10 @@ import (
 	"ariga.io/atlas/sql/sqlite"
 	_ "modernc.org/sqlite"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
-	"github.com/camel/coremesh/pkg/sdk/module"
-	"github.com/camel/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
 )
 
 // testHost: SQLite mit einer Verbindung, Geschäftspartner, Buchungskreise,

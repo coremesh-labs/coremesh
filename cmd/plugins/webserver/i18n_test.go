@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 func TestAcceptLanguage(t *testing.T) {

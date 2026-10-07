@@ -1,4 +1,4 @@
-module github.com/camel/coremesh
+module github.com/coremesh-lab/coremesh
 
 go 1.27.1
 
