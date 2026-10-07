@@ -1,7 +1,7 @@
 # Web-Frontend (externes Plugin, eigenes Go-Modul unter cmd/plugins/webserver).
 plugins:
   webserver:
-    version: 0.19.0
+    version: 0.20.0
     # Ingress: darf eigene Wurzelanfragen starten (HTTP-Anfragen von außen).
     ingress: true
     # Session-Tabelle (webserver__sessions) via DBSchema.Init; Benutzer und Rollen: Plugin iam.

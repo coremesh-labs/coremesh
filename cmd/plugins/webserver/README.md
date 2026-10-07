@@ -607,6 +607,9 @@ Mögliche Quellen:
 - Fester Wert, z. B. `=false`.
 
 Der Lookup-Knopf schickt dazu die Formularwerte mit, die Suche im Dialog behält die Filter.
+Liefert das Ziel den Datensatz hinter `feld.zielfeld` nicht über `get` (zusammengesetzter Schlüssel
+wie `Buchungskreis|Code`), sucht der WebServer ihn in der Liste des Ziels – mit den Filtern
+dieses Lookups (seit 0.20.0).
 
 **Filter in der Übersicht.** `ObjectDefinition.Filters` (in crud aus `Entity.Filters`) und
 `Search` erzeugen eine Filterleiste über der Tabelle:
