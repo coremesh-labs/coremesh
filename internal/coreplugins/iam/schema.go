@@ -462,7 +462,8 @@ var (
 		Actions: append(crud("Feld"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
 			Label: "Entfernen", Confirm: "Feld aus der Regel entfernen?"}),
 	}
-	displayModes   = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"}}
+	displayModes   = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"},
+		{Value: modeColumn, Label: "Spalte ausblenden"}, {Value: modeSection, Label: "Abschnitt ausblenden"}}
 	companyCodeDef = metamodel.ObjectDefinition{
 		Name: "CompanyCode", Title: "Buchungskreise", Icon: "icon-building",
 		Fields: []metamodel.FieldDefinition{

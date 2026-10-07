@@ -67,7 +67,11 @@ func (v view) Sections() []sectionView {
 	if len(rest) > 0 {
 		out = append(out, sectionView{Key: "allgemein", Title: v.T("core.section.general"), Fields: rest})
 	}
+	hiddenSecs := markerList(v.Record, "_hidden_sections")
 	for _, s := range d.Sections {
+		if hiddenSecs[s.Key] {
+			continue // Darstellungsregel
+		}
 		sv := sectionView{Key: s.Key, Title: s.Title, Collapsed: s.Collapsed, Relation: s.Relation, Tags: s.Tags}
 		for _, k := range s.Fields {
 			if i := slices.IndexFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
@@ -191,7 +195,7 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, row := range rv.Rows {
-		child.applyDisplay(row)
+		child.applyListDisplay(row)
 	}
 	rv.Columns = relationColumns(withoutFields(child.Def, hiddenEverywhere(rv.Rows)), rel)
 	for _, f := range rv.Columns {

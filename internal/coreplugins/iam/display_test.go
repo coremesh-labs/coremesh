@@ -47,14 +47,29 @@ func TestDisplayRules(t *testing.T) {
 	if err := add("DisplayRuleField", map[string]any{"field": "gibtsnicht", "mode": "readonly"}); !errors.Is(err, sdk.ErrInvalidArgument) {
 		t.Fatalf("unbekanntes Feld: %v", err)
 	}
+	// Spalte: auch Pflicht- und Schlüsselfelder; Abschnitt: Schlüssel des Abschnitts.
+	if err := add("DisplayRuleField", map[string]any{"field": "ledger", "mode": "column"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := add("DisplayRuleField", map[string]any{"field": "details", "mode": "section"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := add("DisplayRuleField", map[string]any{"field": "ledger", "mode": "section"}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Fatalf("unbekannter Abschnitt: %v", err)
+	}
+	resp, err := p.Handle(ctx, sdk.Request{Object: "DisplayRuleField", Action: formStateAction, Payload: metamodel.FormStateRequest{
+		Mode: "create", Values: map[string]string{"rule_id": ruleID.(string), "mode": "section"}}})
+	if opts := resp.Payload.(metamodel.FormState).Fields["field"].Options; err != nil || len(opts) != 1 || opts[0].Value != "details" {
+		t.Fatalf("Abschnitte zur Auswahl: %v %v", opts, err)
+	}
 
 	got, _ := call(t, p, ctx, "DisplayRule", "get", map[string]any{"id": ruleID})
-	if got["summary"] != "wenn Status = OPEN: ausblenden Periode · unänderbar Ledger" {
+	if got["summary"] != "wenn Status = OPEN: ausblenden Periode · unänderbar Ledger · Spalte ausblenden Ledger · Abschnitt ausblenden Details" {
 		t.Fatalf("Zusammenfassung: %q", got["summary"])
 	}
 
 	// Auswahl der Felder und Werte aus dem Catalog.
-	resp, err := p.Handle(ctx, sdk.Request{Object: "DisplayRuleCondition", Action: formStateAction, Payload: metamodel.FormStateRequest{
+	resp, err = p.Handle(ctx, sdk.Request{Object: "DisplayRuleCondition", Action: formStateAction, Payload: metamodel.FormStateRequest{
 		Mode: "create", Values: map[string]string{"rule_id": ruleID.(string), "field": "status"}}})
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +104,8 @@ func TestDisplayRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := display(u["id"].(string))
-	if len(rs.Rules) != 1 || rs.Rules[0].Conditions[0].Field != "status" || rs.Rules[0].Hidden[0] != "posting_period" || rs.Rules[0].Readonly[0] != "ledger" {
+	if len(rs.Rules) != 1 || rs.Rules[0].Conditions[0].Field != "status" || rs.Rules[0].Hidden[0] != "posting_period" || rs.Rules[0].Readonly[0] != "ledger" ||
+		rs.Rules[0].Columns[0] != "ledger" || rs.Rules[0].Sections[0] != "details" {
 		t.Fatalf("Regeln: %+v", rs)
 	}
 	// Inaktiv: wirkt nicht mehr.

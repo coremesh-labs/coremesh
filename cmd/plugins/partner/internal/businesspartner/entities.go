@@ -130,6 +130,13 @@ func (m *Module) businessPartner() *entity {
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
 		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "search_term, name1, valid_from",
 		Search: []string{"name1", "name2", "search_term"},
+		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
+		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
+		Filters: []string{"role"},
+		FilterExpr: map[string]func(v any) (string, []any){"role": func(v any) (string, []any) {
+			return "EXISTS (SELECT 1 FROM partner__roles r WHERE r.bp_id = partner__bp.id AND r.role_code = ? AND r.valid_from <= ? AND r.valid_to >= ?)",
+				[]any{str(v), today(), today()}
+		}},
 		// Detailansicht im Stil von LeanIX: Stammdaten plus eingebettete
 		// Unter-Objects. Adressen sind n:m über die Zuordnung PartnerAddress
 		// (Rolle + Zeitscheibe) zu wiederverwendbaren PartnerAddressData.

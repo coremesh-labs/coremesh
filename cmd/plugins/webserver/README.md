@@ -612,8 +612,14 @@ Der Lookup-Knopf schickt dazu die Formularwerte mit, die Suche im Dialog behält
 `Search` erzeugen eine Filterleiste über der Tabelle:
 
 - Suchfeld,
-- Auswahl bei Optionen und Ja/Nein, sonst Textfeld,
+- Auswahl bei Optionen und Ja/Nein,
+- Verweisfelder (Lookup, seit 0.19.0): Auswahl mit den Texten des Ziels, wenn es höchstens
+  50 Einträge hat (z. B. Kataloge), sonst Eingabe mit Auswahldialog und dem Text zum Wert.
+  `Lookup.Filters` wirken mit anderen Filtern der Leiste als Quelle (z. B. `company_code`),
+- sonst Textfeld,
 - „Filter zurücksetzen“.
+
+Filter bleiben, auch wenn eine Darstellungsregel ihre Spalte ausblendet.
 
 Filter stehen in der URL und überleben das Neuladen der Liste. crud wandelt Filterwerte
 nach dem Feldtyp um (Ja/Nein, Zahl).

@@ -164,6 +164,9 @@ func (e *Entity) respondEvent(ctx context.Context, key Record, action string) (s
 	}
 	ev := events.Event{Object: e.Object, Action: action, CompanyCode: Str(rec[cc]), EntityID: e.RecordID(rec),
 		Source: e.set.source, Data: map[string]any{"id": rec["id"]}}
+	for _, k := range e.EventFields {
+		ev.Data[k] = rec[k]
+	}
 	if err := events.Push(ctx, e.set.services, ev); err != nil {
 		_ = sdk.HostFrom(ctx).Log(ctx, sdk.LogWarn, "SystemEvent nicht gemeldet", map[string]string{
 			"object": e.Object, "action": action, "err": err.Error()})

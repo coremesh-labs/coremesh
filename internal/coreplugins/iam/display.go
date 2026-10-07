@@ -16,7 +16,8 @@ import (
 // Darstellungsregeln (Administration → Darstellung): Je Object legt der
 // Administrator Regeln an, die – optional nur für bestimmte Rollen und nur,
 // wenn alle Bedingungen auf Feldwerte zutreffen – Felder ausblenden oder
-// unänderbar machen. Beispiel: JournalEntryItem, Bedingung source_module =
+// unänderbar machen, Spalten nur in Listen ausblenden (auch Schlüssel) oder
+// Abschnitte der Detailansicht ausblenden. Beispiel: JournalEntryItem, Bedingung source_module =
 // RENT, Felder der SD-Kontierung ausblenden.
 //
 // Das ist reine Darstellung: Der WebServer wendet die Regeln als letzte Schicht
@@ -27,9 +28,14 @@ import (
 // Account.Display {object} liefert die Regeln, die für den aufrufenden Benutzer
 // gelten; ausgewertet wird je Datensatz bzw. Formularstand im WebServer.
 
+// Darstellungsarten eines Eintrags: Feld ausblenden oder unänderbar machen,
+// Spalte nur in Listen ausblenden (auch Schlüssel- und Pflichtfelder),
+// Abschnitt der Detailansicht ausblenden (field = Schlüssel des Abschnitts).
 const (
 	modeHidden   = "hidden"
 	modeReadonly = "readonly"
+	modeColumn   = "column"
+	modeSection  = "section"
 )
 
 var objectNameRe = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
@@ -201,12 +207,16 @@ func (p *Plugin) deactivateRow(ctx context.Context, table, title, id string) err
 
 // --- Darstellung der Datensätze -------------------------------------------------
 
-// fieldLabels: Feld → Bezeichnung aus der Definition des Objects.
+// fieldLabels: Feld → Bezeichnung aus der Definition des Objects, Abschnitte
+// als "section:<key>" → Titel.
 func fieldLabels(d *metamodel.ObjectDefinition) map[string]string {
 	out := map[string]string{}
 	if d != nil {
 		for _, f := range d.Fields {
 			out[f.Key] = f.Label
+		}
+		for _, s := range d.Sections {
+			out["section:"+s.Key] = s.Title
 		}
 	}
 	return out
@@ -227,22 +237,22 @@ func (r displayRule) summary(labels map[string]string) string {
 			conds = append(conds, labelOr(labels, c.Field)+" = "+strings.Join(splitList(c.Values), " | "))
 		}
 	}
-	var hidden, readonly []string
+	byMode := map[string][]string{}
 	for _, f := range r.Fields {
-		switch {
-		case !f.Active:
-		case f.Mode == modeHidden:
-			hidden = append(hidden, labelOr(labels, f.Field))
-		case f.Mode == modeReadonly:
-			readonly = append(readonly, labelOr(labels, f.Field))
+		if f.Active {
+			key := f.Field
+			if f.Mode == modeSection {
+				key = "section:" + f.Field
+			}
+			byMode[f.Mode] = append(byMode[f.Mode], labelOr(labels, key))
 		}
 	}
 	var effects []string
-	if len(hidden) > 0 {
-		effects = append(effects, "ausblenden "+strings.Join(hidden, ", "))
-	}
-	if len(readonly) > 0 {
-		effects = append(effects, "unänderbar "+strings.Join(readonly, ", "))
+	for _, m := range []struct{ mode, text string }{{modeHidden, "ausblenden"}, {modeReadonly, "unänderbar"},
+		{modeColumn, "Spalte ausblenden"}, {modeSection, "Abschnitt ausblenden"}} {
+		if l := byMode[m.mode]; len(l) > 0 {
+			effects = append(effects, m.text+" "+strings.Join(l, ", "))
+		}
 	}
 	when := "immer"
 	if len(conds) > 0 {
@@ -268,7 +278,11 @@ func (p *Plugin) childRecord(c *catalogView, t childTable, row childRow, rule *d
 	labels := map[string]any{}
 	if rule != nil {
 		labels["rule_id"] = rule.Name
-		labels["field"] = labelOr(fieldLabels(c.def(rule.Object)), row.Field)
+		key := row.Field
+		if t == fieldTable && row.Value == modeSection {
+			key = "section:" + key
+		}
+		labels["field"] = labelOr(fieldLabels(c.def(rule.Object)), key)
 	}
 	return map[string]any{"id": row.ID, "rule_id": row.RuleID, "field": row.Field, t.valueCol: row.Value, "active": row.Active, "_labels": labels}
 }
@@ -466,8 +480,15 @@ func (p *Plugin) childSave(ctx context.Context, t childTable, payload any, creat
 		return sdk.Response{}, fmt.Errorf("%w: Feld fehlt", sdk.ErrInvalidArgument)
 	}
 	d := p.catalog(ctx).def(rule.Object)
+	section := t == fieldTable && row.Value == modeSection
 	var f *metamodel.FieldDefinition
-	if d != nil {
+	switch {
+	case d == nil:
+	case section:
+		if !slices.ContainsFunc(d.Sections, func(s metamodel.SectionDefinition) bool { return s.Key == row.Field }) {
+			return sdk.Response{}, fmt.Errorf("%w: %s hat keinen Abschnitt %q", sdk.ErrInvalidArgument, rule.Object, row.Field)
+		}
+	default:
 		i := slices.IndexFunc(d.Fields, func(x metamodel.FieldDefinition) bool { return x.Key == row.Field })
 		if i < 0 {
 			return sdk.Response{}, fmt.Errorf("%w: %s hat kein Feld %q", sdk.ErrInvalidArgument, rule.Object, row.Field)
@@ -483,10 +504,10 @@ func (p *Plugin) childSave(ctx context.Context, t childTable, payload any, creat
 		row.Value = strings.Join(vals, ", ")
 	case fieldTable:
 		switch {
-		case row.Value != modeHidden && row.Value != modeReadonly:
-			return sdk.Response{}, fmt.Errorf("%w: Darstellung: ausblenden oder unänderbar", sdk.ErrInvalidArgument)
+		case !slices.Contains([]string{modeHidden, modeReadonly, modeColumn, modeSection}, row.Value):
+			return sdk.Response{}, fmt.Errorf("%w: Darstellung: ausblenden, unänderbar, Spalte ausblenden oder Abschnitt ausblenden", sdk.ErrInvalidArgument)
 		case row.Value == modeHidden && f != nil && f.Required:
-			return sdk.Response{}, fmt.Errorf("%w: %s ist ein Pflichtfeld und kann nicht ausgeblendet werden – „unänderbar“ verwenden", sdk.ErrInvalidArgument, f.Label)
+			return sdk.Response{}, fmt.Errorf("%w: %s ist ein Pflichtfeld und kann nicht ausgeblendet werden – „unänderbar“ oder „Spalte ausblenden“ verwenden", sdk.ErrInvalidArgument, f.Label)
 		}
 	}
 	if create {
@@ -535,11 +556,26 @@ func (p *Plugin) childFormState(ctx context.Context, t childTable, payload any) 
 		return sdk.Response{Payload: st}, nil
 	}
 	d := p.catalog(ctx).def(rule.Object)
+	mode := in.Values["mode"]
+	if t == fieldTable && mode == "" && in.ID != "" {
+		if row, err := p.getChild(ctx, t, in.ID); err == nil {
+			mode = row.Value
+		}
+	}
 	var opts []metamodel.Option
-	if d != nil {
+	switch {
+	case d == nil:
+	case t == fieldTable && mode == modeSection:
+		for _, s := range d.Sections {
+			opts = append(opts, metamodel.Option{Value: s.Key, Label: s.Title + " (" + s.Key + ")"})
+		}
+	default:
 		for _, f := range d.Fields {
-			if t == fieldTable && in.Values["mode"] == modeHidden && f.Required {
+			switch {
+			case t == fieldTable && mode == modeHidden && f.Required:
 				continue // Pflichtfelder lassen sich nicht ausblenden
+			case t == fieldTable && mode == modeColumn && !f.Listable:
+				continue // keine Spalte der Liste
 			}
 			opts = append(opts, metamodel.Option{Value: f.Key, Label: f.Label + " (" + f.Key + ")"})
 		}
@@ -577,6 +613,8 @@ type DisplayRuleView struct {
 	Conditions []DisplayCondition `json:"conditions,omitempty"`
 	Hidden     []string           `json:"hidden,omitempty"`
 	Readonly   []string           `json:"readonly,omitempty"`
+	Columns    []string           `json:"columns,omitempty"`  // nur in Listen ausblenden
+	Sections   []string           `json:"sections,omitempty"` // Abschnitte der Detailansicht
 }
 
 type DisplayCondition struct {
@@ -628,9 +666,13 @@ func (p *Plugin) display(ctx context.Context, payload any) (sdk.Response, error)
 				v.Hidden = append(v.Hidden, f.Field)
 			case f.Mode == modeReadonly:
 				v.Readonly = append(v.Readonly, f.Field)
+			case f.Mode == modeColumn:
+				v.Columns = append(v.Columns, f.Field)
+			case f.Mode == modeSection:
+				v.Sections = append(v.Sections, f.Field)
 			}
 		}
-		if len(v.Hidden)+len(v.Readonly) > 0 {
+		if len(v.Hidden)+len(v.Readonly)+len(v.Columns)+len(v.Sections) > 0 {
 			out.Rules = append(out.Rules, v)
 		}
 	}

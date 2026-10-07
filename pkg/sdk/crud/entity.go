@@ -117,6 +117,9 @@ type Entity struct {
 	// des Buchungskreises im Event (Standard: company_code_id bzw. company_code).
 	Events           bool
 	CompanyCodeField string
+	// EventFields: Felder des Datensatzes, die das Event in Data mitbringt (z. B.
+	// Art und Gebäude), damit Abonnenten filtern können, ohne nachzuladen.
+	EventFields []string
 
 	// Hooks
 	Validate    func(ctx context.Context, rec, old Record) error // nach der Typprüfung, in der Transaktion

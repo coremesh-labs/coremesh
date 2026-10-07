@@ -87,6 +87,9 @@ oder `deactivate` (siehe unten). Konventionen des WebServers: `{data}`, `{id, da
 - **Filter in `list`:** zum Beispiel `bp_id`, `role_code`, `company_code` oder
   `category_code`, je nach Object.
 - **Suche:** `q` sucht bei `BusinessPartner` in Name 1, Name 2 und Suchbegriff.
+- **Filter `role`** (seit 0.8.0): `BusinessPartner` mit `role=OWNER` liefert nur Partner, die die
+  Rolle heute haben. Andere Module nutzen ihn für die Auswahl, z. B. die Immobilien
+  (`Lookup.Filters: {"role": "role_code"}` – nur Eigentümer bei Rolle Eigentümer).
 
 ```bash
 console --object BusinessPartner --action create --param 'data={"type":"ORGANIZATION","name1":"Muster AG"}'
@@ -210,7 +213,7 @@ console --object BusinessPartner --action saveAggregate --param 'data={"type":"O
 
 | Datei | Inhalt |
 |---|---|
-| `main.go` | nur Verdrahtung: `module.NewPlugin(Info{partner, 0.7.0}, businesspartner.New())` |
+| `main.go` | nur Verdrahtung: `module.NewPlugin(Info{partner, 0.8.0}, businesspartner.New())` |
 | `internal/businesspartner/module.go` | das **BusinessPartnerModule**: Descriptor, RegisterRoutes, Initialize (DB, Services, Logger), Schema |
 | `schema.go` | Atlas-HCL aller Tabellen und Seeds |
 | `crud.go` | Aliase auf die gemeinsame CRUD-Engine [`pkg/sdk/crud`](../../../pkg/sdk/crud) (Typumwandlung, Schlüssel, Verweise und `_labels`, Zeitscheiben, Lebenszyklus, Transaktionen, Metamodell). Sie stammt aus diesem Plugin und wird mit `tag` geteilt. |

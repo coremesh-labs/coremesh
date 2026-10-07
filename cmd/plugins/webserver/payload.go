@@ -253,6 +253,7 @@ type view struct {
 	FormFields   []fieldCtx
 	FormError    string
 	Filter       map[string]string // Liste: aktive Filter (q und ObjectDefinition.Filters)
+	FilterBar    []filterField     // Liste: Felder der Filterleiste
 	ListURL      string            // Liste: URL mit den aktiven Filtern (Neuladen)
 	FormMessage  string            // Hinweis der Maske (FormState)
 	FormStateURL string            // Neuauswertung der Maske (leer = statisch)
@@ -421,13 +422,5 @@ func triggerURL(f metamodel.FieldDefinition, url string) string {
 	return url
 }
 
-// FilterFields sind die Felder der Filterleiste der Übersicht.
-func (v view) FilterFields() []metamodel.FieldDefinition {
-	var out []metamodel.FieldDefinition
-	for _, k := range v.Def.Filters {
-		if i := slices.IndexFunc(v.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
-			out = append(out, v.Def.Fields[i])
-		}
-	}
-	return out
-}
+// FilterFields sind die Felder der Filterleiste der Übersicht (filters.go).
+func (v view) FilterFields() []filterField { return v.FilterBar }
