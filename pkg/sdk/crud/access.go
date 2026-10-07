@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // Access: Zugriff je Datensatz und je Feldgruppe – crud setzt ihn bei jedem

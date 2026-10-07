@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // Translator ist optional: Ein Modul liefert seine Übersetzungen

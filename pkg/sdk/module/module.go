@@ -31,7 +31,7 @@ package module
 import (
 	"context"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // Module ist die Schnittstelle jedes fachlichen Moduls.

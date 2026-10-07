@@ -1,6 +1,6 @@
 package businesspartner
 
-import "github.com/camel/coremesh/pkg/sdk/crud"
+import "github.com/coremesh-lab/coremesh/pkg/sdk/crud"
 
 // Die Entities nutzen die generische CRUD-Engine des SDK (pkg/sdk/crud).
 // Kurznamen für den Fachcode dieses Pakets:

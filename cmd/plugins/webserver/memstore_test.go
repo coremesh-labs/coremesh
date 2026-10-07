@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // memStore hält Sessions im Speicher (gleiches Verhalten wie sqlStore).

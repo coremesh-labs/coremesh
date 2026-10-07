@@ -20,8 +20,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	consolev1 "github.com/camel/coremesh/pkg/consoleapi/console/v1"
-	"github.com/camel/coremesh/pkg/sdk"
+	consolev1 "github.com/coremesh-lab/coremesh/pkg/consoleapi/console/v1"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // fakeHost spielt iam, Catalog und ein Fachmodul AssetsModule.

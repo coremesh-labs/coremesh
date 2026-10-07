@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 type handlerFunc func(context.Context, sdk.Request) (sdk.Response, error)

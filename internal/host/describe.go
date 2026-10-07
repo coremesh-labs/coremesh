@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // describe holt die Metamodell-Definitionen eines Moduls (Catalog.Describe)

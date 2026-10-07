@@ -809,7 +809,7 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
 - **Austauschen:** Jedes Plugin, das dieselben Payload-Konventionen nutzt, kann den
   WebServer ersetzen, etwa eine JSON-REST-API oder ein anderes Frontend.
 - **Auslagern:** Für ein eigenes Repository genügt es, in `go.mod` die `replace`-Zeile durch
-  eine Version von `github.com/camel/coremesh` zu ersetzen.
+  eine Version von `github.com/coremesh-lab/coremesh` zu ersetzen.
 - **Debuggen:** Mit `-debug` starten und den Host mit `COREMESH_REATTACH_PLUGINS` anhängen,
   siehe `pkg/sdk/plugin`.
 

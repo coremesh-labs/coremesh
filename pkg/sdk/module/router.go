@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 // HandlerFunc bedient eine Action eines Objects.
@@ -27,8 +27,8 @@ type Router struct {
 	module   string
 	objects  []*ObjectRoutes
 	commands []metamodel.CommandDefinition
-	errs    *[]error
-	owners  map[string]string // Object -> Modul (über alle Module eines Plugins)
+	errs     *[]error
+	owners   map[string]string // Object -> Modul (über alle Module eines Plugins)
 }
 
 // ObjectRoutes sind die Actions eines Objects.

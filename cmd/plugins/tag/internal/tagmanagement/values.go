@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/crud"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
-	"github.com/camel/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/crud"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
 )
 
 // Werte: Prüfung und Umwandlung je Datentyp.
@@ -32,7 +32,7 @@ var amountRe = regexp.MustCompile(`^-?\d{1,15}(\.\d{1,4})?$`)
 // stored ist ein Wert in Spaltenform.
 type stored struct {
 	String, Amount, Currency, Date, Timestamp, Option, Ref *string
-	Integer                                           *int64
+	Integer                                                *int64
 }
 
 func (s stored) value() tagservice.Value {

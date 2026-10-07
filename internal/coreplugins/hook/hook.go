@@ -32,11 +32,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/camel/coremesh/internal/database"
-	"github.com/camel/coremesh/internal/dispatcher"
-	"github.com/camel/coremesh/pkg/sdk"
-	hookapi "github.com/camel/coremesh/pkg/sdk/hook"
-	"github.com/camel/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-lab/coremesh/internal/database"
+	"github.com/coremesh-lab/coremesh/internal/dispatcher"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	hookapi "github.com/coremesh-lab/coremesh/pkg/sdk/hook"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
 )
 
 const (
@@ -330,7 +330,7 @@ func (p *Plugin) invoke(ctx context.Context, callback string, req hookapi.Reques
 
 type hookRow struct {
 	Name, Owner, Description, Phases, DataDoc, OnFailure, UpdatedAt string
-	Defined                                                          bool
+	Defined                                                         bool
 }
 
 type subRow struct {

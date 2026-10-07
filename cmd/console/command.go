@@ -12,7 +12,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	consolev1 "github.com/camel/coremesh/pkg/consoleapi/console/v1"
+	consolev1 "github.com/coremesh-lab/coremesh/pkg/consoleapi/console/v1"
 )
 
 // Konsolenbefehle der Module: console <modul>:<befehl> --param=wert …

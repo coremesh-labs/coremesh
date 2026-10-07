@@ -1,11 +1,11 @@
 // TagManagement (Plugin tag). Eigenes Modul: nutzt nur die öffentliche API (pkg/sdk/...).
-module github.com/camel/coremesh/cmd/plugins/tag
+module github.com/coremesh-lab/coremesh/cmd/plugins/tag
 
 go 1.27.1
 
 require (
 	ariga.io/atlas v1.3.0
-	github.com/camel/coremesh v0.0.0
+	github.com/coremesh-lab/coremesh v0.0.0
 	modernc.org/sqlite v1.60.1
 )
 
@@ -44,4 +44,4 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 )
 
-replace github.com/camel/coremesh => ../../..
+replace github.com/coremesh-lab/coremesh => ../../..

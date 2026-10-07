@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/camel/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/internal/config"
 )
 
 func newTestResolver(dir string, dl config.Download) *Resolver {

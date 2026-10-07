@@ -11,8 +11,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/camel/coremesh/internal/config"
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 func openTest(t *testing.T, opts Options) *Manager {

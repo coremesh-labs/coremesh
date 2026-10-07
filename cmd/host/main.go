@@ -27,16 +27,16 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // SQL-Treiber "pgx" (PostgreSQL)
 	_ "modernc.org/sqlite"             // SQL-Treiber "sqlite"
 
-	"github.com/camel/coremesh/internal/config"
-	"github.com/camel/coremesh/internal/coreplugins/catalog"
-	"github.com/camel/coremesh/internal/coreplugins/dbschema"
-	"github.com/camel/coremesh/internal/coreplugins/event"
-	"github.com/camel/coremesh/internal/coreplugins/hook"
-	"github.com/camel/coremesh/internal/coreplugins/iam"
-	"github.com/camel/coremesh/internal/database"
-	"github.com/camel/coremesh/internal/host"
-	"github.com/camel/coremesh/internal/resolver"
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/internal/config"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/catalog"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/dbschema"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/event"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/hook"
+	"github.com/coremesh-lab/coremesh/internal/coreplugins/iam"
+	"github.com/coremesh-lab/coremesh/internal/database"
+	"github.com/coremesh-lab/coremesh/internal/host"
+	"github.com/coremesh-lab/coremesh/internal/resolver"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 func main() {

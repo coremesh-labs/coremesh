@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // Modul-Schicht des WebServers.

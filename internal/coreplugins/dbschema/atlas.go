@@ -11,7 +11,7 @@ import (
 	"ariga.io/atlas/sql/sqlite"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/camel/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
 )
 
 // dialect bündelt, was Atlas pro Datenbanktyp braucht.

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/camel/coremesh/internal/dispatcher"
-	"github.com/camel/coremesh/pkg/sdk"
-	"github.com/camel/coremesh/pkg/sdk/events"
+	"github.com/coremesh-lab/coremesh/internal/dispatcher"
+	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-lab/coremesh/pkg/sdk/events"
 )
 
 // fakeHost nimmt Zustellungen entgegen; fail liefert je Callback Fehler für die

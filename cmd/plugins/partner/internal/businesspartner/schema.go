@@ -1,6 +1,6 @@
 package businesspartner
 
-import "github.com/camel/coremesh/pkg/sdk"
+import "github.com/coremesh-lab/coremesh/pkg/sdk"
 
 // schemaHCL: alle Tabellen des Moduls businesspartner (Präfix partner__ des
 // Plugins, bei PostgreSQL-Schema-Isolation im Schema mod_partner). Nur
