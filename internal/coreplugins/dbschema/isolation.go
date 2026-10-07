@@ -7,7 +7,7 @@ import (
 
 	"ariga.io/atlas/sql/schema"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Schutzprüfungen für Modul-Migrationen.

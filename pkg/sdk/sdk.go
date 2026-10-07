@@ -5,8 +5,8 @@
 // auf das Wire-Protokoll übernimmt pkg/sdk/plugin. Ein Plugin sieht so aus:
 //
 //	import (
-//		"github.com/coremesh-lab/coremesh/pkg/sdk"
-//		"github.com/coremesh-lab/coremesh/pkg/sdk/plugin"
+//		"github.com/coremesh-labs/coremesh/pkg/sdk"
+//		"github.com/coremesh-labs/coremesh/pkg/sdk/plugin"
 //	)
 //
 //	func main() { plugin.Serve(&myPlugin{}) }

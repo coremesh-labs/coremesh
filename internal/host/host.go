@@ -14,12 +14,12 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/internal/dispatcher"
-	"github.com/coremesh-lab/coremesh/internal/pluginmgr"
-	"github.com/coremesh-lab/coremesh/internal/resolver"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/internal/dispatcher"
+	"github.com/coremesh-labs/coremesh/internal/pluginmgr"
+	"github.com/coremesh-labs/coremesh/internal/resolver"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // InternalDeps sind die Host-Interna, auf die Core-Plugins direkt zugreifen.

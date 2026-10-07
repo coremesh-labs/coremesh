@@ -15,8 +15,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
 
-	"github.com/coremesh-lab/coremesh/internal/adapter"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/adapter"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Spec beschreibt einen zu startenden Plugin-Prozess.

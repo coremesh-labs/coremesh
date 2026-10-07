@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Speicherung der Berechtigungen: iam__role_auth (je Rolle und Object.Action)

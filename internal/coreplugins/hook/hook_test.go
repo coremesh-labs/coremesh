@@ -10,12 +10,12 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
-	"github.com/coremesh-lab/coremesh/internal/coreplugins/dbschema"
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/internal/dispatcher"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	hookapi "github.com/coremesh-lab/coremesh/pkg/sdk/hook"
+	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/coreplugins/dbschema"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/internal/dispatcher"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	hookapi "github.com/coremesh-labs/coremesh/pkg/sdk/hook"
 )
 
 // subscriberHost spielt die Abonnenten (<Callback>.onHook).

@@ -2,12 +2,12 @@
 // (pkg/sdk/...). Der Go-Compiler verhindert jeden Import von internal/.
 // Für die Auslagerung in ein eigenes Repository genügt es, die replace-Zeile
 // durch eine Versionsangabe zu ersetzen.
-module github.com/coremesh-lab/coremesh/cmd/plugins/webserver
+module github.com/coremesh-labs/coremesh/cmd/plugins/webserver
 
 go 1.27.1
 
 require (
-	github.com/coremesh-lab/coremesh v0.0.0
+	github.com/coremesh-labs/coremesh v0.0.0
 	golang.org/x/crypto v0.57.0
 )
 
@@ -28,4 +28,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace github.com/coremesh-lab/coremesh => ../../..
+replace github.com/coremesh-labs/coremesh => ../../..

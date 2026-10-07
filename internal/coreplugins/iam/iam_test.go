@@ -12,11 +12,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
-	"github.com/coremesh-lab/coremesh/internal/coreplugins/dbschema"
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/coreplugins/dbschema"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 type nopHost struct{ sdk.Host }

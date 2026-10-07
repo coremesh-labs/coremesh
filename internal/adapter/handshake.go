@@ -6,7 +6,7 @@ package adapter
 import (
 	goplugin "github.com/hashicorp/go-plugin"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // PluginName ist der Schlüssel, unter dem Host und Plugin das Plugin registrieren.

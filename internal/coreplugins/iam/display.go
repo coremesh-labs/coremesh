@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Darstellungsregeln (Administration → Darstellung): Je Object legt der

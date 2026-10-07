@@ -16,9 +16,9 @@ import (
 	"ariga.io/atlas/sql/sqlite"
 	_ "modernc.org/sqlite"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
 
 // testHost: SQLite mit einer einzigen Verbindung (Transaktionen über

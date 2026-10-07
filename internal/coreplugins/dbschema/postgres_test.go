@@ -7,10 +7,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/internal/testutil/pgtest"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/internal/testutil/pgtest"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 func setupPG(t *testing.T, isolation string) (*Plugin, *database.Manager) {

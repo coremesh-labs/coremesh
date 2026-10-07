@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 func TestDisplayRules(t *testing.T) {

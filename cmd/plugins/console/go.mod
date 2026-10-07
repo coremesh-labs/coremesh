@@ -1,11 +1,11 @@
 // Eigenes Modul: Das Console-Plugin nutzt nur die öffentliche API (pkg/...).
 // Für ein eigenes Repository die replace-Zeile durch eine Version ersetzen.
-module github.com/coremesh-lab/coremesh/cmd/plugins/console
+module github.com/coremesh-labs/coremesh/cmd/plugins/console
 
 go 1.27.1
 
 require (
-	github.com/coremesh-lab/coremesh v0.0.0
+	github.com/coremesh-labs/coremesh v0.0.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
@@ -26,4 +26,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
 )
 
-replace github.com/coremesh-lab/coremesh => ../../..
+replace github.com/coremesh-labs/coremesh => ../../..

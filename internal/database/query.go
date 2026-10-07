@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // Querier ist ein Pool (*sql.DB) oder eine Transaktion (*sql.Tx).

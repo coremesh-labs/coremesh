@@ -3,9 +3,9 @@ package hook
 import (
 	"embed"
 
-	hookapi "github.com/coremesh-lab/coremesh/pkg/sdk/hook"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	hookapi "github.com/coremesh-labs/coremesh/pkg/sdk/hook"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
 
 // schemaHCL: Hooks und Abos (Präfix hook__). Abos werden bei jedem Start der

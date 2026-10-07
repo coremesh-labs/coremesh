@@ -10,8 +10,8 @@ import (
 
 	"ariga.io/atlas/sql/schema"
 
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 // applySeeds fügt die Stammdaten eines Moduls ein – in der Transaktion der

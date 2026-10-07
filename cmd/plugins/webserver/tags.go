@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/tagservice"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/tagservice"
 )
 
 // TagEditor: Abschnitt „Tags“ der Detailansicht (SectionDefinition.Tags).

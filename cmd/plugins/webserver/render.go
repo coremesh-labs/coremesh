@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
 
 //go:embed templates/*.html

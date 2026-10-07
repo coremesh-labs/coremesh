@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Zeitscheiben: valid_from/valid_to als Datum (JJJJ-MM-TT, lexikografisch

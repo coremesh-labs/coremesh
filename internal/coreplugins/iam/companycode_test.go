@@ -11,10 +11,10 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/coremesh-lab/coremesh/internal/config"
-	"github.com/coremesh-lab/coremesh/internal/coreplugins/dbschema"
-	"github.com/coremesh-lab/coremesh/internal/database"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/coreplugins/dbschema"
+	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
 
 func TestParseCompanyCodes(t *testing.T) {

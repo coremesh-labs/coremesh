@@ -21,9 +21,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	consolev1 "github.com/coremesh-lab/coremesh/pkg/consoleapi/console/v1"
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	consolev1 "github.com/coremesh-labs/coremesh/pkg/consoleapi/console/v1"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // service implementiert consolev1.ConsoleService.

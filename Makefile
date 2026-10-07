@@ -1,4 +1,4 @@
-MODULE      := github.com/coremesh-lab/coremesh
+MODULE      := github.com/coremesh-labs/coremesh
 BIN_DIR     := bin
 EXT         := $(if $(filter Windows_NT,$(OS)),.exe,)
 GOOS        := $(shell go env GOOS)

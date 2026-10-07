@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Info beschreibt das Plugin, das die Module beherbergt.

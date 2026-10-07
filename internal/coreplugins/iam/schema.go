@@ -3,8 +3,8 @@ package iam
 import (
 	"embed"
 
-	"github.com/coremesh-lab/coremesh/pkg/sdk/metamodel"
-	"github.com/coremesh-lab/coremesh/pkg/sdk/module"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
 
 // schemaHCL: Tabellen des Moduls iam (Präfix iam__), über DBSchema.Init.
