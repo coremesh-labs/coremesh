@@ -16,16 +16,18 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/camel/coremesh/pkg/sdk"
 	"github.com/camel/coremesh/pkg/sdk/events"
+	"github.com/camel/coremesh/pkg/sdk/hook"
 	"github.com/camel/coremesh/pkg/sdk/metamodel"
 	"github.com/camel/coremesh/pkg/sdk/plugin"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 type hello struct {
 	greeting string
@@ -44,6 +46,8 @@ func (h *hello) Manifest(context.Context) (sdk.Manifest, error) {
 			{Object: "Greeting", Actions: []string{"say", "list", "export"}, Description: "Begrüßt eine Person"},
 			// Empfänger des Event-Dispatchers: onEvent nimmt SystemEvents entgegen.
 			{Object: "EventLog", Actions: []string{events.CallbackAction, "list"}, Description: "Zuletzt empfangene SystemEvents"},
+			// Abonnent des Hooks ledger.posting (check, commit): onHook.
+			{Object: "PostingReview", Actions: []string{hook.CallbackAction}, Description: "Beispiel-Abonnent des Hooks ledger.posting"},
 			// Reservierte Lebenszyklus-Capability: Der Host ruft Init einmal pro Version auf.
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
@@ -61,6 +65,15 @@ func (h *hello) Configure(ctx context.Context, cfg sdk.Config) error {
 		Payload: map[string]any{"object": events.All, "action": events.All, "company_code": events.All, "callback": "EventLog"}})
 	if err != nil && !errors.Is(err, sdk.ErrUnimplemented) {
 		_ = cfg.Host.Log(ctx, sdk.LogWarn, "SystemEvents nicht abonniert", map[string]string{"err": err.Error()})
+	}
+	// Hook ledger.posting abonnieren (Beispiel): prüfen und nach dem Buchen melden.
+	for _, phase := range []string{hook.PhaseCheck, hook.PhaseCommit} {
+		_, err := cfg.Host.Handle(ctx, sdk.Request{Object: hook.Object, Action: hook.ActionSubscribe, Payload: hook.Subscription{
+			Hook: "ledger.posting", Phase: phase, Callback: "PostingReview", Priority: 500,
+			Description: "Beispiel: Referenz empfohlen, Meldung nach dem Buchen"}})
+		if err != nil && !errors.Is(err, sdk.ErrUnimplemented) {
+			_ = cfg.Host.Log(ctx, sdk.LogWarn, "Hook nicht abonniert", map[string]string{"phase": phase, "err": err.Error()})
+		}
 	}
 	return nil
 }
@@ -84,6 +97,8 @@ func (h *hello) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		return h.export(ctx)
 	case req.Object == "EventLog" && req.Action == events.CallbackAction:
 		return h.onEvent(ctx, req)
+	case req.Object == "PostingReview" && req.Action == hook.CallbackAction:
+		return hook.Func(h.reviewPosting)(ctx, req)
 	case req.Object == "EventLog" && req.Action == "list":
 		h.mu.Lock()
 		defer h.mu.Unlock()
@@ -259,4 +274,41 @@ func (h *hello) onEvent(ctx context.Context, req sdk.Request) (sdk.Response, err
 	_ = sdk.HostFrom(ctx).Log(ctx, sdk.LogInfo, "SystemEvent empfangen", map[string]string{
 		"object": ev.Object, "action": ev.Action, "company_code": ev.CompanyCode, "entity_id": ev.EntityID, "user": ev.UserID})
 	return sdk.Response{}, nil
+}
+
+// reviewPosting ist ein Beispiel-Abonnent des Hooks ledger.posting. Es kennt
+// die Typen des Ledgers nicht und liest die Daten generisch:
+//
+//	check:  Warnung ohne Referenz; Fehler, wenn der Kopftext "STOP" enthält
+//	commit: Hinweis mit der Belegnummer (Folgeaktionen gehören hierher)
+func (h *hello) reviewPosting(ctx context.Context, req hook.Request) (hook.Response, error) {
+	var d struct {
+		Request struct {
+			HeaderText string `json:"header_text"`
+			Reference  string `json:"reference"`
+		} `json:"request"`
+		Result *struct {
+			DocumentNumber string `json:"document_number"`
+		} `json:"result"`
+	}
+	if err := req.DecodeData(&d); err != nil {
+		return hook.Response{}, err
+	}
+	switch req.Action {
+	case hook.PhaseCheck:
+		var msgs []hook.Message
+		if d.Request.Reference == "" {
+			msgs = append(msgs, hook.Warning("HELLO-1", "Beleg ohne Referenz – bitte Belegnummer des Originals angeben").OnField("reference"))
+		}
+		if strings.Contains(d.Request.HeaderText, "STOP") {
+			msgs = append(msgs, hook.Error("HELLO-2", "Kopftext enthält STOP – Buchung angehalten").OnField("header_text"))
+		}
+		return hook.Reply(nil, msgs...), nil
+	case hook.PhaseCommit:
+		if d.Result != nil {
+			_ = sdk.HostFrom(ctx).Log(ctx, sdk.LogInfo, "hello: Beleg gebucht", map[string]string{"document_number": d.Result.DocumentNumber})
+			return hook.Reply(nil, hook.Info("HELLO-3", "hello hat Beleg "+d.Result.DocumentNumber+" gesehen")), nil
+		}
+	}
+	return hook.Reply(nil), nil
 }

@@ -1,0 +1,12 @@
+# Core-Plugin Hook-Dispatcher (Object Hook): synchrone Erweiterungspunkte.
+# Module definieren Hooks (Define) und rufen sie auf (Call); andere Module
+# abonnieren sie je Phase (Subscribe) – aufgerufen wird <Callback>.onHook im
+# Kontext der auslösenden Anfrage. Übersicht und Sperren: Erweiterungen → Hooks.
+plugins:
+  hook:
+    kind: internal
+    databases:
+      main: { access: write }        # Tabellen hook__* via DBSchema.Init
+    settings:
+      database: main
+      timeout_sec: 10                # Zeitlimit je Abonnent
