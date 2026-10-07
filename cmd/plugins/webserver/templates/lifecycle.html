@@ -39,7 +39,7 @@
   {{end}}{{end}}
   <footer>
     <button type="submit" class="btn {{if eq .EndKind "status"}}danger{{else}}primary{{end}}">
-      {{if eq .EndKind "timeslice"}}{{t "core.end.submit_timeslice"}}{{else}}{{t "core.end.submit_status"}}{{end}}</button>
+      {{with .EndSubmit}}{{.}}{{else}}{{if eq .EndKind "timeslice"}}{{t "core.end.submit_timeslice"}}{{else}}{{t "core.end.submit_status"}}{{end}}{{end}}</button>
     {{if .Modal}}
     <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.cancel"}}</button>
     {{else}}

@@ -259,11 +259,12 @@ type view struct {
 	History      bool              // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
 	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
-	EndKind string // timeslice | status
-	EndDate string // vorgeschlagenes/eingegebenes Enddatum (nie automatisch heute)
-	EndMin  string // frühestes Enddatum (gültig ab)
-	Locked  string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
-	Access  string // _access: Feldberechtigungen des Datensatzes (fieldaccess.go)
+	EndKind   string // timeslice | status
+	EndDate   string // vorgeschlagenes/eingegebenes Enddatum (nie automatisch heute)
+	EndMin    string // frühestes Enddatum (gültig ab)
+	EndSubmit string // Text des Buttons, wenn die Ende-Action einen eigenen Text hat
+	Locked    string // _lock: feste Felder (Komma-Liste), wandert im Formular mit
+	Access    string // _access: Feldberechtigungen des Datensatzes (fieldaccess.go)
 
 	// Ergebnisse
 	Action  metamodel.ActionConfig

@@ -59,7 +59,10 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 			Handle("list", payloadOnly(e.List)).
 			Handle("get", payloadOnly(e.Get))
 		if !e.ReadOnly {
-			o.Handle("create", payloadOnly(e.Create)).Handle("update", payloadOnly(e.Update))
+			o.Handle("create", payloadOnly(e.Create))
+			if !e.CreateOnly {
+				o.Handle("update", payloadOnly(e.Update))
+			}
 		}
 		for _, a := range e.Actions {
 			o.Handle(a.Name, e.guardRecord(a))
@@ -138,9 +141,10 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 	}
 	if !e.ReadOnly {
-		d.Actions = append(d.Actions,
-			metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"},
-			metamodel.ActionConfig{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"})
+		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"})
+		if !e.CreateOnly {
+			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"})
+		}
 	}
 	for _, a := range e.Actions {
 		if a.Kind == "" {
@@ -151,12 +155,23 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 	d.Lifecycle = e.Lifecycle()
 	switch d.Lifecycle.Kind() {
 	case metamodel.LifecycleTimeSlice:
-		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"})
+		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"}))
 	case metamodel.LifecycleStatus:
-		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: e.Title + " inaktivieren?"})
+		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: e.Title + " inaktivieren?"}))
 	}
 	return d
 }
 
 // formStateAction ist die Action des FormState-Hooks.
 const formStateAction = "formState"
+
+// endAction übernimmt EndLabel/EndConfirm der Entity.
+func (e *Entity) endAction(a metamodel.ActionConfig) metamodel.ActionConfig {
+	if e.EndLabel != "" {
+		a.Label = e.EndLabel
+	}
+	if e.EndConfirm != "" {
+		a.Confirm = e.EndConfirm
+	}
+	return a
+}

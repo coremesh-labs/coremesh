@@ -95,6 +95,10 @@ func (s *server) endView(r *http.Request, oc objectCtx, rec record, act *metamod
 	} else {
 		v.FormTitle = s.T(r, "core.end.title_status", title)
 	}
+	// Eigener Text der Ende-Action (z. B. „Schließen“) statt des Standards.
+	if kind := string(act.Kind); act.Label != "" && act.Label != s.T(r, "core.action."+kind) {
+		v.FormTitle, v.EndSubmit = act.Label+" – "+title, act.Label
+	}
 	return v
 }
 
