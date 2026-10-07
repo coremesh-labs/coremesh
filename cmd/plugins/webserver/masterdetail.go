@@ -124,6 +124,9 @@ type relationView struct {
 	LookupEdit map[string]string // Feld → Basis-URL des Lookup-Ziels im Modul (Bearbeiten-Link)
 	Message    string            // statt der Tabelle, z. B. fehlende Berechtigung
 	History    bool              // inkl. beendeter / inaktiver Einträge
+	// DetailURL: Hat das Unter-Object selbst eingebettete Unter-Objects
+	// (verschachteltes Master-Detail), führt „Anzeigen“ zu seiner Detailseite.
+	DetailURL string
 }
 
 // GET /m/{module}/{object}/{id}/rel/{section}
@@ -184,6 +187,9 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		if _, ok := mod.object(f.Lookup.Object); ok && f.Lookup.ValueField == "id" {
 			rv.LookupEdit[f.Key] = moduleURL(mod.Name, f.Lookup.Object)
 		}
+	}
+	if child.Has[string(metamodel.KindItem)] != nil && slices.ContainsFunc(child.Def.Sections, func(sd metamodel.SectionDefinition) bool { return sd.Relation != nil }) {
+		rv.DetailURL = child.URL
 	}
 	if child.Has["create"] != nil {
 		rv.AddURL = child.URL + "/new?" + rel.ForeignKey + "=" + pathEscape(id) + "&_lock=" + rel.ForeignKey + "&_view=refresh"

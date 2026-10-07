@@ -106,6 +106,87 @@ table "iam__role_permissions" {
   }
 }
 
+# Berechtigungen seit 0.5.0: je Rolle und Object.Action eine Zeile, die
+# Feldwerte in iam__role_auth_value. iam__role_permissions (bis 0.4.0) wird
+# beim ersten Start einmalig übernommen und danach nicht mehr verwendet.
+table "iam__role_auth" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "role_id" {
+    type = text
+  }
+  column "object" {
+    type = text
+  }
+  column "action" {
+    type = text
+  }
+  # Buchungskreise, kommagetrennt; "*" = alle
+  column "company_codes" {
+    type    = text
+    default = "*"
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__role_auth_role" {
+    columns = [column.role_id]
+  }
+  foreign_key "iam__role_auth_role_fk" {
+    columns     = [column.role_id]
+    ref_columns = [table.iam__roles.column.id]
+    on_delete   = CASCADE
+  }
+}
+
+table "iam__role_auth_value" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "auth_id" {
+    type = text
+  }
+  column "field" {
+    type = text
+  }
+  # Einzelwert oder Muster (* ?); mit high ein Bereich low..high
+  column "low" {
+    type = text
+  }
+  column "high" {
+    type = text
+    null = true
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__role_auth_value_auth" {
+    columns = [column.auth_id]
+  }
+  foreign_key "iam__role_auth_value_auth_fk" {
+    columns     = [column.auth_id]
+    ref_columns = [table.iam__role_auth.column.id]
+    on_delete   = CASCADE
+  }
+}
+
 table "iam__company_codes" {
   schema = schema.main
   column "id" {
@@ -182,9 +263,52 @@ var (
 		Fields: []metamodel.FieldDefinition{
 			{Key: "name", Label: "Name", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeText, Listable: true, Editable: true},
-			{Key: "permissions", Label: "Berechtigungen (Object.Action[@Buchungskreis,…], eine pro Zeile, * als Platzhalter)", Type: metamodel.TypeTextarea, Listable: true, Editable: true},
+			// Übersicht in Textform; gepflegt wird im Abschnitt Berechtigungen.
+			{Key: "permissions", Label: "Berechtigungen", Type: metamodel.TypeTextarea, Listable: true},
 		},
 		Actions: crud("Rolle"),
+		Sections: []metamodel.SectionDefinition{
+			{Key: "berechtigungen", Title: "Berechtigungen", Relation: &metamodel.Relation{Object: "RoleAuth", ForeignKey: "role_id",
+				Columns: []string{"object", "action", "company_codes", "restrictions"}}},
+		},
+	}
+	// RoleAuth: eine Zeile je Rolle und Object.Action. Object und Action kommen
+	// aus dem Catalog (FormState), die Feldwerte stehen in RoleAuthValue.
+	roleAuthDef = metamodel.ObjectDefinition{
+		Name: "RoleAuth", Title: "Berechtigungen", Icon: "icon-shield", FormState: formStateAction,
+		Fields: []metamodel.FieldDefinition{
+			{Key: "role_id", Label: "Rolle", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+				Lookup: &metamodel.Lookup{Object: "Role", ValueField: "id", LabelFields: []string{"name"}}},
+			{Key: "object", Label: "Object", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true, Trigger: true},
+			{Key: "action", Label: "Action", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true},
+			{Key: "company_codes", Label: "Buchungskreise (kommagetrennt, * = alle)", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "restrictions", Label: "Feldwerte", Type: metamodel.TypeText, Listable: true},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Filters:   []string{"role_id", "object"},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Berechtigung"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Entziehen", Confirm: "Berechtigung entziehen?"}),
+		Sections: []metamodel.SectionDefinition{
+			{Key: "werte", Title: "Feldwerte (leer = alle Werte)", Relation: &metamodel.Relation{Object: "RoleAuthValue", ForeignKey: "auth_id",
+				Columns: []string{"field", "low", "high"}}},
+		},
+	}
+	// RoleAuthValue: erlaubter Wert eines Berechtigungsfelds. Die Felder kommen
+	// aus metamodel.Authorization des Objects (FormState).
+	roleAuthValueDef = metamodel.ObjectDefinition{
+		Name: "RoleAuthValue", Title: "Berechtigungen – Feldwerte", Icon: "icon-list", FormState: formStateAction,
+		Fields: []metamodel.FieldDefinition{
+			{Key: "auth_id", Label: "Berechtigung", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+				Lookup: &metamodel.Lookup{Object: "RoleAuth", ValueField: "id", LabelFields: []string{"object", "action"}}},
+			{Key: "field", Label: "Feld", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true, Trigger: true},
+			{Key: "low", Label: "Wert / von (* und ? als Platzhalter)", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
+			{Key: "high", Label: "bis (leer = Einzelwert)", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Feldwert"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Entfernen", Confirm: "Feldwert entfernen?"}),
 	}
 	companyCodeDef = metamodel.ObjectDefinition{
 		Name: "CompanyCode", Title: "Buchungskreise", Icon: "icon-building",
@@ -204,6 +328,8 @@ var adminModule = metamodel.ModuleDefinition{
 	Objects: []metamodel.ModuleObject{
 		{Object: "User", Section: "Zugriff"},
 		{Object: "Role", Section: "Zugriff"},
+		{Object: "RoleAuth", Section: "Zugriff"},
+		{Object: "RoleAuthValue", Section: "Zugriff"},
 		{Object: "CompanyCode", Section: "Organisation"},
 	},
 }

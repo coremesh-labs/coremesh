@@ -33,6 +33,30 @@ type ObjectDefinition struct {
 	// der list-Action); Search: list versteht den Suchparameter q.
 	Filters []string `json:"filters,omitempty"`
 	Search  bool     `json:"search,omitempty"`
+	// Authorization beschreibt die Berechtigungsfelder des Objects und
+	// Actions, die nur als Berechtigung existieren (z. B. FiscalPeriod.post).
+	// Die Rollenpflege (iam) bietet sie aus dem Catalog an. Optional.
+	Authorization *Authorization `json:"authorization,omitempty"`
+}
+
+// Authorization: Berechtigungen eines Objects bis auf Feldwerte.
+//
+// Eine Rolle erlaubt Object.Action in Buchungskreisen und – optional – nur
+// für bestimmte Werte der Berechtigungsfelder (Einzelwerte, Bereiche, *).
+// Das Modul prüft mit sdk.Authorize bzw. sdk.Grants und übergibt dabei die
+// Feldwerte unter diesen Schlüsseln; der Buchungskreis heißt immer
+// "company_code" und ist kein Berechtigungsfeld.
+type Authorization struct {
+	Fields  []string     `json:"fields,omitempty"`  // Feld-Keys des Objects
+	Actions []AuthAction `json:"actions,omitempty"` // zusätzliche Actions ohne Route
+}
+
+// AuthAction ist eine Action, die nur geprüft, nie aufgerufen wird
+// (z. B. "post" auf FiscalPeriod: in dieser Periode buchen).
+type AuthAction struct {
+	Name     string `json:"name"`
+	Label    string `json:"label"`
+	LabelKey string `json:"label_key,omitempty"` // Übersetzungsschlüssel (i18n)
 }
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).

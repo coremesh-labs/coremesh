@@ -22,12 +22,16 @@ func TestParseCompanyCodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []permission{
-		{"Partner", "*", "1000"}, {"Partner", "*", "2000"},
-		{"*", "list", AllCompanyCodes}, {"Greeting", "say", AllCompanyCodes},
+	type row struct {
+		o, a, ccs string
 	}
-	if !slices.Equal(perms, want) {
-		t.Fatalf("got %v", perms)
+	var got []row
+	for _, g := range perms {
+		got = append(got, row{g.Object, g.Action, strings.Join(g.CompanyCodes, ",")})
+	}
+	want := []row{{"Partner", "*", "1000,2000"}, {"*", "list", AllCompanyCodes}, {"Greeting", "say", AllCompanyCodes}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %v", got)
 	}
 	if got := formatPermissions(perms); !slices.Equal(got, []string{"Partner.*@1000,2000", "*.list", "Greeting.say"}) {
 		t.Fatalf("format: %v", got)
@@ -77,12 +81,12 @@ func TestCompanyCodeScopedAccess(t *testing.T) {
 		t.Fatal("ohne Berechtigung")
 	}
 
-	granted := func(object, action string) Grant {
+	granted := func(object, action string) sdk.GrantSet {
 		resp, err := p.Handle(asNord, sdk.Request{Object: "Account", Action: "Granted", Payload: map[string]any{"object": object, "action": action}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return resp.Payload.(Grant)
+		return resp.Payload.(sdk.GrantSet)
 	}
 	if g := granted("Partner", "update"); g.All || !slices.Equal(g.CompanyCodes, []string{"1000", "2000"}) {
 		t.Fatalf("Granted update: %+v", g)
@@ -213,5 +217,24 @@ func TestUpgradeFrom010(t *testing.T) {
 	}
 	if len(res.Rows) != 1 || res.Rows[0][2] != "*" {
 		t.Fatalf("nach Upgrade: %v", res.Rows)
+	}
+
+	// 0.5.0: einmalige Übernahme nach iam__role_auth (je Object.Action eine Zeile).
+	pool.Exec(`INSERT INTO iam__company_codes (id, created_at) VALUES ('1000', 'x'), ('2000', 'x')`)
+	pool.Exec(`INSERT INTO iam__role_permissions (role_id, object, action, company_code) VALUES ('r1', 'Partner', '*', '1000'), ('r1', 'Partner', '*', '2000')`)
+	p := New(db)
+	p.settings = settings{Database: "main"}
+	for i, want := range []int{2, 0} { // zweiter Lauf: nichts mehr zu tun
+		n, err := p.migrateLegacy(ctx)
+		if err != nil || n != want {
+			t.Fatalf("Lauf %d: %d, %v", i, n, err)
+		}
+	}
+	roles, err := p.grantsByRole(ctx, pool, "r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := formatPermissions(roles["r1"]); !slices.Equal(got, []string{"Greeting.list", "Partner.*@1000,2000"}) {
+		t.Fatalf("übernommen: %v", got)
 	}
 }

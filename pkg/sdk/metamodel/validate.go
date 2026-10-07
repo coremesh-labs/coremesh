@@ -46,8 +46,8 @@ func (d ObjectDefinition) Validate() error {
 		if !fieldTypes[f.Type] {
 			add("%s: unbekannter type %q", where, f.Type)
 		}
-		if f.Type == TypeSelect && len(f.Options) == 0 {
-			add("%s: select braucht options", where)
+		if f.Type == TypeSelect && len(f.Options) == 0 && d.FormState == "" {
+			add("%s: select braucht options (oder FormState, der sie liefert)", where)
 		}
 		if f.Type != TypeSelect && len(f.Options) > 0 {
 			add("%s: options nur bei type select", where)
@@ -144,6 +144,26 @@ func (d ObjectDefinition) Validate() error {
 					add("%s: relation: ungültige Spalte %q", where, k)
 				}
 			}
+		}
+	}
+
+	if az := d.Authorization; az != nil {
+		for _, k := range az.Fields {
+			switch {
+			case k == "company_code":
+				add("authorization: company_code ist immer Dimension, kein Berechtigungsfeld")
+			case !keys[k]:
+				add("authorization: Feld %q gibt es nicht", k)
+			}
+		}
+		for _, a := range az.Actions {
+			switch {
+			case !actionRe.MatchString(a.Name) || names[a.Name]:
+				add("authorization: Action %q ungültig oder schon in actions", a.Name)
+			case a.Label == "":
+				add("authorization: Action %q: label fehlt", a.Name)
+			}
+			names[a.Name] = true
 		}
 	}
 

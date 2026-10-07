@@ -28,7 +28,10 @@ type roleRow struct {
 	ID          string
 	Name        string
 	Description string
-	Permissions []permission
+	Permissions []grant
+	// ReplaceGrants: saveRole ersetzt alle Berechtigungen durch Permissions
+	// (Textform über die API, erster Start); sonst bleiben sie unverändert.
+	ReplaceGrants bool
 }
 
 func (p *Plugin) pool() *sql.DB {
@@ -95,8 +98,9 @@ func (p *Plugin) adminCount(ctx context.Context, q database.Querier) (int, error
 	res, err := database.Query(ctx, q, p.q(`
 		SELECT COUNT(DISTINCT u.id) FROM iam__users u
 		JOIN iam__user_roles ur ON ur.user_id = u.id
-		JOIN iam__role_permissions rp ON rp.role_id = ur.role_id
-		WHERE u.active = 1 AND rp.object = '*' AND rp.action = '*' AND rp.company_code = '*'`))
+		JOIN iam__role_auth ra ON ra.role_id = ur.role_id
+		WHERE u.active = 1 AND ra.active = 1 AND ra.object = '*' AND ra.action = '*' AND ra.company_codes = '*'
+		  AND NOT EXISTS (SELECT 1 FROM iam__role_auth_value v WHERE v.auth_id = ra.id AND v.active = 1)`))
 	if err != nil {
 		return 0, err
 	}
@@ -247,24 +251,12 @@ func (p *Plugin) setUserRoles(ctx context.Context, tx *sql.Tx, userID string, na
 	return nil
 }
 
-// userPermissions: Berechtigungen aller Rollen eines aktiven Benutzers.
-func (p *Plugin) userPermissions(ctx context.Context, q database.Querier, userID string) ([]permission, error) {
-	res, err := database.Query(ctx, q, p.q(`
-		SELECT DISTINCT rp.object, rp.action, rp.company_code FROM iam__user_roles ur
-		JOIN iam__role_permissions rp ON rp.role_id = ur.role_id
+// userGrants: aktive Berechtigungen aller Rollen eines aktiven Benutzers.
+func (p *Plugin) userGrants(ctx context.Context, q database.Querier, userID string) ([]grant, error) {
+	return p.queryGrants(ctx, q, `JOIN iam__user_roles ur ON ur.role_id = ra.role_id
 		JOIN iam__users u ON u.id = ur.user_id
-		WHERE ur.user_id = ? AND u.active = 1
-		ORDER BY rp.object, rp.action, rp.company_code`), userID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]permission, len(res.Rows))
-	for i, r := range res.Rows {
-		out[i] = permission{s(r[0]), s(r[1]), s(r[2])}
-	}
-	return out, nil
+		WHERE ur.user_id = ? AND u.active = 1 AND ra.active = 1`, userID)
 }
-
 // --- Rollen --------------------------------------------------------------------
 
 func (p *Plugin) listRoles(ctx context.Context) ([]roleRow, error) {
@@ -272,7 +264,7 @@ func (p *Plugin) listRoles(ctx context.Context) ([]roleRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	perms, err := p.permissionsByRole(ctx, p.pool(), "")
+	perms, err := p.grantsByRole(ctx, p.pool(), "")
 	if err != nil {
 		return nil, err
 	}
@@ -292,29 +284,11 @@ func (p *Plugin) getRole(ctx context.Context, q database.Querier, id string) (*r
 		return nil, fmt.Errorf("%w: Rolle %q", sdk.ErrNotFound, id)
 	}
 	r := res.Rows[0]
-	perms, err := p.permissionsByRole(ctx, q, id)
+	perms, err := p.grantsByRole(ctx, q, id)
 	if err != nil {
 		return nil, err
 	}
 	return &roleRow{ID: s(r[0]), Name: s(r[1]), Description: s(r[2]), Permissions: perms[id]}, nil
-}
-
-func (p *Plugin) permissionsByRole(ctx context.Context, q database.Querier, roleID string) (map[string][]permission, error) {
-	query := `SELECT role_id, object, action, company_code FROM iam__role_permissions`
-	var args []any
-	if roleID != "" {
-		query += ` WHERE role_id = ?`
-		args = append(args, roleID)
-	}
-	res, err := database.Query(ctx, q, p.q(query+` ORDER BY object, action, company_code`), args...)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string][]permission{}
-	for _, r := range res.Rows {
-		out[s(r[0])] = append(out[s(r[0])], permission{s(r[1]), s(r[2]), s(r[3])})
-	}
-	return out, nil
 }
 
 func (p *Plugin) saveRole(ctx context.Context, tx *sql.Tx, r roleRow, insert bool) error {
@@ -337,19 +311,10 @@ func (p *Plugin) saveRole(ctx context.Context, tx *sql.Tx, r roleRow, insert boo
 		}
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, p.q(`DELETE FROM iam__role_permissions WHERE role_id = ?`), r.ID); err != nil {
-		return err
+	if !r.ReplaceGrants {
+		return nil
 	}
-	if err := p.checkCompanyCodes(ctx, tx, r.Permissions); err != nil {
-		return err
-	}
-	for _, pm := range r.Permissions {
-		if _, err := tx.ExecContext(ctx, p.q(`INSERT INTO iam__role_permissions (role_id, object, action, company_code) VALUES (?, ?, ?, ?)`),
-			r.ID, pm.Object, pm.Action, pm.CompanyCode); err != nil {
-			return err
-		}
-	}
-	return nil
+	return p.replaceGrants(ctx, tx, r.ID, r.Permissions)
 }
 
 // isUnique erkennt Verletzungen eindeutiger Indizes (SQLite, PostgreSQL).
@@ -366,18 +331,18 @@ type companyCode struct {
 }
 
 // checkCompanyCodes: In Rollen sind nur vorhandene Buchungskreise erlaubt.
-func (p *Plugin) checkCompanyCodes(ctx context.Context, q database.Querier, perms []permission) error {
+func (p *Plugin) checkCompanyCodes(ctx context.Context, q database.Querier, ccs []string) error {
 	var missing []string
-	for _, pm := range perms {
-		if pm.CompanyCode == AllCompanyCodes {
+	for _, cc := range ccs {
+		if cc == AllCompanyCodes {
 			continue
 		}
-		res, err := database.Query(ctx, q, p.q(`SELECT 1 FROM iam__company_codes WHERE id = ?`), pm.CompanyCode)
+		res, err := database.Query(ctx, q, p.q(`SELECT 1 FROM iam__company_codes WHERE id = ?`), cc)
 		if err != nil {
 			return err
 		}
-		if len(res.Rows) == 0 && !slices.Contains(missing, pm.CompanyCode) {
-			missing = append(missing, pm.CompanyCode)
+		if len(res.Rows) == 0 && !slices.Contains(missing, cc) {
+			missing = append(missing, cc)
 		}
 	}
 	if len(missing) > 0 {
