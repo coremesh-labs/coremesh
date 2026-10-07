@@ -39,7 +39,7 @@ func setup(t *testing.T, cacheDir string) *env {
 		sdk.Capability{Object: "BusinessPartner", Actions: []string{"list", "get"}, Description: "Geschäftspartner"},
 		sdk.Capability{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}}) // Lebenszyklus
 	reg("partner-search", "0.3.0",
-		sdk.Capability{Object: "BusinessPartner", Actions: []string{"search"}})
+		sdk.Capability{Object: "PartnerSearch", Actions: []string{"search"}}) // ein Object gehört genau einem Plugin
 	reg("realestate", "1.0.0",
 		sdk.Capability{Object: "Property", Actions: []string{"list"}})
 	reg("dbschema", "0.4.0",
@@ -120,7 +120,7 @@ func TestRegisterRejectsForeignObjectsAndActions(t *testing.T) {
 	unknownAction := partnerDef()
 	unknownAction.Actions = append(unknownAction.Actions, metamodel.ActionConfig{Name: "archive", Kind: metamodel.KindCustom, Label: "Archivieren"})
 
-	foreignAction := partnerDef() // search gehört partner-search, nicht partner
+	foreignAction := partnerDef() // search ist keine Route von BusinessPartner
 	foreignAction.Actions = append(foreignAction.Actions, metamodel.ActionConfig{Name: "search", Kind: metamodel.KindCustom, Label: "Suchen"})
 
 	invalid := partnerDef()
@@ -136,11 +136,11 @@ func TestRegisterRejectsForeignObjectsAndActions(t *testing.T) {
 		})
 	}
 
-	// Nur ein Modul definiert ein Object – auch wenn mehrere Actions beisteuern.
+	// Ein anderes Plugin darf das Object nicht beschreiben (es gehört partner).
 	e.register("partner", "1.2.0", partnerDef())
 	other := partnerDef()
 	other.Actions = []metamodel.ActionConfig{{Name: "search", Kind: metamodel.KindCustom, Label: "Suchen"}}
-	if _, err := e.register("partner-search", "0.3.0", other); !errors.Is(err, sdk.ErrAlreadyExists) {
+	if _, err := e.register("partner-search", "0.3.0", other); !errors.Is(err, sdk.ErrAlreadyExists) && !errors.Is(err, sdk.ErrPermissionDenied) {
 		t.Fatalf("zweite Definition: %v", err)
 	}
 }
@@ -166,7 +166,7 @@ func TestListObjectsAndActions(t *testing.T) {
 		objs[o.Object] = o
 	}
 	bp := objs["BusinessPartner"]
-	if bp.Title != "Geschäftspartner" || !bp.Defined || !bp.Available || bp.Actions != 3 || len(bp.Plugins) != 2 {
+	if bp.Title != "Geschäftspartner" || !bp.Defined || !bp.Available || bp.Actions != 2 || len(bp.Plugins) != 1 {
 		t.Fatalf("BusinessPartner: %+v", bp)
 	}
 	if objs["Property"].Defined || !objs["Property"].Available {
@@ -180,7 +180,7 @@ func TestListObjectsAndActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(p.(map[string]any)["actions"].([]ActionInfo)); n != 3 {
+	if n := len(p.(map[string]any)["actions"].([]ActionInfo)); n != 2 { // list, get – nur von partner
 		t.Fatalf("Actions: %d", n)
 	}
 }

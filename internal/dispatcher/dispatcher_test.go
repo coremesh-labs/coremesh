@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/camel/coremesh/pkg/sdk"
@@ -230,5 +231,27 @@ func TestAuthorization(t *testing.T) {
 	defer end()
 	if _, err := d.HandleNested(ctx, sdk.Request{Object: "Account", Action: "Authenticate"}); !errors.Is(err, sdk.ErrPermissionDenied) {
 		t.Fatalf("Authenticate verschachtelt: %v", err)
+	}
+}
+
+// TestObjectBelongsToOnePlugin: Ein Object gehört genau einem Plugin, auch bei
+// unterschiedlichen Actions; Lebenszyklus-Capabilities teilen sich alle.
+func TestObjectBelongsToOnePlugin(t *testing.T) {
+	d := New(8, nil, slog.New(slog.DiscardHandler))
+	life := sdk.Capability{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}}
+	if err := d.Register("iam", manifest("iam", sdk.Capability{Object: "Account", Actions: []string{"Check", "Authenticate"}}, life), echoCall()); err != nil {
+		t.Fatal(err)
+	}
+	err := d.Register("ledger", manifest("ledger", sdk.Capability{Object: "Account", Actions: []string{"create", "list"}}, life), echoCall())
+	if !errors.Is(err, sdk.ErrAlreadyExists) || !strings.Contains(err.Error(), "Object Account gehört bereits Plugin iam") {
+		t.Fatalf("Kollision erwartet: %v", err)
+	}
+	if err := d.Register("ledger", manifest("ledger", sdk.Capability{Object: "GLAccount", Actions: []string{"create"}}, life), echoCall()); err != nil {
+		t.Fatalf("eigenes Object: %v", err)
+	}
+	// Nach dem Abmelden (Neustart) darf dasselbe Plugin sein Object wieder anmelden.
+	_ = d.Unregister("ledger")
+	if err := d.Register("ledger", manifest("ledger", sdk.Capability{Object: "GLAccount", Actions: []string{"create", "list"}}), echoCall()); err != nil {
+		t.Fatalf("Neustart: %v", err)
 	}
 }

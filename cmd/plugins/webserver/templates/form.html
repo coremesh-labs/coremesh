@@ -27,7 +27,8 @@
   {{with .ViewParam}}<input type="hidden" name="_view" value="{{.}}">{{end}}
   {{with .Locked}}<input type="hidden" name="_lock" value="{{.}}">{{end}}
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
-  {{range .FormFields}}{{template "field" .}}{{end}}
+  {{if .FormStateURL}}<input type="hidden" name="_mode" value="{{.Mode}}">{{if eq .Mode "edit"}}<input type="hidden" name="_rid" value="{{.ID}}">{{end}}{{end}}
+  {{template "form-body" .}}
   {{block "form-buttons" .}}
   <footer>
     <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}{{t "core.app.save"}}{{end}}</button>
@@ -50,26 +51,26 @@
 <label class="field{{if .Error}} invalid{{end}}">
   <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
   {{if eq .Type "select"}}
-  <select name="{{.Field.Key}}" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
+  <select name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
     {{if not .Field.Required}}<option value=""></option>{{end}}
     {{range .Field.Options}}<option value="{{.Value}}" {{if eq .Value $.Value}}selected{{end}}>{{.Label}}</option>{{end}}
   </select>
   {{else if eq .Type "textarea"}}
-  <textarea name="{{.Field.Key}}" rows="4" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
+  <textarea name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} rows="4" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
   {{else if eq .Type "boolean"}}
-  <input type="checkbox" name="{{.Field.Key}}" {{if .Value}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>
+  <input type="checkbox" name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Value}}checked{{end}} {{if .ReadOnly}}disabled{{end}}>
   {{else if and .Field.Lookup (not .ReadOnly)}}
   {{block "lookup-field" .}}
   <span class="lookup">
-    <input type="text" name="{{.Field.Key}}" value="{{.Value}}" autocomplete="off" {{if .Field.Required}}required{{end}}
+    <input type="text" name="{{.Field.Key}}" value="{{.Value}}" autocomplete="off" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}}
            oninput="var l=this.parentNode.querySelector('.lookup-label');if(l)l.textContent=''">
     <button type="button" class="btn lookup-btn" title="{{t "core.lookup.select_from" .Field.Label}}"
-            hx-get="/lookup?from={{.Object}}&field={{.Field.Key}}" hx-target="#lookup" hx-swap="innerHTML">{{t "core.lookup.select"}}</button>
+            hx-get="/lookup?from={{.Object}}&field={{.Field.Key}}" hx-target="#lookup" hx-swap="innerHTML" hx-include="closest form">{{t "core.lookup.select"}}</button>
     <span class="lookup-label" data-lookup-label="{{.Field.Key}}">{{.Label}}</span>
   </span>
   {{end}}
   {{else}}
-  <input type="{{.InputType}}" name="{{.Field.Key}}" value="{{.Value}}"
+  <input type="{{.InputType}}" name="{{.Field.Key}}" value="{{.Value}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}}
          {{if eq .Type "number"}}step="any"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>
   {{with .Label}}<small class="lookup-label">{{.}}</small>{{end}}
   {{end}}
@@ -77,3 +78,12 @@
 </label>
 {{end}}
 {{end}}
+
+{{/* Inhalt des Formulars: Hinweis der Maske und Felder nach Gruppen. Wird bei
+     Änderung eines Trigger-Felds allein neu geladen (POST …/_form).
+     Daten: view {FormMessage, FormGroups}. */}}
+{{define "form-body"}}<div class="form-body">
+{{with .FormMessage}}<p class="form-hint" role="status">{{.}}</p>{{end}}
+{{range .FormGroups}}<fieldset class="form-group">{{with .Title}}<legend>{{.}}</legend>{{end}}
+<div class="form-grid">{{range .Fields}}{{template "field" .}}{{end}}</div></fieldset>
+{{end}}</div>{{end}}

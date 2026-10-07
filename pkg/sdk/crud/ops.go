@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/camel/coremesh/pkg/sdk"
@@ -45,7 +46,7 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 	var args []any
 	for _, f := range e.Filters {
 		if v, ok := query[f]; ok && Str(v) != "" {
-			where, args = append(where, f+" = ?"), append(args, Str(v))
+			where, args = append(where, f+" = ?"), append(args, e.filterArg(f, v))
 		}
 	}
 	if !IncludeHistory(query) {
@@ -356,4 +357,25 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 		return sdk.Response{}, err
 	}
 	return e.respondEvent(ctx, key, "update")
+}
+
+// filterArg wandelt einen Filterwert nach dem Feldtyp um: Ja/Nein-Felder
+// boolesch ("true"/"false" aus Formularen und URLs), Zahlen numerisch.
+func (e *Entity) filterArg(field string, v any) any {
+	f := e.Field(field)
+	if f == nil {
+		return Str(v)
+	}
+	switch f.Type {
+	case metamodel.TypeBoolean:
+		return AsBool(v)
+	case metamodel.TypeNumber:
+		if n, err := strconv.ParseInt(Str(v), 10, 64); err == nil {
+			return n
+		}
+		if x, err := strconv.ParseFloat(Str(v), 64); err == nil {
+			return x
+		}
+	}
+	return Str(v)
 }

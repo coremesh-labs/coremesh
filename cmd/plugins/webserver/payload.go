@@ -241,17 +241,21 @@ type view struct {
 	Record record
 
 	// Formulare
-	Mode       string // create | edit | action
-	Modal      bool   // im Dialog (HTMX) oder als eigene Seite
-	FormTitle  string
-	FormAction string
-	Target     string // HTMX-Ziel der Antwort (edit)
-	ViewParam  string // row | detail – wohin die Antwort von update gehört
-	CancelURL  string
-	ActionID   string // id für custom-Actions
-	FormFields []fieldCtx
-	FormError  string
-	History    bool // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
+	Mode         string // create | edit | action
+	Modal        bool   // im Dialog (HTMX) oder als eigene Seite
+	FormTitle    string
+	FormAction   string
+	Target       string // HTMX-Ziel der Antwort (edit)
+	ViewParam    string // row | detail – wohin die Antwort von update gehört
+	CancelURL    string
+	ActionID     string // id für custom-Actions
+	FormFields   []fieldCtx
+	FormError    string
+	Filter       map[string]string // Liste: aktive Filter (q und ObjectDefinition.Filters)
+	ListURL      string            // Liste: URL mit den aktiven Filtern (Neuladen)
+	FormMessage  string            // Hinweis der Maske (FormState)
+	FormStateURL string            // Neuauswertung der Maske (leer = statisch)
+	History      bool              // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
 	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
 	EndKind string // timeslice | status
@@ -291,6 +295,7 @@ type fieldCtx struct {
 	Hidden    bool   // festes Feld (z. B. Fremdschlüssel im Master-Detail), als type=hidden
 	Object    string // Object des Formulars (Lookup-Dialog: /lookup?from=…)
 	Label     string // lesbarer Text eines Lookup-Werts
+	Trigger   string // URL der Neuauswertung, wenn das Feld die Maske beeinflusst
 }
 
 var inputTypes = map[metamodel.FieldType]string{
@@ -316,16 +321,19 @@ func buildFields(d metamodel.ObjectDefinition, mode string, values, errs map[str
 		}
 		out = append(out, fieldCtx{
 			Field: f, Type: string(f.Type), InputType: it, Object: d.Name,
-			Value: values[f.Key], Error: errs[f.Key], ReadOnly: !f.Editable,
+			Value: values[f.Key], Error: errs[f.Key], ReadOnly: !f.Editable || opts.readonly[f.Key],
 			Hidden: opts.locked[f.Key], Label: opts.labels[f.Key],
+			Trigger: triggerURL(f, opts.trigger),
 		})
 	}
 	return out
 }
 
 type formOpts struct {
-	labels map[string]string
-	locked map[string]bool
+	labels   map[string]string
+	locked   map[string]bool
+	readonly map[string]bool // von der Maske schreibgeschützt
+	trigger  string          // URL der Neuauswertung (formStateURL)
 }
 
 // lockedFields liest _lock (Komma-Liste von Feld-Keys) aus Query oder Formular.
@@ -391,4 +399,32 @@ func actionDef(d metamodel.ObjectDefinition, keys []string) metamodel.ObjectDefi
 type recordActionCtx struct {
 	URL, ID, Class string
 	Action         metamodel.ActionConfig
+}
+
+// formStateURL: Neuauswertung der Maske ("" = Formular ohne dynamische Maske).
+func formStateURL(oc objectCtx) string {
+	if !dynamic(oc.Def) {
+		return ""
+	}
+	return oc.URL + "/_form"
+}
+
+// triggerURL: Ein Feld löst die Neuauswertung aus, wenn es als Trigger markiert
+// ist – oder jedes Feld, wenn das Plugin die Maske bestimmt (FormState).
+func triggerURL(f metamodel.FieldDefinition, url string) string {
+	if url == "" || !f.Trigger {
+		return ""
+	}
+	return url
+}
+
+// FilterFields sind die Felder der Filterleiste der Übersicht.
+func (v view) FilterFields() []metamodel.FieldDefinition {
+	var out []metamodel.FieldDefinition
+	for _, k := range v.Def.Filters {
+		if i := slices.IndexFunc(v.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
+			out = append(out, v.Def.Fields[i])
+		}
+	}
+	return out
 }

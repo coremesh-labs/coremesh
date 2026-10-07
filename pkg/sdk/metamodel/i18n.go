@@ -75,6 +75,9 @@ func (d ObjectDefinition) Localize(t Translations, locale string) ObjectDefiniti
 	out.Fields = make([]FieldDefinition, len(d.Fields))
 	for i, f := range d.Fields {
 		f.Label = t.Lookup(locale, f.LabelKey, f.Label)
+		if f.Group != "" {
+			f.Group = t.Lookup(locale, f.GroupKey, f.Group)
+		}
 		if len(f.Options) > 0 {
 			opts := make([]Option, len(f.Options))
 			for j, o := range f.Options {
@@ -112,6 +115,7 @@ var reservedModules = map[string]bool{"i18n": true, "user": true}
 //	<modul>.<Object>.options.<feld>.<wert>       Auswahlwert
 //	<modul>.<Object>.actions.<action>[.confirm]  Action
 //	<modul>.<Object>.sections.<abschnitt>        Abschnitt der Detailansicht
+//	<modul>.<Object>.groups.<gruppe>             Feldgruppe im Formular
 //
 // Für Actions der Kinds list, item, create, update, expire und deactivate
 // bringt das Frontend Standardtexte mit; ein Modul übersetzt sie nur, wenn es
@@ -125,6 +129,9 @@ func WithKeys(module string, d ObjectDefinition) ObjectDefinition {
 	d.Fields = slices.Clone(d.Fields)
 	for i, f := range d.Fields {
 		f.LabelKey = orKey(f.LabelKey, p+".fields."+f.Key)
+		if f.Group != "" {
+			f.GroupKey = orKey(f.GroupKey, p+".groups."+slug(f.Group))
+		}
 		if len(f.Options) > 0 {
 			f.Options = slices.Clone(f.Options)
 			for j, o := range f.Options {

@@ -7,7 +7,7 @@
 */}}
 {{define "list"}}
 <section id="list" class="object-list"
-         hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
+         hx-get="{{.ListURL}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
   <header class="page-header">
     <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}</h1>
     {{block "list-toolbar" .}}
@@ -22,6 +22,27 @@
     </div>
     {{end}}
   </header>
+  {{block "list-filters" .}}{{if or .Def.Search .FilterFields}}
+  <form class="list-filters" method="get" action="{{.URL}}" hx-get="{{.URL}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="change, submit, keyup changed delay:400ms from:find input[type=search]">
+    {{if .Def.Search}}<input type="search" name="q" value="{{index .Filter "q"}}" placeholder="{{t "core.list.search"}}" aria-label="{{t "core.list.search"}}">{{end}}
+    {{range .FilterFields}}{{$v := index $.Filter .Key}}
+    <label><span>{{.Label}}</span>
+      {{if eq .Type "boolean"}}
+      <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
+        <option value="true" {{if eq $v "true"}}selected{{end}}>{{t "core.app.yes"}}</option>
+        <option value="false" {{if eq $v "false"}}selected{{end}}>{{t "core.app.no"}}</option></select>
+      {{else if .Options}}
+      <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
+        {{range .Options}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+      {{else}}
+      <input type="text" name="{{.Key}}" value="{{$v}}" size="10">
+      {{end}}
+    </label>{{end}}
+    {{if .History}}<input type="hidden" name="includeHistory" value="true">{{end}}
+    {{if .Filter}}<a class="link" href="{{.URL}}" hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true">{{t "core.list.reset"}}</a>{{end}}
+  </form>
+  {{end}}{{end}}
   {{template "table" .}}
 </section>
 {{end}}

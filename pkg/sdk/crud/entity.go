@@ -45,6 +45,11 @@ type Field struct {
 	Options    []metamodel.Option
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
 	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls
+	// Formular: Feldgruppe, Neuauswertung bei Änderung, deklarative Regeln.
+	Group      string
+	Trigger    bool
+	ShowIf     *metamodel.Condition
+	RequiredIf *metamodel.Condition
 }
 
 // Ref: Der Wert muss in Table.Column existieren; bei TimeSliced zusätzlich am
@@ -112,6 +117,9 @@ type Entity struct {
 	ListScope   func(ctx context.Context) (where string, args []any, none bool, err error)
 	CheckRecord func(ctx context.Context, action string, rec Record) error // Zugriff je Datensatz
 	Decorate    func(ctx context.Context, rec Record) error                // virtuelle Felder füllen
+	// FormState bestimmt die Maske für die aktuellen Formularwerte (Action
+	// formState, siehe metamodel.FormState).
+	FormState func(ctx context.Context, req metamodel.FormStateRequest) (metamodel.FormState, error)
 
 	set *Set
 }

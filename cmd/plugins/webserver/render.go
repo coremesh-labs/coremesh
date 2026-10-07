@@ -141,10 +141,11 @@ var funcs = template.FuncMap{
 	"historyCtx": func(url string, on bool, target, swap string) historyCtx {
 		return historyCtx{URL: url, On: on, Target: target, Swap: swap}
 	},
-	"sectionCtx": func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
-	"relRow":     func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
-	"peekFor":    peekFor,
-	"locked":     locked,
+	"sectionCtx":    func(v view, s sectionView) sectionCtx { return sectionCtx{View: v, Section: s} },
+	"relRow":        func(rv relationView, rec record) relRow { return relRow{Rel: rv, Row: rec, ID: recordID(rec)} },
+	"peekFor":       peekFor,
+	"locked":        locked,
+	"recordActions": recordActions,
 	"recordAction": func(url, id string, a metamodel.ActionConfig, class string) recordActionCtx {
 		return recordActionCtx{URL: url, ID: id, Action: a, Class: class}
 	},

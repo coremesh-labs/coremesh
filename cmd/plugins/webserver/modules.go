@@ -149,6 +149,7 @@ func (s *server) uiRoutes() http.Handler {
 	mux.HandleFunc("GET /{object}", s.list)
 	mux.HandleFunc("GET /{object}/new", s.newForm)
 	mux.HandleFunc("POST /{object}", s.create)
+	mux.HandleFunc("POST /{object}/_form", s.formRefresh)
 	mux.HandleFunc("GET /{object}/{id}", s.item)
 	mux.HandleFunc("GET /{object}/{id}/edit", s.editForm)
 	mux.HandleFunc("GET /{object}/{id}/rel/{section}", s.relation)
