@@ -4,7 +4,7 @@ Das Core-Plugin `iam` (Identity & Access Management) läuft im Host-Prozess und 
 drei Aufgaben:
 
 1. **Benutzer und Rollen verwalten.** Das geschieht über die generische Oberfläche:
-   Die Objects `User`, `Role` und `CompanyCode` haben ein Metamodell und bilden das
+   Die Objects `User`, `Role`, `RoleAuth`, `RoleAuthValue` und `CompanyCode` haben ein Metamodell und bilden das
    Modul **`admin`** („Administration“, `/m/admin`). Der WebServer baut Listen und
    Formulare daraus.
 2. **Anmeldedaten prüfen.** `Account.Authenticate` ist nur für Ingress-Plugins wie den
@@ -16,15 +16,17 @@ drei Aufgaben:
 ## Modell
 
 ```
-Benutzer ──n:m── Rolle ──1:n── Berechtigung (Object.Action, mit Platzhaltern)
-                                     └── je Buchungskreis (oder alle)
+Benutzer ──n:m── Rolle ──1:n── Berechtigung (Object.Action, Buchungskreise)
+                                     └──1:n── Feldwert (Feld, von, bis)
 ```
 
 | Tabelle | Inhalt |
 |---|---|
 | `iam__users` | `id`, `username` (eindeutig, klein geschrieben), `password_hash` (bcrypt), `display_name`, `tenant_id`, `active`, Zeitstempel |
 | `iam__roles` | `id`, `name` (eindeutig), `description` |
-| `iam__role_permissions` | `role_id`, `object`, `action`, `company_code` (`*` = alle Buchungskreise) |
+| `iam__role_auth` | je Rolle und `Object.Action` eine Zeile: `object`, `action`, `company_codes` (kommagetrennt, `*` = alle), `active` (seit 0.5.0) |
+| `iam__role_auth_value` | erlaubte Werte eines Berechtigungsfelds: `auth_id`, `field`, `low`, `high`, `active` (seit 0.5.0) |
+| `iam__role_permissions` | bis 0.4.0 (eine Zeile je Buchungskreis); wird beim ersten Start von 0.5.0 einmalig übernommen und danach nicht mehr verwendet |
 | `iam__company_codes` | `id` (Buchungskreis), `description` |
 | `iam__user_roles` | `user_id`, `role_id` |
 
@@ -33,27 +35,72 @@ Plugin braucht dafür in der Konfiguration `databases: { main: { access: write }
 
 ## Berechtigungen
 
-Eine Berechtigung ist `Object.Action[@Buchungskreis,…]`. Object und Action dürfen
-Platzhalter enthalten (Go `path.Match`). Buchungskreise sind feste IDs aus der
-Tabelle der Buchungskreise. Ohne `@` (oder mit `@*`) gilt die Berechtigung in
-**allen** Buchungskreisen:
+Eine Berechtigung erlaubt einer Rolle `Object.Action` in Buchungskreisen und –
+optional – nur für bestimmte **Werte der Berechtigungsfelder** des Objects:
 
-| Berechtigung | erlaubt |
-|---|---|
-| `*.*` | alles (Rolle **Administrator**) |
-| `Partner.*` | alle Actions auf `Partner` |
-| `*.list` | `list` auf allen Objects |
-| `Greeting.l*` | `Greeting.list`, `Greeting.load`, … |
-| `Contract?.get` | `Contracts.get`, `ContractX.get` (`?` = ein Zeichen) |
-| `Partner.*@1000` | alle Actions auf `Partner`, nur im Buchungskreis 1000 |
-| `*.list@1000,2000` | `list` auf allen Objects in 1000 und 2000 |
+| Object | Action | Buchungskreise | Feldwerte | erlaubt |
+|---|---|---|---|---|
+| `*` | `*` | `*` | | alles (Rolle **Administrator**) |
+| `Partner` | `*` | `1000` | | alle Actions auf `Partner` im Buchungskreis 1000 |
+| `*` | `list` | `1000, 2000` | | `list` auf allen Objects in 1000 und 2000 |
+| `FiscalPeriod` | `post` | `*` | `posting_period` 1 – 12 | buchen nur in den normalen Perioden |
+| `FiscalPeriod` | `post` | `1000` | `posting_period` 13 – 16, `ledger` 0L | Sonderperioden, nur Ledger 0L in 1000 |
+| `DocumentType` | `post` | `*` | `code` KR, `code` KG | nur Kreditorenrechnungen und -gutschriften buchen |
 
 **Regeln:**
 
-- Groß- und Kleinschreibung zählt, entsprechend den Action-Namen im Metamodell.
-- Es gibt **nur Erlaubnisse**. Was keine Rolle erlaubt, ist verboten.
-- Im Rollenformular steht eine Berechtigung pro Zeile, `#` leitet einen Kommentar ein.
-  Ungültige Einträge und unbekannte Buchungskreise lehnt das Formular mit Meldung ab.
+- Object und Action dürfen Platzhalter enthalten (Go `path.Match`, `*` und `?`).
+  Groß- und Kleinschreibung zählt, entsprechend den Action-Namen im Metamodell.
+- Es gibt **nur Erlaubnisse**. Was keine Rolle erlaubt, ist verboten. Berechtigungen
+  ergänzen sich (ODER), die Felder einer Berechtigung müssen alle passen (UND), mehrere
+  Werte desselben Felds ergänzen sich (ODER). Ein Feld ohne Werte ist frei.
+- Ein **Feldwert** ist ein Einzelwert (`SA`), ein Muster (`4*`) oder ein Bereich
+  von – bis (`13` – `16`). Bereiche vergleichen numerisch, wenn Grenzen und Wert ganze
+  Zahlen sind, sonst als Zeichenfolge.
+- Pro Rolle gibt es je `Object.Action` höchstens **eine aktive Zeile**. Entzogen wird
+  über „Entziehen“ (`active = 0`), nicht durch Löschen.
+
+### Rollenpflege
+
+Gepflegt wird in der Rolle im Abschnitt **Berechtigungen**, je `Object.Action` eine
+Zeile, darunter die **Feldwerte**. Die Auswahl kommt aus dem **Catalog**
+(`RoleAuth.formState`, `RoleAuthValue.formState`):
+
+- **Object:** alle Objects mit Route oder Metamodell (Titel und Name), dazu `*`.
+- **Action:** die Routen des Objects und die reinen Berechtigungs-Actions aus
+  `metamodel.Authorization.Actions` (z. B. `FiscalPeriod.post`), dazu `*`.
+- **Feld:** die Berechtigungsfelder aus `metamodel.Authorization.Fields` – bei einem
+  Muster wie `Fiscal*` die aller passenden Objects. Andere Felder lehnt das Speichern ab.
+
+Werte, die der Catalog nicht (mehr) kennt, etwa bei gestopptem Plugin, bleiben
+erhalten und wählbar. Das Feld `permissions` der Rolle zeigt alles zusammen in
+**Textform**; die Rollen-API (`Role.create/update` mit `permissions`) und das Profil
+(`Account.Me`) verwenden sie ebenfalls:
+
+```
+FiscalPeriod.post@1000,2000 posting_period=1..12,13 ledger=0L
+```
+
+Wer `permissions` mitschickt, ersetzt alle Berechtigungen der Rolle; das Formular
+schickt das Feld nicht.
+
+### Berechtigungsfelder deklarieren
+
+Ein Modul macht seine Objects über das Metamodell berechtigungsfähig:
+
+```go
+metamodel.ObjectDefinition{
+	Name: "FiscalPeriod", …,
+	Authorization: &metamodel.Authorization{
+		Fields:  []string{"ledger", "fiscal_year", "posting_period"}, // Feld-Keys des Objects
+		Actions: []metamodel.AuthAction{{Name: "post", Label: "In der Periode buchen"}},
+	},
+}
+// crud: Entity.Authorization; Übersetzung der Action: <modul>.<Object>.auth.<action>
+```
+
+Der Buchungskreis ist immer eine eigene Dimension (`company_code`) und kein
+Berechtigungsfeld.
 
 ### Was wird wann geprüft?
 
@@ -82,52 +129,63 @@ aber immer der Dispatcher, unabhängig davon, über welchen Weg eine Anfrage kom
 | `Account.Me` | eigenes Profil inkl. `roles`, `permissions` und `locale` | jeder angemeldete Benutzer |
 | `Account.UpdateProfile {locale}` | eigene Sprache (`de`, `en`, `zh-CN`, leer = automatisch); Spalte `iam__users.locale` seit 0.4.0 | jeder angemeldete Benutzer |
 | `Account.ChangePassword {current, new}` | eigenes Passwort | jeder angemeldete Benutzer |
-| `Account.Check {object, action, company_code}` | → `{allowed}`: darf der Benutzer das im Buchungskreis? | jeder angemeldete Benutzer, v. a. Module (`sdk.CheckAccess`) |
-| `Account.Granted {object, action}` | → `{all, company_codes}`: in welchen Buchungskreisen? | jeder angemeldete Benutzer, v. a. Module (`sdk.GrantedCompanyCodes`) |
+| `Account.Check {object, action, attrs}` | → `{allowed}`: darf der Benutzer das mit diesen Werten? (`company_code` als Kurzform für `attrs.company_code`) | jeder angemeldete Benutzer, v. a. Module (`sdk.Authorize`, `sdk.CheckAccess`) |
+| `Account.Granted {object, action}` | → `{all, company_codes, rules}` (`sdk.GrantSet`): alle Erlaubnisse mit Feldwerten | jeder angemeldete Benutzer, v. a. Module (`sdk.Grants`, `sdk.GrantedCompanyCodes`) |
 | `User.list/get/create/update/deactivate` | Benutzerverwaltung. Lebenszyklus **status** (`active`): inaktivieren statt löschen; `list` nur aktive, mit `includeHistory=true` alle | mit Berechtigung, z. B. `User.*` |
 | `Role.list/get/create/update` | Rollenverwaltung. **immutable**: kein Löschen | mit Berechtigung, z. B. `Role.*` |
+| `RoleAuth.list/get/create/update/deactivate/formState` | Berechtigung je Rolle und `Object.Action`. Lebenszyklus **status**; `list` filtert nach `role_id`, `object` | mit Berechtigung, z. B. `RoleAuth.*` |
+| `RoleAuthValue.list/get/create/update/deactivate/formState` | Feldwerte einer Berechtigung. Lebenszyklus **status**; `list` filtert nach `auth_id` | mit Berechtigung, z. B. `RoleAuthValue.*` |
 | `CompanyCode.list/get/create/update` | Buchungskreise (`code`, `description`). **immutable** | mit Berechtigung, z. B. `CompanyCode.*` |
 
 Die Payloads folgen den Konventionen des WebServers (`{data}`, `{id, data}` …):
 
 - **Rollen eines Benutzers:** Feld `roles`, ein Rollenname pro Zeile.
-- **Berechtigungen einer Rolle:** Feld `permissions`, eine Berechtigung pro Zeile.
+- **Berechtigungen einer Rolle:** zeilenweise über `RoleAuth`/`RoleAuthValue`; das Feld `permissions` (Textform, eine Berechtigung pro Zeile) ersetzt über die API alle auf einmal.
 - **Passwort:** Bei der Neuanlage Pflicht. Beim Bearbeiten heißt leer: unverändert. Es wird
   nie zurückgegeben.
 
-## Buchungskreise im Fachmodul prüfen
+## Berechtigungen im Fachmodul prüfen
 
 Der Dispatcher kennt den Inhalt einer Anfrage nicht. Er prüft deshalb nur, ob der Benutzer
-`Object.Action` **in irgendeinem** Buchungskreis darf. Zu welchem Buchungskreis ein
-Datensatz gehört, weiß nur das Fachmodul, und es prüft das mit dem SDK:
+`Object.Action` **überhaupt** darf – in irgendeinem Buchungskreis, mit irgendwelchen
+Werten. Zu welchem Buchungskreis und welchen Werten ein Vorgang gehört, weiß nur das
+Fachmodul, und es prüft das mit dem SDK (`pkg/sdk/access.go`):
 
 ```go
-// Einzelner Datensatz: darf der Benutzer ihn im Buchungskreis ändern?
-ok, err := sdk.CheckAccess(ctx, "Partner", "update", partner.CompanyCode)
+// Einzelner Vorgang: Feldwerte unter den Schlüsseln der Berechtigungsfelder,
+// der Buchungskreis unter "company_code".
+ok, err := sdk.Authorize(ctx, "FiscalPeriod", "post", sdk.Attrs{
+	"company_code": "1000", "ledger": "0L", "fiscal_year": "2026", "posting_period": "13"})
 if err != nil {
 	return sdk.Response{}, err
 }
 if !ok {
-	return sdk.Response{}, fmt.Errorf("%w: Buchungskreis %s", sdk.ErrPermissionDenied, partner.CompanyCode)
+	return sdk.Response{}, fmt.Errorf("%w: Periode 13", sdk.ErrPermissionDenied)
 }
 
-// Liste: nur Datensätze aus erlaubten Buchungskreisen laden.
-g, err := sdk.GrantedCompanyCodes(ctx, "Partner", "list")
-switch {
-case g.All:    // ohne Filter
-case g.None(): // leere Liste
-default:       // … WHERE company_code IN (g.CompanyCodes…)
-}
+// Viele Prüfungen (Positionen, Auswahlwerte, Listen): Regeln einmal holen.
+g, err := sdk.Grants(ctx, "DocumentType", "post")
+g.Allows(sdk.Attrs{"company_code": "1000", "code": "KR"})          // lokal prüfen
+where, args := g.SQL(map[string]string{"company_code": "company_code_id", "code": "code"})
+// → "((company_code_id IN (?) AND (code = ?)))" – Platzhalter ?; "1=0" ohne Recht
+
+// Nur Buchungskreis (bisherige API, unverändert nutzbar):
+ok, err = sdk.CheckAccess(ctx, "Partner", "update", partner.CompanyCode)
+cc, err := sdk.GrantedCompanyCodes(ctx, "Partner", "list") // cc.All, cc.None(), cc.CompanyCodes
 ```
 
-- **Benutzer aus dem Kontext:** Beide Funktionen nehmen ihn aus `ctx`. Der Dispatcher
+- **Fail closed:** Schränkt eine Berechtigung ein Feld ein, das der Aufruf nicht
+  mitgibt, passt sie nicht. `CheckAccess` und `GrantedCompanyCodes` berücksichtigen
+  deshalb nur Berechtigungen ohne Feldwerte.
+- **Benutzer aus dem Kontext:** Alle Funktionen nehmen ihn aus `ctx`. Der Dispatcher
   setzt ihn aus der ursprünglichen Anfrage. Trägt ein Modul einen anderen Benutzer ein,
   wird das überschrieben (Test `TestCheckAccessUsesTrustedUser`).
 - **System-Anfragen** ohne Benutzer dürfen alles, wie im Dispatcher.
 - **Buchungskreise verwalten:** Buchungskreise sind immutable und werden nie gelöscht. Die
   Nummer ist nicht änderbar, nur die Beschreibung.
-- **Upgrade von 0.1.0:** Bestehende Berechtigungen erhalten `company_code = *` und
-  gelten weiter in allen Buchungskreisen.
+- **Upgrade:** Von 0.1.0 erhalten bestehende Berechtigungen `company_code = *`. Von 0.4.0
+  übernimmt der erste Start die Zeilen aus `iam__role_permissions` nach
+  `iam__role_auth` (je `Object.Action` eine Zeile mit allen Buchungskreisen).
 
 ## Schutz vor Aussperren
 
@@ -135,7 +193,7 @@ Jede Änderung läuft in einer Transaktion. Danach muss **mindestens ein aktiver
 mit `*.*`** übrig bleiben, sonst wird die Änderung zurückgerollt (`409`). Abgelehnt
 werden damit:
 
-- der Rolle Administrator `*.*` entziehen,
+- der Rolle Administrator `*.*` entziehen oder es mit Feldwerten einschränken,
 - dem letzten Administrator die Rolle nehmen oder ihn deaktivieren,
 - sich selbst inaktivieren (`User.deactivate` oder Feld „Aktiv“).
 
@@ -179,8 +237,10 @@ plugins:
   `CallFromContext(ctx).TenantID`.
 - **Keine Verbote:** Ausnahmen wie „alles außer `User.deactivate`“ brauchen eine
   passende Rolle ohne diese Action.
-- **Auswahlfelder:** Rollen und Berechtigungen werden als Textfeld bearbeitet. Ein Feldtyp
-  für Mehrfachauswahl mit dynamischen Optionen im Metamodell wäre komfortabler.
+- **Auswahlfelder:** Rollen eines Benutzers und Buchungskreise einer Berechtigung werden
+  als Text bearbeitet. Ein Feldtyp für Mehrfachauswahl im Metamodell wäre komfortabler.
+- **Feldwerte ohne Nachschlagehilfe:** Bei Feldern mit festen Werten nennt die Maske die
+  Werte im Hinweis; ein Lookup auf die Stammdaten (z. B. Belegarten) fehlt noch.
 - **SSO:** Für OIDC oder SAML würde `Account.Authenticate` um einen externen
   Identitätsanbieter ergänzt. Rollen und Berechtigungen blieben in `iam`.
 

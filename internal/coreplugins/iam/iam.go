@@ -30,7 +30,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.4.0"
+	Version = "0.5.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -44,6 +44,7 @@ type Plugin struct {
 	dummy    []byte
 	cache    permCache
 	cancel   context.CancelFunc
+	host     sdk.Host
 }
 
 type settings struct {
@@ -68,6 +69,8 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
 			{Object: "Role", Actions: []string{"list", "get", "create", "update"}, Description: "Rollen und Berechtigungen"},
+			{Object: "RoleAuth", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Berechtigungen je Rolle und Object.Action"},
+			{Object: "RoleAuthValue", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Erlaubte Feldwerte einer Berechtigung"},
 			{Object: "CompanyCode", Actions: []string{"list", "get", "create", "update"}, Description: "Buchungskreise"},
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
@@ -87,6 +90,7 @@ func (p *Plugin) Configure(ctx context.Context, cfg sdk.Config) error {
 		return err
 	}
 	p.settings = s
+	p.host = cfg.Host
 	if p.cancel != nil {
 		p.cancel()
 	}
@@ -107,7 +111,8 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 	case sdk.ObjectCatalog + "." + sdk.ActionDescribe:
 		return sdk.Response{Payload: metamodel.DescribeResponse{
 			Objects: []metamodel.ObjectDefinition{
-				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef)},
+				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef),
+				metamodel.WithKeys("admin", roleAuthDef), metamodel.WithKeys("admin", roleAuthValueDef)},
 			Modules:      []metamodel.ModuleDefinition{metamodel.ModuleKeys(adminModule)},
 			Translations: translations,
 		}}, nil
@@ -144,6 +149,31 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.roleSave(ctx, req.Payload, true)
 	case "Role.update":
 		return p.roleSave(ctx, req.Payload, false)
+
+	case "RoleAuth.list":
+		return p.roleAuthList(ctx, req.Payload)
+	case "RoleAuth.get":
+		return p.roleAuthGet(ctx, req.Payload)
+	case "RoleAuth.create":
+		return p.roleAuthSave(ctx, req.Payload, true)
+	case "RoleAuth.update":
+		return p.roleAuthSave(ctx, req.Payload, false)
+	case "RoleAuth.deactivate":
+		return p.roleAuthDeactivate(ctx, req.Payload)
+	case "RoleAuth." + formStateAction:
+		return p.roleAuthFormState(ctx, req.Payload)
+	case "RoleAuthValue.list":
+		return p.roleAuthValueList(ctx, req.Payload)
+	case "RoleAuthValue.get":
+		return p.roleAuthValueGet(ctx, req.Payload)
+	case "RoleAuthValue.create":
+		return p.roleAuthValueSave(ctx, req.Payload, true)
+	case "RoleAuthValue.update":
+		return p.roleAuthValueSave(ctx, req.Payload, false)
+	case "RoleAuthValue.deactivate":
+		return p.roleAuthValueDeactivate(ctx, req.Payload)
+	case "RoleAuthValue." + formStateAction:
+		return p.roleAuthValueFormState(ctx, req.Payload)
 
 	case "CompanyCode.list":
 		return p.ccList(ctx)
@@ -203,7 +233,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	if !u.Active {
 		return sdk.Response{}, fmt.Errorf("%w: Benutzer ist deaktiviert", sdk.ErrNotFound)
 	}
-	perms, err := p.userPermissions(ctx, p.pool(), id)
+	perms, err := p.userGrants(ctx, p.pool(), id)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -426,17 +456,22 @@ func (p *Plugin) roleSave(ctx context.Context, payload any, create bool) (sdk.Re
 		Data struct {
 			Name        string `json:"name"`
 			Description string `json:"description"`
-			Permissions string `json:"permissions"`
+			Permissions *string `json:"permissions"`
 		} `json:"data"`
 	}
 	if err := sdk.Decode(payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	perms, err := parsePermissions(in.Data.Permissions)
-	if err != nil {
-		return sdk.Response{}, fmt.Errorf("%w: Berechtigungen: %v", sdk.ErrInvalidArgument, err)
+	r := roleRow{ID: in.ID, Name: strings.TrimSpace(in.Data.Name), Description: strings.TrimSpace(in.Data.Description)}
+	// Die Textform ersetzt alle Berechtigungen (API); das Formular pflegt sie
+	// zeilenweise über RoleAuth und schickt das Feld nicht.
+	if in.Data.Permissions != nil {
+		perms, err := parsePermissions(*in.Data.Permissions)
+		if err != nil {
+			return sdk.Response{}, fmt.Errorf("%w: Berechtigungen: %v", sdk.ErrInvalidArgument, err)
+		}
+		r.Permissions, r.ReplaceGrants = perms, true
 	}
-	r := roleRow{ID: in.ID, Name: strings.TrimSpace(in.Data.Name), Description: strings.TrimSpace(in.Data.Description), Permissions: perms}
 	if !roleNameRe.MatchString(r.Name) {
 		return sdk.Response{}, fmt.Errorf("%w: Rollenname: 2–64 Zeichen", sdk.ErrInvalidArgument)
 	}
@@ -463,7 +498,14 @@ func (p *Plugin) roleSave(ctx context.Context, payload any, create bool) (sdk.Re
 func (p *Plugin) bootstrap(ctx context.Context, host sdk.Host) {
 	logCtx := sdk.WithCall(ctx, sdk.CallContext{RequestID: newID(), Metadata: map[string]string{"component": Name}})
 	for attempt := 0; ; attempt++ {
-		created, generated, err := p.ensureAdmin(ctx)
+		migrated, err := p.migrateLegacy(ctx)
+		if migrated > 0 {
+			_ = host.Log(logCtx, sdk.LogInfo, "Berechtigungen aus iam__role_permissions übernommen", map[string]string{"rows": fmt.Sprint(migrated)})
+		}
+		created, generated := false, ""
+		if err == nil {
+			created, generated, err = p.ensureAdmin(ctx)
+		}
 		if err == nil {
 			if created {
 				fields := map[string]string{"username": normalizeUsername(p.settings.AdminUser), "role": AdminRole}
@@ -506,7 +548,7 @@ func (p *Plugin) ensureAdmin(ctx context.Context) (created bool, generated strin
 	if err != nil {
 		return false, "", fmt.Errorf("admin_password: %w", err)
 	}
-	role := roleRow{ID: newID(), Name: AdminRole, Description: "Alle Rechte", Permissions: []permission{{"*", "*", AllCompanyCodes}}}
+	role := roleRow{ID: newID(), Name: AdminRole, Description: "Alle Rechte", Permissions: []grant{{Object: "*", Action: "*", CompanyCodes: []string{AllCompanyCodes}, Active: true}}, ReplaceGrants: true}
 	admin := userRow{ID: newID(), Username: normalizeUsername(p.settings.AdminUser), DisplayName: "Administrator",
 		TenantID: p.settings.Tenant, Active: true}
 	err = p.inTx(ctx, func(tx *sql.Tx) error {
@@ -554,49 +596,56 @@ func newID() string {
 	return hex.EncodeToString(raw)
 }
 
-// --- Rechteprüfung je Buchungskreis (Account.Check / Account.Granted) -----------
+// --- Rechteprüfung (Account.Check / Account.Granted) ------------------------------
 
 type accessQuery struct {
-	Object      string `json:"object"`
-	Action      string `json:"action"`
-	CompanyCode string `json:"company_code"`
+	Object      string            `json:"object"`
+	Action      string            `json:"action"`
+	CompanyCode string            `json:"company_code"` // Kurzform für attrs.company_code
+	Attrs       map[string]string `json:"attrs"`
 }
 
-func decodeAccess(payload any, needCC bool) (accessQuery, error) {
+func decodeAccess(payload any) (accessQuery, error) {
 	var q accessQuery
 	if err := sdk.Decode(payload, &q); err != nil {
 		return q, err
 	}
-	if q.Object == "" || q.Action == "" || (needCC && q.CompanyCode == "") {
-		return q, fmt.Errorf("%w: object, action und company_code sind Pflicht", sdk.ErrInvalidArgument)
+	if q.Object == "" || q.Action == "" {
+		return q, fmt.Errorf("%w: object und action sind Pflicht", sdk.ErrInvalidArgument)
+	}
+	if q.Attrs == nil {
+		q.Attrs = map[string]string{}
+	}
+	if q.CompanyCode != "" {
+		q.Attrs[sdk.AttrCompanyCode] = q.CompanyCode
 	}
 	return q, nil
 }
 
-// check: Darf der aufrufende Benutzer object.action im Buchungskreis?
+// check: Darf der aufrufende Benutzer object.action mit den Werten attrs?
 // Der Benutzer kommt aus dem CallContext (vom Dispatcher gesetzt, nicht
 // fälschbar). System-Anfragen ohne Benutzer dürfen alles – wie im Dispatcher.
 func (p *Plugin) check(ctx context.Context, payload any) (sdk.Response, error) {
-	q, err := decodeAccess(payload, true)
+	q, err := decodeAccess(payload)
 	if err != nil {
 		return sdk.Response{}, err
 	}
 	allowed := true
 	if uid := sdk.CallFromContext(ctx).UserID; uid != "" {
-		if allowed, err = p.Check(ctx, uid, q.Object, q.Action, q.CompanyCode); err != nil {
+		if allowed, err = p.Check(ctx, uid, q.Object, q.Action, q.Attrs); err != nil {
 			return sdk.Response{}, err
 		}
 	}
 	return sdk.Response{Payload: map[string]any{"allowed": allowed}}, nil
 }
 
-// granted: In welchen Buchungskreisen darf der Benutzer object.action?
+// granted: alle Erlaubnisse des Benutzers für object.action (sdk.GrantSet).
 func (p *Plugin) granted(ctx context.Context, payload any) (sdk.Response, error) {
-	q, err := decodeAccess(payload, false)
+	q, err := decodeAccess(payload)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	g := Grant{All: true, CompanyCodes: []string{}}
+	g := systemGrants
 	if uid := sdk.CallFromContext(ctx).UserID; uid != "" {
 		if g, err = p.Granted(ctx, uid, q.Object, q.Action); err != nil {
 			return sdk.Response{}, err

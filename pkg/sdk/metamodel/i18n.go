@@ -99,6 +99,15 @@ func (d ObjectDefinition) Localize(t Translations, locale string) ObjectDefiniti
 		s.Title = t.Lookup(locale, s.TitleKey, s.Title)
 		out.Sections[i] = s
 	}
+	if az := d.Authorization; az != nil {
+		c := *az
+		c.Actions = make([]AuthAction, len(az.Actions))
+		for i, a := range az.Actions {
+			a.Label = t.Lookup(locale, a.LabelKey, a.Label)
+			c.Actions[i] = a
+		}
+		out.Authorization = &c
+	}
 	return out
 }
 
@@ -116,6 +125,7 @@ var reservedModules = map[string]bool{"i18n": true, "user": true}
 //	<modul>.<Object>.actions.<action>[.confirm]  Action
 //	<modul>.<Object>.sections.<abschnitt>        Abschnitt der Detailansicht
 //	<modul>.<Object>.groups.<gruppe>             Feldgruppe im Formular
+//	<modul>.<Object>.auth.<action>               Berechtigungs-Action (Authorization.Actions)
 //
 // Für Actions der Kinds list, item, create, update, expire und deactivate
 // bringt das Frontend Standardtexte mit; ein Modul übersetzt sie nur, wenn es
@@ -153,6 +163,15 @@ func WithKeys(module string, d ObjectDefinition) ObjectDefinition {
 	for i, s := range d.Sections {
 		s.TitleKey = orKey(s.TitleKey, p+".sections."+s.Key)
 		d.Sections[i] = s
+	}
+	if az := d.Authorization; az != nil {
+		c := *az
+		c.Actions = slices.Clone(az.Actions)
+		for i, a := range c.Actions {
+			a.LabelKey = orKey(a.LabelKey, p+".auth."+a.Name)
+			c.Actions[i] = a
+		}
+		d.Authorization = &c
 	}
 	return d
 }

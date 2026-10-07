@@ -90,7 +90,7 @@ func payloadOnly(f func(ctx context.Context, payload any) (sdk.Response, error))
 
 // Definition liefert das Metamodell der Entity.
 func (e *Entity) Definition() metamodel.ObjectDefinition {
-	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections}
+	d := metamodel.ObjectDefinition{Name: e.Object, Title: e.Title, Icon: e.Icon, TitleField: e.TitleField, Sections: e.Sections, Authorization: e.Authorization}
 	if e.FormState != nil {
 		d.FormState = formStateAction
 	}

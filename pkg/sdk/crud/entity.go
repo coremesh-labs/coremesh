@@ -120,6 +120,10 @@ type Entity struct {
 	// FormState bestimmt die Maske für die aktuellen Formularwerte (Action
 	// formState, siehe metamodel.FormState).
 	FormState func(ctx context.Context, req metamodel.FormStateRequest) (metamodel.FormState, error)
+	// Authorization: Berechtigungsfelder und reine Berechtigungs-Actions des
+	// Objects für die Rollenpflege (geprüft wird im Modul mit sdk.Authorize
+	// bzw. sdk.Grants).
+	Authorization *metamodel.Authorization
 
 	set *Set
 }

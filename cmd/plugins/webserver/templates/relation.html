@@ -31,6 +31,7 @@
            hx-target="#modal" title="{{t "core.relation.edit_linked"}}">✎</a>{{end}}{{end}}</td>
       {{end}}
       <td class="actions">
+        {{with .Rel.DetailURL}}<a href="{{.}}/{{pathEscape $.ID}}">{{with $.Rel.Child.Has.item}}{{.Label}}{{end}}</a>{{end}}
         {{if not (locked .Row)}}{{with .Rel.Child.Has.update}}
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
            hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>

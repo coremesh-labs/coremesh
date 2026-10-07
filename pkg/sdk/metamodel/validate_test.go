@@ -52,7 +52,12 @@ func TestValidateErrors(t *testing.T) {
 		"lookup nicht": func(d *ObjectDefinition) {
 			d.Fields[2].Lookup = &Lookup{Object: "Role", ValueField: "code", LabelFields: []string{"d"}}
 		},
-		"title_field": func(d *ObjectDefinition) { d.TitleField = "gibts_nicht" },
+		"title_field":         func(d *ObjectDefinition) { d.TitleField = "gibts_nicht" },
+		"authorization: Feld": func(d *ObjectDefinition) { d.Authorization = &Authorization{Fields: []string{"x"}} },
+		"immer Dimension":     func(d *ObjectDefinition) { d.Authorization = &Authorization{Fields: []string{"company_code"}} },
+		"schon in actions": func(d *ObjectDefinition) {
+			d.Authorization = &Authorization{Actions: []AuthAction{{Name: "list", Label: "L"}}}
+		},
 		"genau eines": func(d *ObjectDefinition) { d.Sections = []SectionDefinition{{Key: "a", Title: "A"}} },
 		"gibt es nicht": func(d *ObjectDefinition) {
 			d.Sections = []SectionDefinition{{Key: "a", Title: "A", Fields: []string{"x"}}}
@@ -92,6 +97,30 @@ func TestValidateSectionsAndLookups(t *testing.T) {
 		{Key: "base", Title: "Stammdaten", Fields: []string{"company_name", "email"}},
 		{Key: "contacts", Title: "Kontakte", Collapsed: true, Relation: &Relation{Object: "Contact", ForeignKey: "partner_id"}},
 	}
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAuthorizationKeys(t *testing.T) {
+	d := partner()
+	d.Authorization = &Authorization{Fields: []string{"kind"}, Actions: []AuthAction{{Name: "approve", Label: "Freigeben"}}}
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	k := WithKeys("bp", d)
+	if got := k.Authorization.Actions[0].LabelKey; got != "bp.BusinessPartner.auth.approve" {
+		t.Fatal(got)
+	}
+	if d.Authorization.Actions[0].LabelKey != "" {
+		t.Fatal("WithKeys darf das Original nicht ändern")
+	}
+	l := k.Localize(Translations{"en": {"bp.BusinessPartner.auth.approve": "Approve"}}, "en")
+	if l.Authorization.Actions[0].Label != "Approve" {
+		t.Fatal(l.Authorization.Actions[0].Label)
+	}
+	// Auswahl ohne feste Werte, wenn FormState sie liefert.
+	d.Fields[2].Options, d.FormState = nil, "formState"
 	if err := d.Validate(); err != nil {
 		t.Fatal(err)
 	}
