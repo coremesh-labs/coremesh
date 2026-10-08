@@ -87,5 +87,6 @@ var seedTypes = []map[string]any{
 	row("code", "NOTICE", "name", "Bescheid", "sort_order", 90),
 	row("code", "STATEMENT", "name", "Abrechnung", "sort_order", 100),
 	row("code", "CORRESPONDENCE", "name", "Schriftverkehr", "sort_order", 110),
+	row("code", "ID_CARD", "name", "Personalausweis", "sort_order", 120),
 	row("code", "OTHER", "name", "Sonstiges", "sort_order", 900),
 }

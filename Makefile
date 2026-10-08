@@ -54,7 +54,7 @@ plugins:
 	cd cmd/plugins/console && go build -o ../../../$(BIN_DIR)/plugins/co/console-0.3.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.10.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/tag && go build -o ../../../$(BIN_DIR)/plugins/ta/tag-0.3.0-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/document && go build -o ../../../$(BIN_DIR)/plugins/do/document-0.1.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/document && go build -o ../../../$(BIN_DIR)/plugins/do/document-0.1.1-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:
 	go test ./...

@@ -4,6 +4,6 @@
 # mit derselben Schnittstelle (dann diese Datei durch die des Adapters ersetzen).
 plugins:
   document:
-    version: 0.1.0
+    version: 0.1.1
     databases:
       main: { access: write }        # Tabellen document__* via DBSchema.Init
