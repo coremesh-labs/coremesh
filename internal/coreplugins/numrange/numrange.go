@@ -360,7 +360,7 @@ func (p *Plugin) next(ctx context.Context, payload any) (sdk.Response, error) {
 		}
 		err = p.db.WithTx(sdk.CallFromContext(ctx).RequestID, p.settings.Database, txID, draw)
 	} else {
-		err = p.inTx(ctx, func(tx *sql.Tx) error { return draw(tx) })
+		err = p.inTx(ctx, draw)
 	}
 	if err != nil {
 		return sdk.Response{}, err
@@ -481,7 +481,7 @@ func (p *Plugin) assign(ctx context.Context, payload any) (sdk.Response, error) 
 	p.mu.Lock()
 	var out api.Result
 	var internal bool
-	err = p.inTx(ctx, func(tx *sql.Tx) error {
+	err = p.inTx(ctx, func(tx database.Querier) error {
 		iv, err := p.findOrCreate(ctx, tx, obj, cc, key, year)
 		if err != nil {
 			return err
@@ -655,7 +655,15 @@ func (p *Plugin) pool() *sql.DB {
 
 func (p *Plugin) q(query string) string { return database.Rebind(p.db.Driver(p.settings.Database), query) }
 
-func (p *Plugin) inTx(ctx context.Context, fn func(*sql.Tx) error) error {
+// inTx: eigene Transaktion – außer auf SQLite in einer Transaktion des
+// Aufrufers auf derselben Datenbank: SQLite hat nur einen Schreiber, eine
+// zweite Verbindung wartete auf die Sperre des Aufrufers (z. B. saveAggregate,
+// das den Datensatz samt Nummer in einer Transaktion anlegt). Ein Rollback des
+// Aufrufers gibt die Nummer dann zurück.
+func (p *Plugin) inTx(ctx context.Context, fn func(database.Querier) error) error {
+	if txID, ok := txctx.Get(ctx, p.settings.Database); ok && strings.HasPrefix(p.db.Driver(p.settings.Database), "sqlite") {
+		return p.db.WithTx(sdk.CallFromContext(ctx).RequestID, p.settings.Database, txID, fn)
+	}
 	tx, err := p.pool().BeginTx(ctx, nil)
 	if err != nil {
 		return err
