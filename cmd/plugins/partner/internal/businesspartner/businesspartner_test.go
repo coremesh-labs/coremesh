@@ -277,7 +277,7 @@ func TestSeedsAndCatalogRules(t *testing.T) {
 		t.Fatalf("PHONE-Typen: %d", n)
 	}
 	roles := e.items("PartnerRoleType", nil)
-	if len(roles) != 4 || roles[1]["code"] != "DEBITOR" || roles[1]["is_debitor"] != true {
+	if len(roles) != 5 || roles[0]["code"] != "AUTHORITY" || roles[0]["is_creditor"] != true || roles[2]["code"] != "DEBITOR" || roles[2]["is_debitor"] != true {
 		t.Fatalf("Rollentypen: %v", roles)
 	}
 
@@ -493,7 +493,7 @@ func TestMetamodel(t *testing.T) {
 	}
 	desc := resp.Payload.(metamodel.DescribeResponse)
 	defs := desc.Objects
-	if len(defs) != 12 {
+	if len(defs) != 13 {
 		t.Fatalf("Objects: %d", len(defs))
 	}
 	for _, d := range defs {
@@ -520,13 +520,13 @@ func newPlugin(t *testing.T) *module.Plugin {
 	return p
 }
 
-// TestModule: Das Modul bündelt alle 12 Objects unter einem Namensraum,
+// TestModule: Das Modul bündelt alle 13 Objects unter einem Namensraum,
 // Kataloge in einer eigenen Gruppe; das Schema kommt mit schema-Block.
 func TestModule(t *testing.T) {
 	p := newPlugin(t)
 	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
 	desc := resp.Payload.(metamodel.DescribeResponse)
-	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 12 {
+	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 13 {
 		t.Fatalf("Module: %+v", desc.Modules)
 	}
 	defined := map[string]bool{}
@@ -540,7 +540,7 @@ func TestModule(t *testing.T) {
 	for _, o := range desc.Modules[0].Objects {
 		sections[o.Section]++
 	}
-	if sections["Kataloge"] != 5 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
+	if sections["Kataloge"] != 6 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
 		t.Fatalf("Navigation: %+v", desc.Modules[0].Objects)
 	}
 
@@ -875,5 +875,28 @@ func TestFilterByRole(t *testing.T) {
 	}
 	if n := len(e.items("BusinessPartner", map[string]any{})); n < 2 {
 		t.Fatalf("ohne Filter: %d", n)
+	}
+}
+
+// TestPersonSalutation: Geschlecht nur bei natürlichen Personen, Anrede als
+// Vorschlag nach Art und Geschlecht, Briefanrede aus der Vorlage.
+func TestPersonSalutation(t *testing.T) {
+	e := setup(t)
+	p := e.must("BusinessPartner", "create", data("type", "PERSON", "name1", "Muster", "name2", "Erika", "gender", "FEMALE"))
+	if p["salutation_code"] != "FRAU" || p["letter_salutation"] != "Sehr geehrte Frau Muster" {
+		t.Fatalf("Person: %v", p)
+	}
+	o := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Stadt Musterhausen", "gender", "MALE"))
+	if o["gender"] != nil || o["salutation_code"] != "FIRMA" || o["letter_salutation"] != "Sehr geehrte Damen und Herren" {
+		t.Fatalf("Organisation: %v", o)
+	}
+	if n := e.must("BusinessPartner", "create", data("type", "PERSON", "name1", "Ohne")); n["salutation_code"] != nil {
+		t.Fatalf("ohne Geschlecht kein Vorschlag: %v", n)
+	}
+	_, err := e.do("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "X", "salutation_code", "HERR"))
+	expect(t, err, sdk.ErrInvalidArgument, "Anrede einer Person für Organisation")
+	e.must("PartnerSalutation", "create", data("code", "dr", "description", "Frau Dr.", "letter_text", "Sehr geehrte Frau Dr. {name1}", "person_type", "PERSON"))
+	if d := e.must("BusinessPartner", "create", data("type", "PERSON", "name1", "Klug", "salutation_code", "DR")); d["letter_salutation"] != "Sehr geehrte Frau Dr. Klug" {
+		t.Fatalf("eigene Anrede: %v", d)
 	}
 }

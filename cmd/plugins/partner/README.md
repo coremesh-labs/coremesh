@@ -84,6 +84,16 @@ Seit 0.9.0 sind Mieter und Vermieter in den Vorschlagswerten Finanzrollen. Beste
 bleiben unverändert (Seeds fügen nur fehlende Zeilen ein); umgestellt wird im Katalog
 „Rollentypen“ über die Häkchen Debitor bzw. Kreditor.
 
+## Art, Geschlecht und Anrede (seit 0.11.0)
+
+- **Art:** natürliche Person (`PERSON`) oder juristische Person bzw. Organisation (`ORGANIZATION`).
+- **Geschlecht** (nur natürliche Personen): weiblich, männlich, divers, unbekannt.
+- **Anrede** aus dem Katalog `PartnerSalutation` (Kataloge → Anreden, pflegbar): Bezeichnung,
+  Vorlage der Briefanrede (`{name1}` = Nachname/Firma, `{name2}` = Vorname), gültig für Art und
+  Geschlecht. Vorbelegt: Frau, Herr, Guten Tag (divers), Firma. Ohne Anrede schlägt die Pflege
+  die erste passende vor (Art, Geschlecht); die **Briefanrede** zeigt der Partner berechnet an.
+- Rollentyp **Behörde / Amt** (`AUTHORITY`, Kreditor) für Ämter und Behörden.
+
 ## BP-Nummer, Partnergruppe und Kurzname (seit 0.10.0)
 
 - **BP-Nummer** ist der Schlüssel des Partners (`id`) und nach dem Anlegen fest. Sie kommt aus
