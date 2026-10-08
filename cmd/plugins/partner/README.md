@@ -77,7 +77,11 @@ und zwar **nur fehlende Zeilen**. Geänderte Beschreibungen im Bestand bleiben e
 | Kommunikationskategorien | PHONE, EMAIL, WEB, FAX |
 | Kommunikationstypen | EMAIL_WORK (Haupttyp EMAIL), PHONE_WORK (Haupttyp PHONE), MOBILE |
 | Adressrollen | MAIN (Hauptanschrift), INVOICE |
-| Rollentypen | DEBITOR (`is_debitor`), CREDITOR (`is_creditor`), TENANT, LANDLORD |
+| Rollentypen | DEBITOR und TENANT (Mieter) mit `is_debitor`, CREDITOR und LANDLORD (Vermieter) mit `is_creditor` |
+
+Seit 0.9.0 sind Mieter und Vermieter in den Vorschlagswerten Finanzrollen. Bestehende Kataloge
+bleiben unverändert (Seeds fügen nur fehlende Zeilen ein); umgestellt wird im Katalog
+„Rollentypen“ über die Häkchen Debitor bzw. Kreditor.
 
 ## Aufrufe
 
@@ -131,11 +135,17 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
 
 **Finanzrollen und Buchungskreise**
 
-- **Finanzrolle** ist eine Rolle, deren Typ `is_debitor` oder `is_creditor` trägt.
+- **Finanzrolle** ist eine Rolle, deren Typ `is_debitor` oder `is_creditor` trägt – das ist
+  Konfiguration im Katalog „Rollentypen“, nicht im Code. **Jede Finanzrolle hat ihre eigenen
+  Buchungskreisdaten mit eigenem Abstimmkonto** (z. B. Mieter und Debitor getrennt).
 - **Buchungskreis-Zwang:** Wer eine Finanzrolle zuweist, muss im selben Aufruf mindestens
   einen Buchungskreis mitgeben (`company_codes`). Rolle und Buchungskreisdaten entstehen
   in einer Transaktion. Bei anderen Rollen sind Buchungskreise nicht erlaubt.
-- **Buchungskreisdaten** gibt es nur für Finanzrollen, die der Partner hat.
+- **Buchungskreisdaten** gibt es nur für Finanzrollen, die der Partner hat. Das
+  **Abstimmkonto ist Pflicht** (seit 0.9.0).
+- **Speichern nur vollständig:** Hat ein Partner eine heute gültige Finanzrolle ohne
+  Buchungskreisdaten (etwa weil der Rollentyp nachträglich zur Finanzrolle wurde), lehnt
+  `BusinessPartner.update` ab und nennt die Rolle. Ergänzen über „Buchungskreisdaten“.
 - Buchungskreisdaten sind immutable: Sie bleiben, auch wenn die Finanzrolle endet.
 - **Buchungskreise kommen aus `iam`:** Unbekannte Buchungskreise werden abgelehnt.
 - **Berechtigungen je Buchungskreis:** Lesen und Schreiben ist auf die Buchungskreise

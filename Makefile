@@ -52,7 +52,7 @@ plugins:
 	@# Eigenes Go-Modul: im Modulverzeichnis bauen
 	cd cmd/plugins/webserver && go build -o ../../../$(BIN_DIR)/plugins/we/webserver-0.21.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/console && go build -o ../../../$(BIN_DIR)/plugins/co/console-0.3.0-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.8.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.9.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/tag && go build -o ../../../$(BIN_DIR)/plugins/ta/tag-0.2.0-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:

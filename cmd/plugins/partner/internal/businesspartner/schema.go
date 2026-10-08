@@ -255,7 +255,7 @@ var seeds = []sdk.SchemaSeed{
 	{Table: "partner__role_types", Rows: []map[string]any{
 		row("code", "DEBITOR", "description", "Debitor", "is_debitor", true, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
 		row("code", "CREDITOR", "description", "Kreditor", "is_debitor", false, "is_creditor", true, "valid_from", dateMin, "valid_to", dateMax),
-		row("code", "TENANT", "description", "Mieter", "is_debitor", false, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
-		row("code", "LANDLORD", "description", "Vermieter", "is_debitor", false, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "TENANT", "description", "Mieter", "is_debitor", true, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "LANDLORD", "description", "Vermieter", "is_debitor", false, "is_creditor", true, "valid_from", dateMin, "valid_to", dateMax),
 	}},
 }
