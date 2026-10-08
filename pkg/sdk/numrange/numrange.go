@@ -39,6 +39,8 @@ const (
 	Object       = "NumberRange"
 	ActionDefine = "Define"
 	ActionNext   = "Next"
+	ActionAssign = "Assign" // intern: nächste Nummer; extern: mitgegebene Nummer prüfen
+	ActionInfo   = "Info"   // Vergabeart und Bereich des Intervalls (ohne Anlage)
 )
 
 // Verhalten, wenn das Intervall erschöpft ist.
@@ -92,10 +94,31 @@ type Request struct {
 
 // Result: vergebene Nummer.
 type Result struct {
-	Number   string `json:"number"`            // formatiert, z. B. MV-2026-0001
-	Value    int64  `json:"value"`             // laufende Nummer
-	Interval string `json:"interval"`          // ID des Intervalls
-	Warning  string `json:"warning,omitempty"` // Warnschwelle erreicht, Neubeginn …
+	Number   string `json:"number"`             // formatiert, z. B. MV-2026-0001
+	Value    int64  `json:"value"`              // laufende Nummer (extern mit Muster: 0)
+	Interval string `json:"interval"`           // ID des Intervalls
+	Warning  string `json:"warning,omitempty"`  // Warnschwelle erreicht, Neubeginn …
+	External bool   `json:"external,omitempty"` // extern vergeben (Assign mit Wert)
+}
+
+// AssignRequest: Nummer nach der Vergabeart des Intervalls. Intern bleibt
+// Value leer (nächste Nummer wie Next), extern ist Value die eingegebene
+// Nummer – geprüft am Muster des Intervalls bzw. an von–bis. Ob sie frei ist,
+// prüft das Modul.
+type AssignRequest struct {
+	Request
+	Value string `json:"value"`
+}
+
+// Info: Vergabeart des Intervalls, das ein Abruf nähme (Exists = schon angelegt).
+type Info struct {
+	Interval        string `json:"interval"`
+	Exists          bool   `json:"exists"`
+	External        bool   `json:"external"`
+	ExternalPattern string `json:"external_pattern,omitempty"`
+	From            int64  `json:"from"`
+	To              int64  `json:"to"`
+	Active          bool   `json:"active"`
 }
 
 // Define meldet ein Nummernkreis-Objekt an (beim Start; wiederholbar). Gepflegte
@@ -114,6 +137,33 @@ func Next(ctx context.Context, s module.Services, r Request) (Result, error) {
 	var out Result
 	if err := sdk.Decode(resp.Payload, &out); err != nil {
 		return Result{}, err
+	}
+	return out, nil
+}
+
+// Assign vergibt eine Nummer nach der Vergabeart des Intervalls (intern oder
+// extern, siehe AssignRequest).
+func Assign(ctx context.Context, s module.Services, r AssignRequest) (Result, error) {
+	resp, err := s.Call(ctx, Object, ActionAssign, r)
+	if err != nil {
+		return Result{}, err
+	}
+	var out Result
+	if err := sdk.Decode(resp.Payload, &out); err != nil {
+		return Result{}, err
+	}
+	return out, nil
+}
+
+// IntervalInfo liefert die Vergabeart des Intervalls, das ein Abruf nähme.
+func IntervalInfo(ctx context.Context, s module.Services, r Request) (Info, error) {
+	resp, err := s.Call(ctx, Object, ActionInfo, r)
+	if err != nil {
+		return Info{}, err
+	}
+	var out Info
+	if err := sdk.Decode(resp.Payload, &out); err != nil {
+		return Info{}, err
 	}
 	return out, nil
 }

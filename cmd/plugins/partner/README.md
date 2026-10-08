@@ -31,7 +31,8 @@ Das Präfix `partner__` ist von DBSchema vorgegeben (`<modul>__`). Bei PostgreSQ
 | `partner__comm_categories` | `PartnerCommCategory` | `code` | – |
 | `partner__comm_types` | `PartnerCommType` | `code, valid_from` | ✔ |
 | `partner__role_types` | `PartnerRoleType` | `code, valid_from` | ✔ |
-| `partner__bp` | `BusinessPartner` | `id` (generiert)`, valid_from` | ✔ (seit 0.5.0) |
+| `partner__bp` | `BusinessPartner` | `id` (BP-Nummer)`, valid_from` | ✔ (seit 0.5.0) |
+| `partner__groups` | `PartnerGroup` | `code` | – |
 | `partner__roles` | `PartnerRole` | `bp_id, role_code, valid_from` | ✔ |
 | `partner__addresses` | `PartnerAddressData` | `id` (generiert) | – |
 | `partner__bp_addresses` | `PartnerAddress` | `id` (generiert)`, valid_from` | ✔ |
@@ -82,6 +83,28 @@ und zwar **nur fehlende Zeilen**. Geänderte Beschreibungen im Bestand bleiben e
 Seit 0.9.0 sind Mieter und Vermieter in den Vorschlagswerten Finanzrollen. Bestehende Kataloge
 bleiben unverändert (Seeds fügen nur fehlende Zeilen ein); umgestellt wird im Katalog
 „Rollentypen“ über die Häkchen Debitor bzw. Kreditor.
+
+## BP-Nummer, Partnergruppe und Kurzname (seit 0.10.0)
+
+- **BP-Nummer** ist der Schlüssel des Partners (`id`) und nach dem Anlegen fest. Sie kommt aus
+  dem Nummernkreis **`BusinessPartner`** (Core-Plugin `numrange`); das Intervall bestimmt die
+  **Partnergruppe** (Katalog `PartnerGroup`: Code, Intervallschlüssel, Standardgruppe).
+- **Intern oder extern** entscheidet das Intervall (Nummernkreise → Intervall → „Externe
+  Vergabe“, optional mit erlaubtem Muster, z. B. `[A-Z][A-Z0-9-]{2,11}` für sprechende
+  Schlüssel). Extern gibt der Sachbearbeiter die Nummer ein; ist sie vergeben oder passt sie
+  nicht, lehnt das Anlegen ab und er wählt eine andere. Intern blendet die Maske das Feld aus.
+- Vorschlag: Standardgruppe `STD`, intern 100000–999999. Weitere Gruppen (Mieter, Eigentümer,
+  Dienstleister, Behörden …) mit eigenen Intervallen legt man im Katalog an.
+- **Kurzname (Matchcode)** (`search_term`): änderbar, für Suche, Auswahl und Texte. Leer =
+  Vorschlag aus Name 1 (Großbuchstaben, Umlaute ausgeschrieben, bei Dubletten mit Zähler:
+  `MUELLER`, `MUELLER2`). Eindeutigkeit über die Einstellung
+  `settings.modules.businesspartner.short_name_unique` (Standard `true`).
+- **Übernahme (Migration):** Partner bis 0.9.0 hatten eine GUID. Beim ersten Aufruf nach dem
+  Update bekommen sie eine BP-Nummer der Standardgruppe; die GUID bleibt in `legacy_id`
+  („Frühere ID“). Je Partner geht das SystemEvent `BusinessPartner.rekey` (`old_id`, `new_id`)
+  hinaus (Tags folgen); andere Module stellen ihre Verweise mit `pkg/sdk/bpref` über
+  **`BusinessPartnerService.resolve`** (`{ids}` → `{ids: {alt: neu}}`) um – contract,
+  realestate und ledger tun das in ihrem `Migrate`.
 
 ## Aufrufe
 

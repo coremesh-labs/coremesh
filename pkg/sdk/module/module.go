@@ -66,6 +66,17 @@ type SchemaProvider interface {
 	Schema() Schema
 }
 
+// Migrator ist optional: Migrate stellt Daten älterer Versionen um (z. B.
+// Verweise auf umgeschlüsselte Datensätze anderer Module). Das Plugin ruft es
+// einmal je Prozess vor der ersten Anfrage an das Modul auf – innerhalb dieser
+// Anfrage, also mit Datenbankzugriff und Services. Scheitert es, scheitert die
+// Anfrage, und die nächste versucht es erneut. Migrate muss wiederholbar sein
+// und darf keine Actions des eigenen Plugins aufrufen (die Anfrage wartet auf
+// die laufende Migration).
+type Migrator interface {
+	Migrate(ctx context.Context) error
+}
+
 // Schema ist das Soll-Schema eines Moduls. HCL enthält nur table-Blöcke mit
 // schema = schema.main; den schema-Block ergänzt das Plugin.
 type Schema struct {

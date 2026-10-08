@@ -36,7 +36,7 @@ func (m *Module) entities() []*entity {
 	return []*entity{
 		m.businessPartner(), m.partnerRole(), m.partnerCompanyCode(),
 		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(),
-		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(),
+		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(),
 	}
 }
 
@@ -128,7 +128,7 @@ func (m *Module) uniqueMain(ctx context.Context, table, keyCol, key, groupCol st
 func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
-		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "search_term, name1, valid_from",
+		Keys: []string{"id", "valid_from"}, TimeSlice: true, Order: "search_term, name1, valid_from",
 		Search: []string{"name1", "name2", "search_term"},
 		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
 		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
@@ -142,7 +142,7 @@ func (m *Module) businessPartner() *entity {
 		// (Rolle + Zeitscheibe) zu wiederverwendbaren PartnerAddressData.
 		TitleField: "name1",
 		Sections: []metamodel.SectionDefinition{
-			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"type", "name1", "name2", "search_term", "is_blocked", "id"}},
+			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"id", "group_code", "type", "name1", "name2", "search_term", "is_blocked"}},
 			{Key: "gueltigkeit", Title: "Gültigkeit", Fields: []string{"valid_from", "valid_to"}},
 			{Key: "rollen", Title: "Rollen", Relation: &metamodel.Relation{Object: "PartnerRole", ForeignKey: "bp_id",
 				Columns: []string{"role_code", "company_codes", "valid_from", "valid_to"}}},
@@ -162,17 +162,23 @@ func (m *Module) businessPartner() *entity {
 		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann
 		// er gelöscht werden (noch nicht umgesetzt).
 		Fields: withTimeSlice(
-			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
+			// BP-Nummer: aus dem Nummernkreis der Partnergruppe (intern) oder eingegeben (extern)
+			field{Key: "id", Label: "BP-Nummer", Type: tText, Listable: true, Immutable: true},
+			field{Key: "group_code", Label: "Partnergruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
+				Lookup: &metamodel.Lookup{Object: "PartnerGroup", ValueField: "code", LabelFields: []string{"description"}}},
 			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: []metamodel.Option{
 				{Value: "ORGANIZATION", Label: "Organisation"}, {Value: "PERSON", Label: "Person"}}},
-			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true},
+			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true, Trigger: true},
 			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
-			field{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
+			field{Key: "search_term", Label: "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)", Type: tText, Listable: true},
+			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		),
+		Prepare:   m.preparePartner,
+		FormState: m.partnerFormState,
 		Validate: func(ctx context.Context, rec, old record) error {
-			if rec["search_term"] == nil { // Matchcode aus Name 1
-				rec["search_term"] = strings.ToUpper(str(rec["name1"]))
+			if err := m.checkShortName(ctx, rec, old); err != nil {
+				return err
 			}
 			if old == nil {
 				return nil // neu: noch ohne Rollen

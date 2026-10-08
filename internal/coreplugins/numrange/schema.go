@@ -131,6 +131,16 @@ table "numrange__interval" {
     type    = integer
     default = 90
   }
+  # Externe Vergabe: der Aufrufer bringt die Nummer mit (Assign), numrange prüft sie
+  column "external" {
+    type    = integer
+    default = 0
+  }
+  # nur extern: erlaubte Nummern als regulärer Ausdruck (leer = Zahl von–bis)
+  column "external_pattern" {
+    type = text
+    null = true
+  }
   column "active" {
     type    = integer
     default = 1
@@ -256,6 +266,8 @@ var (
 			{Key: "overflow", Label: "Bei Überlauf", Type: metamodel.TypeSelect, Required: true, Listable: true, Editable: true, Options: overflowOptions, Group: "Überlauf"},
 			{Key: "next_key", Label: "Folgeintervall (Schlüssel)", Type: metamodel.TypeText, Editable: true, Group: "Überlauf"},
 			{Key: "warn_percent", Label: "Warnschwelle (%; 0 = keine)", Type: metamodel.TypeNumber, Editable: true, Group: "Überlauf"},
+			{Key: "external", Label: "Externe Vergabe (Nummer wird eingegeben und geprüft)", Type: metamodel.TypeBoolean, Listable: true, Editable: true, Group: "Vergabe"},
+			{Key: "external_pattern", Label: "Erlaubte externe Nummern (regulärer Ausdruck, z. B. [A-Z0-9]{3,12}; leer = Zahl von–bis)", Type: metamodel.TypeText, Editable: true, Group: "Vergabe"},
 			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true},
 			{Key: "updated_at", Label: "Geändert am", Type: metamodel.TypeText},
 		},
