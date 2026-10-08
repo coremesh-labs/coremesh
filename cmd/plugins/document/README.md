@@ -1,7 +1,7 @@
 # Plugin `document` – Dokumentverweise
 
 Beliebig viele Dokumente an jedem Datensatz jedes Objects: Vertrag, AGB, Nachtrag,
-Widerrufsbelehrung, Bestätigung, Angebot, Rechnung, Bescheid, Abrechnung, Schriftverkehr …
+Widerrufsbelehrung, Bestätigung, Angebot, Rechnung, Bescheid, Abrechnung, Schriftverkehr, Personalausweis …
 
 - **Schnittstelle:** nur das Object `Documents` aus [`pkg/sdk/docservice`](../../../pkg/sdk/docservice/docservice.go)
   (`list`, `attach`, `update`, `detach`, `types`). Andere Plugins und der WebServer kennen
