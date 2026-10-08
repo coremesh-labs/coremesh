@@ -10,6 +10,11 @@ module CoreMesh.Plugin.Internal.Host
   , inTx
   , LogLevel (..)
   , logMessage
+    -- * Systemanfragen und Events
+  , systemCall
+  , Event (..)
+  , subscribe
+  , eventOf
     -- * intern
   , contextToProto
   , contextFromProto
@@ -19,6 +24,11 @@ module CoreMesh.Plugin.Internal.Host
 
 import Control.Exception
 import Control.Monad (void)
+import Crypto.Random (getRandomBytes)
+import Data.Aeson ((.:), (.:?), (.!=))
+import Data.Aeson.Types qualified as JT
+import Data.ByteArray.Encoding (Base (Base16), convertToBase)
+import Data.Text.Encoding qualified as TE
 import Data.Aeson qualified as J
 import Data.ByteString (ByteString)
 import Data.IORef
@@ -198,3 +208,44 @@ logMessage call level msg fields =
       LogInfo -> H.LOG_LEVEL_INFO
       LogWarn -> H.LOG_LEVEL_WARN
       LogError -> H.LOG_LEVEL_ERROR
+
+-- | Eigene Wurzelanfrage ohne Benutzer (Systemanfrage) im Mandanten, z. B. um
+-- einen Cache unabhängig von den Rechten des gerade aufrufenden Benutzers zu
+-- laden. Der Host nimmt sie nur von Plugins mit @ingress: true@ an. Der
+-- Rückkanal kommt aus dem übergebenen Call; Transaktionen gehören nicht dazu.
+systemCall :: Call -> Text -> IO Call
+systemCall call tenant = do
+  rid <- TE.decodeUtf8 . convertToBase Base16 <$> (getRandomBytes 12 :: IO ByteString)
+  pure call {callRequestId = rid, callTenantId = tenant, callUserId = "", callTxIds = mempty, callMetadata = mempty}
+
+-- | Änderung an einem Datensatz (SystemEvent, siehe pkg/sdk/events).
+data Event = Event
+  { evObject :: Text
+  , evAction :: Text
+  , evCompanyCode :: Text
+  , evEntityId :: Text
+  , evTenantId :: Text
+  , evData :: J.Value
+  }
+  deriving stock (Show)
+
+-- | Abonniert Events zu object/action ("*" = alle) im Buchungskreis ("*" =
+-- alle); zugestellt wird an callback.onEvent (ein eigenes Object des Plugins
+-- mit der Action "onEvent"). Am besten in pluginConfigure.
+subscribe :: Call -> Text -> Text -> Text -> Text -> IO ()
+subscribe call object action companyCode callback =
+  void . dispatch call "SystemEvent" "Register" $
+    J.object ["object" J..= object, "action" J..= action, "company_code" J..= companyCode, "callback" J..= callback]
+
+-- | Das Event im Payload eines onEvent-Aufrufs ({"event": {…}}).
+eventOf :: J.Value -> Maybe Event
+eventOf = JT.parseMaybe $ J.withObject "onEvent" $ \o -> do
+  e <- o .: "event"
+  flip (J.withObject "event") e $ \x ->
+    Event
+      <$> x .: "object"
+      <*> x .: "action"
+      <*> x .:? "company_code" .!= ""
+      <*> x .:? "entity_id" .!= ""
+      <*> x .:? "tenant_id" .!= ""
+      <*> x .:? "data" .!= J.Null
