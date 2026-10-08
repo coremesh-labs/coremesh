@@ -65,6 +65,9 @@ console ledger:setup-company --company=1000 --chart=SKR25 --currency=EUR --year=
 - Das **Console-Plugin** löst den Befehl über `Catalog.GetModule` zu `Object.Action` auf.
   Es prüft Pflichtparameter und lehnt unbekannte Parameter ab. Danach läuft der Aufruf
   wie `--object/--action` mit den Rechten des angemeldeten Benutzers.
+- **Typ der Parameter** (`CommandParam.Type`): `text` (Standard – `--company=2000` bleibt der
+  Text "2000"), `number`, `boolean`, `json`. Die CLI wandelt die Werte nach dem Typ um; nicht
+  deklarierte Parameter werden wie bisher gelesen (gültiges JSON als Wert, sonst Text).
 - **Datei-Parameter** (`CommandParam.File`) liest die CLI lokal ein und sendet den Inhalt:
   - `*.json` geparst,
   - `*.csv` als Liste von Objekten (Kopfzeile = Feldnamen, Trenner `;` oder `,`,
