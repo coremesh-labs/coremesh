@@ -170,9 +170,21 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "search_term", Label: "Suchbegriff", Type: tText, Listable: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		),
-		Validate: func(_ context.Context, rec, _ record) error {
+		Validate: func(ctx context.Context, rec, old record) error {
 			if rec["search_term"] == nil { // Matchcode aus Name 1
 				rec["search_term"] = strings.ToUpper(str(rec["name1"]))
+			}
+			if old == nil {
+				return nil // neu: noch ohne Rollen
+			}
+			// Jede Finanzrolle braucht Buchungskreisdaten mit Abstimmkonto.
+			missing, err := m.missingFinanceData(ctx, str(rec["id"]))
+			if err != nil {
+				return err
+			}
+			if len(missing) > 0 {
+				return invalid("Finanzrolle %s ohne Buchungskreisdaten (Buchungskreis, Abstimmkonto) – erst unter „Buchungskreisdaten“ ergänzen",
+					strings.Join(missing, ", "))
 			}
 			return nil
 		},
