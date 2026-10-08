@@ -108,6 +108,11 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		var in metamodel.FormStateRequest
 		_ = sdk.Decode(req.Payload, &in)
 		st := metamodel.FormState{Fields: map[string]metamodel.FieldState{}}
+		if in.Mode == "action" && in.Action == "remind" {
+			v := "2026-10-08"
+			st.Fields["value"] = metamodel.FieldState{Value: &v}
+			st.Message = "Letzte Erinnerung: 01.10.2026"
+		}
 		if in.Values["kind_code"] == "TEL" {
 			no, yes, v := false, true, "+41 "
 			st.Fields["address_id"] = metamodel.FieldState{Visible: &no}

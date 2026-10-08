@@ -28,6 +28,30 @@ func field(d *metamodel.ObjectDefinition, key string) *metamodel.FieldDefinition
 	return nil
 }
 
+// TestActionFormDefaults: Aktion mit FormState – Vorbelegung und Hinweis beim Öffnen.
+func TestActionFormDefaults(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.FormState = "formState"
+		d.Actions = append(slices.Clone(d.Actions),
+			metamodel.ActionConfig{Name: "remind", Kind: metamodel.KindCustom, Label: "Erinnern …", Fields: []string{"value"}, FormState: true},
+			metamodel.ActionConfig{Name: "plain", Kind: metamodel.KindCustom, Label: "Ohne …", Fields: []string{"value"}})
+	})
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/action/crm/CustomerContact/remind?id=k1", nil, true).Body.String()
+	mustContain(t, b, `name="value" value="2026-10-08"`, `Letzte Erinnerung: 01.10.2026`)
+	if req := h.find("formState").Payload.(metamodel.FormStateRequest); req.Mode != "action" || req.Action != "remind" || req.ID != "k1" {
+		t.Fatalf("FormStateRequest: %+v", req)
+	}
+	n := len(h.calls)
+	b = do(s, "GET", "/action/crm/CustomerContact/plain", nil, true).Body.String()
+	mustNotContain(t, b, `2026-10-08`)
+	for _, c := range h.calls[n:] {
+		if c.Action == "formState" {
+			t.Fatal("Aktion ohne FormState fragt die Maske ab")
+		}
+	}
+}
+
 func TestFormStateMask(t *testing.T) {
 	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
 		d.FormState = "formState"

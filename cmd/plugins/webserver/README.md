@@ -591,6 +591,10 @@ abhängen:
 - Felder mit `Trigger: true` laden bei jeder Änderung nur den Formularinhalt neu
   (`POST /m/{module}/{object}/_form` → Block `form-body`), auch nach der Wahl im
   Lookup-Dialog.
+- **Aktionsformulare** (eigene Aktionen mit `Fields`): Mit `ActionConfig.FormState: true`
+  fragt der WebServer beim Öffnen dieselbe Action mit `mode: "action"`, `action` (Name) und
+  `id` (Datensatz) ab und übernimmt Vorbelegungen (`value`) und Hinweis – z. B. „Buchen bis“ =
+  heute und der letzte Lauf. Ohne die Angabe bleibt das Formular leer wie bisher.
 - **Beim Speichern gilt dieselbe Maske:** Ausgeblendete Felder sind nie Pflicht und werden
   geleert (`nil`), schreibgeschützte erhalten den Wert des Plugins. Prüfen muss weiterhin
   das Plugin.
