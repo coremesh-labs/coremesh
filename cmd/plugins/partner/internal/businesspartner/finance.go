@@ -113,6 +113,24 @@ func (m *Module) partnerRole() *entity {
 	}
 }
 
+// missingFinanceData: heute gültige Finanzrollen des Partners ohne
+// Buchungskreisdaten (z. B. Rollentyp nachträglich zur Finanzrolle gemacht).
+func (m *Module) missingFinanceData(ctx context.Context, bpID string) ([]string, error) {
+	res, err := m.db.Query(ctx, `SELECT DISTINCT r.role_code FROM partner__roles r
+		JOIN partner__role_types t ON t.code = r.role_code AND t.valid_from <= ? AND t.valid_to >= ?
+		WHERE r.bp_id = ? AND r.valid_from <= ? AND r.valid_to >= ? AND (t.is_debitor = ? OR t.is_creditor = ?)
+		AND NOT EXISTS (SELECT 1 FROM partner__company_codes c WHERE c.bp_id = r.bp_id AND c.role_code = r.role_code)
+		ORDER BY r.role_code`, today(), today(), bpID, today(), today(), true, true)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, r := range res.Rows {
+		out = append(out, str(r[0]))
+	}
+	return out, nil
+}
+
 // parseCompanyCodes liest die Buchungskreise einer Rollenzuordnung: Text
 // (eine Zeile je Buchungskreis, Felder mit ";") oder eine Liste von Objekten.
 func parseCompanyCodes(v any) ([]record, error) {
@@ -180,7 +198,7 @@ func (m *Module) partnerCompanyCode() *entity {
 			{Key: "company_code", Label: "Buchungskreis", Type: tText, Required: true, Listable: true, Immutable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
 			{Key: "role_code", Label: "Finanzrolle", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refRoleType},
-			{Key: "reconciliation_account", Label: "Abstimmkonto", Type: tText, Listable: true},
+			{Key: "reconciliation_account", Label: "Abstimmkonto", Type: tText, Required: true, Listable: true},
 			{Key: "payment_terms", Label: "Zahlungsbedingung", Type: tText, Listable: true},
 			{Key: "dunning_block", Label: "Mahnsperre", Type: tBool, Listable: true},
 			{Key: "posting_block", Label: "Buchungssperre", Type: tBool, Listable: true},

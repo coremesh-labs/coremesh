@@ -348,9 +348,17 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 	expect(t, err, sdk.ErrInvalidArgument, "Finanzrolle ohne Buchungskreis")
 	_, err = e.do("PartnerRole", "create", data("bp_id", id, "role_code", "DEBITOR", "company_codes", "9999;140000"))
 	expect(t, err, sdk.ErrInvalidArgument, "Buchungskreis nicht in iam")
-	_, err = e.do("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT", "company_codes", "1000"))
+	// Keine Finanzrolle: Interessent (eigener Rollentyp ohne Debitor/Kreditor)
+	e.must("PartnerRoleType", "create", data("code", "PROSPECT", "description", "Interessent"))
+	_, err = e.do("PartnerRole", "create", data("bp_id", id, "role_code", "PROSPECT", "company_codes", "1000;1200"))
 	expect(t, err, sdk.ErrInvalidArgument, "Buchungskreis bei Nicht-Finanzrolle")
-	e.must("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT"))
+	e.must("PartnerRole", "create", data("bp_id", id, "role_code", "PROSPECT"))
+	// Mieter ist Finanzrolle (Vorschlag): eigener Buchungskreis mit eigenem Abstimmkonto
+	_, err = e.do("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT"))
+	expect(t, err, sdk.ErrInvalidArgument, "Mieter ohne Buchungskreis")
+	_, err = e.do("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT", "company_codes", "1000"))
+	expect(t, err, sdk.ErrInvalidArgument, "Mieter ohne Abstimmkonto")
+	e.must("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT", "company_codes", "1000;1200"))
 
 	// Ohne Recht im Buchungskreis 1000 → abgelehnt, nichts angelegt (Transaktion).
 	e.h.granted["create"] = []string{"2000"}
@@ -368,25 +376,28 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 	if got := e.must("PartnerRole", "get", map[string]any{"id": role["id"]}); got["role_code"] != "DEBITOR" {
 		t.Fatalf("zusammengesetzte id: %v", got)
 	}
-	cc := e.items(ccObject, map[string]any{"bp_id": id})
+	cc := e.items(ccObject, map[string]any{"bp_id": id, "role_code": "DEBITOR"})
 	if len(cc) != 1 || cc[0]["reconciliation_account"] != "140000" || cc[0]["payment_terms"] != "NT30" || cc[0]["dunning_block"] != false {
 		t.Fatalf("Buchungskreisdaten: %v", cc)
 	}
 
-	// Kreditor-Daten ohne Kreditor-Rolle → abgelehnt; TENANT ist keine Finanzrolle.
-	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "CREDITOR"))
+	// Kreditor-Daten ohne Kreditor-Rolle → abgelehnt; PROSPECT ist keine Finanzrolle.
+	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "CREDITOR", "reconciliation_account", "1600"))
 	expect(t, err, sdk.ErrInvalidArgument, "Kreditor ohne Rolle")
-	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "TENANT"))
+	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "PROSPECT", "reconciliation_account", "1200"))
 	expect(t, err, sdk.ErrInvalidArgument, "keine Finanzrolle")
+	_, err = e.do(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "DEBITOR"))
+	expect(t, err, sdk.ErrInvalidArgument, "Buchungskreisdaten ohne Abstimmkonto")
 
 	// Buchungskreisdaten haben weder Zeitscheibe noch Status-Flag: immutable.
 	_, err = e.do(ccObject, "delete", map[string]any{"id": cc[0]["id"]})
 	expect(t, err, sdk.ErrUnimplemented, "Buchungskreisdaten löschen")
-	e.must(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "DEBITOR", "payment_terms", "NT10", "posting_block", "true"))
+	e.must(ccObject, "create", data("bp_id", id, "company_code", "2000", "role_code", "DEBITOR", "reconciliation_account", "140000",
+		"payment_terms", "NT10", "posting_block", "true"))
 
 	// Sicht und Änderungen nur in erlaubten Buchungskreisen.
 	e.h.granted["list"] = []string{"2000"}
-	if got := e.items(ccObject, map[string]any{"bp_id": id}); len(got) != 1 || got[0]["company_code"] != "2000" || got[0]["posting_block"] != true {
+	if got := e.items(ccObject, map[string]any{"bp_id": id, "role_code": "DEBITOR"}); len(got) != 1 || got[0]["company_code"] != "2000" || got[0]["posting_block"] != true {
 		t.Fatalf("gefilterte Liste: %v", got)
 	}
 	e.h.granted["update"] = []string{"2000"}
@@ -398,9 +409,35 @@ func TestFinanceRolesAndCompanyCodes(t *testing.T) {
 		t.Fatalf("Rolle beenden: %v", ended)
 	}
 	e.h.granted["list"] = []string{"*"}
-	if n := len(e.items(ccObject, map[string]any{"bp_id": id})); n != 2 {
+	if n := len(e.items(ccObject, map[string]any{"bp_id": id, "role_code": "DEBITOR"})); n != 2 {
 		t.Fatalf("Buchungskreisdaten nach Rollenende: %d", n)
 	}
+}
+
+// TestFinanceRoleWithoutData: Wird ein Rollentyp nachträglich Finanzrolle,
+// lässt sich ein Partner mit dieser Rolle ohne Buchungskreisdaten nicht mehr
+// speichern, bis sie ergänzt sind.
+func TestFinanceRoleWithoutData(t *testing.T) {
+	e := setup(t)
+	id := e.newBP("Müller")
+	e.must("PartnerRoleType", "create", data("code", "OCCUPANT", "description", "Bewohner"))
+	e.must("PartnerRole", "create", data("bp_id", id, "role_code", "OCCUPANT"))
+	bp := e.must("BusinessPartner", "get", map[string]any{"id": id})
+	types := e.items("PartnerRoleType", map[string]any{})
+	var typeID any
+	for _, rt := range types {
+		if rt["code"] == "OCCUPANT" {
+			typeID = rt["_id"]
+		}
+	}
+	e.must("PartnerRoleType", "update", map[string]any{"id": typeID, "data": row("is_debitor", true)})
+	_, err := e.do("BusinessPartner", "update", map[string]any{"id": bp["_id"], "data": row("name2", "Anna")})
+	expect(t, err, sdk.ErrInvalidArgument, "Finanzrolle ohne Buchungskreisdaten")
+	if err == nil || !strings.Contains(err.Error(), "OCCUPANT") {
+		t.Fatalf("Meldung nennt die Rolle nicht: %v", err)
+	}
+	e.must(ccObject, "create", data("bp_id", id, "company_code", "1000", "role_code", "OCCUPANT", "reconciliation_account", "1200"))
+	e.must("BusinessPartner", "update", map[string]any{"id": bp["_id"], "data": row("name2", "Anna")})
 }
 
 func TestMetamodel(t *testing.T) {
@@ -785,8 +822,8 @@ func TestHistoryFilter(t *testing.T) {
 func TestFilterByRole(t *testing.T) {
 	e := setup(t)
 	a, b := e.newBP("Mieter AG"), e.newBP("Andere AG")
-	e.must("PartnerRole", "create", data("bp_id", a, "role_code", "TENANT", "valid_from", "2000-01-01"))
-	e.must("PartnerRole", "create", data("bp_id", b, "role_code", "TENANT", "valid_from", "2000-01-01", "valid_to", "2001-12-31"))
+	e.must("PartnerRole", "create", data("bp_id", a, "role_code", "TENANT", "valid_from", "2000-01-01", "company_codes", "1000;1200"))
+	e.must("PartnerRole", "create", data("bp_id", b, "role_code", "TENANT", "valid_from", "2000-01-01", "valid_to", "2001-12-31", "company_codes", "1000;1200"))
 	got := e.items("BusinessPartner", map[string]any{"role": "TENANT"})
 	if len(got) != 1 || got[0]["id"] != a {
 		t.Fatalf("Mieter heute: %v", got)
