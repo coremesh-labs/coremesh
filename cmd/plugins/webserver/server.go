@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -626,7 +628,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
+	if err := parseActionForm(r); err != nil {
 		s.fail(w, r, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err))
 		return
 	}
@@ -635,7 +637,9 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	direct := act.Confirm != "" && len(act.Fields) == 0
 	data, raw, errs := map[string]any{}, map[string]string{}, map[string]string{}
 	if !direct {
-		data, raw, errs = parseFields(actionDef(oc.ActionDef, act.Fields), r.PostForm)
+		def := actionDef(oc.ActionDef, act.Fields)
+		data, raw, errs = parseFields(def, r.PostForm)
+		readFiles(r, def, data, errs)
 	}
 	if len(errs) > 0 {
 		s.formAgain(w, r, s.actionView(r, oc, act, id, raw, errs), "")
@@ -691,4 +695,54 @@ func staticHandler(staticDir string) http.Handler {
 		}
 		embedded.ServeHTTP(w, r)
 	})
+}
+
+// maxUpload begrenzt eine hochgeladene Datei (Aktionsformular mit Dateifeld).
+const maxUpload = 20 << 20
+
+// parseActionForm liest ein normales oder ein Multipart-Formular (Dateifeld).
+func parseActionForm(r *http.Request) error {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		return r.ParseMultipartForm(maxUpload)
+	}
+	return r.ParseForm()
+}
+
+// readFiles übernimmt die Dateifelder: Inhalt als Text (UTF-8; sonst als
+// Latin-1 gelesen), Dateiname in <Feld>_name.
+func readFiles(r *http.Request, d metamodel.ObjectDefinition, data map[string]any, errs map[string]string) {
+	for _, f := range d.Fields {
+		if f.Type != metamodel.TypeFile {
+			continue
+		}
+		file, hdr, err := r.FormFile(f.Key)
+		if err != nil {
+			if f.Required {
+				errs[f.Key] = "core.validation.required"
+			}
+			continue
+		}
+		b, err := io.ReadAll(io.LimitReader(file, maxUpload+1))
+		file.Close()
+		switch {
+		case err != nil:
+			errs[f.Key] = "core.validation.file"
+			continue
+		case len(b) > maxUpload:
+			errs[f.Key] = "core.validation.file_size"
+			continue
+		}
+		data[f.Key], data[f.Key+"_name"] = fileText(b), filepath.Base(hdr.Filename)
+	}
+}
+
+func fileText(b []byte) string {
+	if utf8.Valid(b) {
+		return string(b)
+	}
+	r := make([]rune, len(b))
+	for i, c := range b {
+		r[i] = rune(c)
+	}
+	return string(r)
 }

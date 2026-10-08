@@ -16,7 +16,7 @@
 {{if .Modal}}<dialog open class="modal"><article>{{end}}
 <h2>{{.FormTitle}}</h2>
 {{with .FormError}}<p class="form-error" role="alert">{{.}}</p>{{end}}
-<form method="post" action="{{.FormAction}}"
+<form method="post" action="{{.FormAction}}" {{if .HasFile}}enctype="multipart/form-data" hx-encoding="multipart/form-data"{{end}}
   {{if .Modal}}
     {{if eq .ViewParam "refresh"}}{{if eq .Mode "edit"}}hx-put{{else}}hx-post{{end}}="{{.FormAction}}" hx-target="#modal" hx-swap="innerHTML"
     {{else if eq .Mode "create"}}hx-post="{{.FormAction}}" hx-target="#rows" hx-swap="beforeend"

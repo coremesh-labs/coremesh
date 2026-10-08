@@ -107,6 +107,9 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 		if !f.Editable {
 			continue
 		}
+		if f.Type == metamodel.TypeFile {
+			continue // liest runAction aus dem Multipart-Formular
+		}
 		v := strings.TrimSpace(form.Get(f.Key))
 		raw[f.Key] = v
 
@@ -162,8 +165,8 @@ type objectCtx struct {
 
 	Module    string // Namensraum des Moduls
 	Object    string
-	URL       string // /m/{module}/{object}
-	ActionURL string // /action/{module}/{object}
+	URL       string                             // /m/{module}/{object}
+	ActionURL string                             // /action/{module}/{object}
 	Def       metamodel.ObjectDefinition         // ohne Felder nur für Aktionen (ActionOnly)
 	ActionDef metamodel.ObjectDefinition         // mit ihnen: Formulare eigener Aktionen
 	Has       map[string]*metamodel.ActionConfig // Kind → Action (list, item, create, update, delete)
@@ -272,12 +275,12 @@ type view struct {
 	Access    string // _access: Feldberechtigungen des Datensatzes (fieldaccess.go)
 
 	// Ergebnisse
-	Action  metamodel.ActionConfig
-	Result  any
+	Action metamodel.ActionConfig
+	Result any
 	// ResultTable: Tabelle im Ergebnis einer Aktion ({"table": {"columns", "rows"}}).
 	ResultTable *resultTable
-	Message string
-	Toast   *toast
+	Message     string
+	Toast       *toast
 }
 
 // ID ist die id des aktuellen Datensatzes.
@@ -310,7 +313,7 @@ type fieldCtx struct {
 
 var inputTypes = map[metamodel.FieldType]string{
 	metamodel.TypeText: "text", metamodel.TypeEmail: "email", metamodel.TypeNumber: "number", metamodel.TypeDate: "date",
-	metamodel.TypePassword: "password",
+	metamodel.TypePassword: "password", metamodel.TypeFile: "file",
 }
 
 // buildFields erstellt die Formularfelder. create/action zeigen nur
@@ -461,4 +464,14 @@ func tableOf(payload any) *resultTable {
 		t.Rows = append(t.Rows, row)
 	}
 	return t
+}
+
+// HasFile: Das Formular enthält ein Dateifeld (multipart/form-data).
+func (v view) HasFile() bool {
+	for _, f := range v.FormFields {
+		if f.Field.Type == metamodel.TypeFile {
+			return true
+		}
+	}
+	return false
 }
