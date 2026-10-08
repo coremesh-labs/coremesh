@@ -7,3 +7,10 @@
 
 # Haskell-SDK
 sdk/haskell/dist-newstyle/
+
+# Binärdateien aus "go build ." in den Plugin-Verzeichnissen
+/cmd/plugins/*/console
+/cmd/plugins/*/document
+/cmd/plugins/*/partner
+/cmd/plugins/*/tag
+/cmd/plugins/*/webserver
