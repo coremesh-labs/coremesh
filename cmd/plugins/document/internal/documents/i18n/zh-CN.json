@@ -1,0 +1,10 @@
+{
+  "documents.DocumentKind.fields.code": "代码",
+  "documents.DocumentKind.fields.is_active": "有效",
+  "documents.DocumentKind.fields.name": "名称",
+  "documents.DocumentKind.fields.sort_order": "排序",
+  "documents.DocumentKind.title": "文档类型",
+  "documents.module.description": "合同、发票、伙伴及所有其他对象的文档引用",
+  "documents.module.title": "文档",
+  "documents.navigation.kataloge": "目录"
+}

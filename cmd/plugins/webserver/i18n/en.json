@@ -112,5 +112,19 @@
   "core.tags.deprecated": "deprecated",
   "core.tags.amount": "Amount",
   "core.tags.currency": "Currency",
-  "core.tags.choose": "– please select –"
+  "core.tags.choose": "– please select –",
+  "core.docs.unavailable": "Documents unavailable (plugin document or document management not running)",
+  "core.docs.empty": "No documents yet",
+  "core.docs.date": "Date",
+  "core.docs.type": "Document type",
+  "core.docs.title": "Title",
+  "core.docs.location": "Location",
+  "core.docs.location_hint": "File name, storage location or link",
+  "core.docs.valid": "Valid",
+  "core.docs.valid_from": "Valid from",
+  "core.docs.valid_to": "Valid to",
+  "core.docs.note": "Note",
+  "core.docs.attach": "Attach document",
+  "core.docs.remove": "Remove",
+  "core.docs.remove_confirm": "Remove document reference?"
 }

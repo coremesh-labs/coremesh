@@ -1,0 +1,33 @@
+{{/* Abschnitt „Dokumente“ (docs.go). Daten: docSection. */}}
+{{define "doc-section"}}
+<div class="doc-list">
+{{with .Unavailable}}<p class="empty">{{.}}</p>{{else}}
+  {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+  {{if .Items}}
+  <table class="data">
+    <thead><tr><th>{{t "core.docs.date"}}</th><th>{{t "core.docs.type"}}</th><th>{{t "core.docs.title"}}</th><th>{{t "core.docs.location"}}</th>
+      <th>{{t "core.docs.valid"}}</th><th>{{t "core.docs.note"}}</th>{{if $.CanEdit}}<th></th>{{end}}</tr></thead>
+    <tbody>{{range .Items}}<tr>
+      <td>{{.DocDate}}</td><td>{{.DocTypeName}}</td><td>{{.Title}}</td>
+      <td>{{with $.Link .Location}}<a href="{{.}}" target="_blank" rel="noopener">{{.}}</a>{{else}}{{.Location}}{{end}}</td>
+      <td>{{if or .ValidFrom .ValidTo}}{{.ValidFrom}} – {{.ValidTo}}{{end}}</td><td>{{.Note}}</td>
+      {{if $.CanEdit}}<td><button type="button" class="btn" hx-post="{{$.URL}}/{{.ID}}/remove" hx-target="closest .doc-list" hx-swap="outerHTML"
+        hx-confirm="{{t "core.docs.remove_confirm"}}">{{t "core.docs.remove"}}</button></td>{{end}}
+    </tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="empty">{{t "core.docs.empty"}}</p>{{end}}
+  {{if .CanEdit}}
+  <form class="doc-form" hx-post="{{.URL}}" hx-target="closest .doc-list" hx-swap="outerHTML">
+    <label>{{t "core.docs.type"}}<select name="doc_type" required>{{range .Types}}<option value="{{.Code}}" {{if eq .Code $.Form.DocType}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <label>{{t "core.docs.title"}}<input name="title" value="{{.Form.Title}}" required></label>
+    <label>{{t "core.docs.date"}}<input type="date" name="doc_date" value="{{.Form.DocDate}}"></label>
+    <label>{{t "core.docs.location"}}<input name="location" value="{{.Form.Location}}" required placeholder="{{t "core.docs.location_hint"}}"></label>
+    <label>{{t "core.docs.valid_from"}}<input type="date" name="valid_from" value="{{.Form.ValidFrom}}"></label>
+    <label>{{t "core.docs.valid_to"}}<input type="date" name="valid_to" value="{{.Form.ValidTo}}"></label>
+    <label>{{t "core.docs.note"}}<input name="note" value="{{.Form.Note}}"></label>
+    <button type="submit" class="btn primary">{{t "core.docs.attach"}}</button>
+  </form>
+  {{end}}
+{{end}}
+</div>
+{{end}}

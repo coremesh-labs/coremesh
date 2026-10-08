@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/docservice"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -84,6 +85,22 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "Catalog.ListActions":
 		return sdk.Response{Payload: map[string]any{"actions": []any{
 			map[string]any{"action": "get"}, map[string]any{"action": "getAggregate"}}}}, nil
+	case "Documents.list", "Documents.attach", "Documents.detach":
+		h.fakeHost.record(ctx, req)
+		if req.Action == "attach" {
+			var in docservice.AttachRequest
+			_ = sdk.Decode(req.Payload, &in)
+			if in.Document.Title == "" {
+				return sdk.Response{}, fmt.Errorf("%w: Titel und Ablage sind Pflicht", sdk.ErrInvalidArgument)
+			}
+			return sdk.Response{Payload: in.Document}, nil
+		}
+		if req.Action == "detach" {
+			return sdk.Response{Payload: map[string]any{"removed": true}}, nil
+		}
+		return sdk.Response{Payload: docservice.ListResponse{CanEdit: true, Types: []docservice.DocType{{Code: "AGB", Name: "AGB"}},
+			Items: []docservice.Document{{ID: "d1", DocType: "AGB", DocTypeName: "AGB", Title: "AGB 2026", DocDate: "2026-01-02",
+				Location: "https://dms.example/1", ValidFrom: "2026-01-01"}}}}, nil
 	case "Customer.get":
 		rec := map[string]any{"id": "c1", "name": "Muster AG", "note": "geheim"}
 		if lockedCustomer.Load() {
