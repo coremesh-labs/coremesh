@@ -16,6 +16,7 @@ import (
 	"log/slog"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/events"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/tagservice"
@@ -59,12 +60,14 @@ func (m *Module) RegisterRoutes(r *module.Router) {
 		Handle("set", m.setAction).
 		Handle("validate", m.validateAction).
 		Handle("history", m.historyAction).
-		Handle("find", m.findAction)
+		Handle("find", m.findAction).
+		Handle(events.CallbackAction, m.onRekey)
 }
 
 func (m *Module) Initialize(ctx context.Context, env module.Env) error {
 	m.db, m.services, m.log = env.DB, env.Services, env.Log
 	m.set.Bind(env.DB)
+	m.subscribeRekey(ctx)
 	m.log.InfoContext(ctx, "Modul bereit", "database", env.DB.Name())
 	return nil
 }

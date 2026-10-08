@@ -41,6 +41,17 @@ z. B. die Vertragsart mit ihrem Intervallschlüssel `MV`. So bleibt `numrange` a
 - **Lücken:** Scheitert das Speichern im Modul nach der Vergabe, bleibt eine Lücke. Das
   Protokoll erklärt sie (wer, wann, Request, Referenz).
 
+## Externe Vergabe (seit 0.3.0)
+
+Je **Intervall** einstellbar (Gruppe „Vergabe“): Bei externer Vergabe bringt der Aufrufer die
+Nummer mit (`Assign` mit `value`). numrange prüft sie
+- am **erlaubten Muster** (regulärer Ausdruck, immer ganz, z. B. `[A-Z][A-Z0-9-]{2,11}`), sonst
+- als **Zahl im Bereich** von–bis (formatiert mit Stellenzahl und Format),
+
+und protokolliert sie. Ob sie frei ist, prüft das Modul an seinem Schlüssel. `Next` auf ein
+externes Intervall scheitert; `Assign` ohne Wert auf ein internes vergibt wie `Next`.
+Folgejahre übernehmen die Einstellung.
+
 ## Optionen des Objekts
 
 | Option | Bedeutung |
@@ -54,6 +65,8 @@ z. B. die Vertragsart mit ihrem Intervallschlüssel `MV`. So bleibt `numrange` a
 |---|---|---|
 | `NumberRange.Define` | `numrange.Definition` → `{object}` | Module beim Start |
 | `NumberRange.Next` | `{object, company_code, key, year, reference}` → `{number, value, interval, warning}` | Module (verschachtelt ohne Rechteprüfung); direkt nur mit Recht `NumberRange.Next` |
+| `NumberRange.Assign` | `{object, company_code, key, year, reference, value}` → wie `Next`, dazu `external` | Module: intern (Wert leer) die nächste Nummer, extern die eingegebene, geprüft |
+| `NumberRange.Info` | wie `Next` → `{interval, exists, external, external_pattern, from, to, active}` | Masken (Nummer eingeben oder nicht) |
 | `NumberRange.list/get/create/update/deactivate` | Pflege der Intervalle | Administration |
 | `NumberRangeObject.list/get`, `NumberRangeLog.list/get` | Übersicht | Administration |
 

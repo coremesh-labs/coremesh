@@ -2,6 +2,6 @@
 # Andere Plugins nutzen es über pkg/sdk/tagservice (Actions Tags.*), nie über Tabellen.
 plugins:
   tag:
-    version: 0.2.0
+    version: 0.3.0
     databases:
       main: { access: write }        # Tabellen tag__* via DBSchema.Init

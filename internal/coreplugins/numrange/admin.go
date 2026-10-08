@@ -16,7 +16,9 @@ import (
 
 func (iv interval) record() map[string]any {
 	next := ""
-	if v := iv.nextValue(); v > 0 {
+	if iv.External {
+		next = "– extern –"
+	} else if v := iv.nextValue(); v > 0 {
 		next = iv.format(v)
 	} else if iv.Overflow == api.OverflowRestart {
 		next = iv.format(iv.From) + " (Neubeginn)"
@@ -26,7 +28,8 @@ func (iv interval) record() map[string]any {
 	return map[string]any{"id": iv.ID, "object": iv.Object, "company_code": iv.CompanyCode, "range_key": iv.Key, "year": iv.Year,
 		"description": iv.Description, "from_number": iv.From, "to_number": iv.To, "current_number": iv.Current,
 		"used_percent": iv.usedPercent(), "width": iv.Width, "pattern": iv.Pattern, "next_number": next,
-		"overflow": iv.Overflow, "next_key": iv.NextKey, "warn_percent": iv.WarnPercent, "active": iv.Active, "updated_at": iv.UpdatedAt}
+		"overflow": iv.Overflow, "next_key": iv.NextKey, "warn_percent": iv.WarnPercent, "active": iv.Active, "updated_at": iv.UpdatedAt,
+		"external": iv.External, "external_pattern": iv.ExternalPattern}
 }
 
 func (p *Plugin) intervalList(ctx context.Context, payload any) (sdk.Response, error) {
@@ -160,6 +163,12 @@ func (p *Plugin) intervalSave(ctx context.Context, payload any, create bool) (sd
 		return sdk.Response{}, err
 	}
 	iv.Width, iv.WarnPercent = int(width), int(warn)
+	if has("external") {
+		iv.External = truthy(in.Data["external"])
+	}
+	if has("external_pattern") {
+		iv.ExternalPattern = str("external_pattern")
+	}
 	for k, dst := range map[string]*string{"description": &iv.Description, "pattern": &iv.Pattern, "overflow": &iv.Overflow, "next_key": &iv.NextKey} {
 		if has(k) {
 			*dst = str(k)
@@ -187,14 +196,15 @@ func (p *Plugin) intervalSave(ctx context.Context, payload any, create bool) (sd
 			return sdk.Response{}, fmt.Errorf("%w: Nummernkreis %s gibt es schon", sdk.ErrAlreadyExists, iv.ID)
 		}
 		_, err = p.pool().ExecContext(ctx, p.q(`INSERT INTO numrange__interval (id, object, company_code, range_key, year, description, from_number, to_number,
-			current_number, width, pattern, overflow, next_key, warn_percent, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`),
+			current_number, width, pattern, overflow, next_key, warn_percent, active, created_at, updated_at, external, external_pattern)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`),
 			iv.ID, iv.Object, iv.CompanyCode, iv.Key, iv.Year, nullable(iv.Description), iv.From, iv.To, iv.Current, iv.Width, iv.Pattern,
-			iv.Overflow, nullable(iv.NextKey), iv.WarnPercent, now, now)
+			iv.Overflow, nullable(iv.NextKey), iv.WarnPercent, now, now, b2i(iv.External), nullable(iv.ExternalPattern))
 	} else {
 		_, err = p.pool().ExecContext(ctx, p.q(`UPDATE numrange__interval SET description = ?, from_number = ?, to_number = ?, current_number = ?, width = ?,
-			pattern = ?, overflow = ?, next_key = ?, warn_percent = ?, active = ?, updated_at = ? WHERE id = ?`),
+			pattern = ?, overflow = ?, next_key = ?, warn_percent = ?, active = ?, updated_at = ?, external = ?, external_pattern = ? WHERE id = ?`),
 			nullable(iv.Description), iv.From, iv.To, iv.Current, iv.Width, iv.Pattern, iv.Overflow, nullable(iv.NextKey), iv.WarnPercent,
-			b2i(iv.Active || has("active") && truthy(in.Data["active"])), now, iv.ID)
+			b2i(iv.Active || has("active") && truthy(in.Data["active"])), now, b2i(iv.External), nullable(iv.ExternalPattern), iv.ID)
 	}
 	if err != nil {
 		return sdk.Response{}, err

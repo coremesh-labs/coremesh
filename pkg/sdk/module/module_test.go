@@ -267,3 +267,47 @@ func TestInitializeFailureRollsBack(t *testing.T) {
 func (h *recHost) Read(context.Context, sdk.Request, sdk.RowWriter) (sdk.ReadEnd, error) {
 	return sdk.ReadEnd{}, sdk.ErrUnimplemented
 }
+
+// withMigrate: Modul mit Migrator (scheitert beim ersten Versuch).
+type withMigrate struct {
+	*fakeModule
+	calls int
+}
+
+func (w *withMigrate) Migrate(context.Context) error {
+	w.calls++
+	if w.calls == 1 {
+		return errors.New("noch nicht")
+	}
+	return nil
+}
+
+// TestMigrator: Migrate läuft einmal je Prozess vor der ersten Anfrage an das
+// Modul; scheitert es, scheitert die Anfrage, die nächste versucht es erneut.
+func TestMigrator(t *testing.T) {
+	var ev []string
+	m := &withMigrate{fakeModule: simple("sales", &ev, "Order")}
+	other := simple("stock", &ev, "Item")
+	p := NewPlugin(Info{Name: "erp", Version: "1"}, m, other)
+	if err := p.Configure(context.Background(), sdk.Config{Host: &recHost{}}); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls != 0 {
+		t.Fatal("Migrate vor der ersten Anfrage")
+	}
+	if _, err := p.Handle(context.Background(), sdk.Request{Object: "Item", Action: "list"}); err != nil || m.calls != 0 {
+		t.Fatalf("anderes Modul: %v, calls %d", err, m.calls)
+	}
+	_, err := p.Handle(context.Background(), sdk.Request{Object: "Order", Action: "list"})
+	if err == nil || !strings.Contains(err.Error(), "Modul sales: Migration: noch nicht") {
+		t.Fatalf("erster Versuch: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := p.Handle(context.Background(), sdk.Request{Object: "Order", Action: "list"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if m.calls != 2 {
+		t.Fatalf("Migrate %d-mal statt 2", m.calls)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -29,6 +30,15 @@ type testHost struct {
 	companyCodes []string            // in iam angelegt
 	granted      map[string][]string // action → erlaubte Buchungskreise ("*" = alle)
 	self         sdk.Handler         // Plugin selbst: alle übrigen Objects
+	ranges       map[string]*fakeRange // Nummernkreis BusinessPartner je Intervallschlüssel
+	events       []map[string]any      // gesendete SystemEvents
+}
+
+// fakeRange: Intervall wie in numrange (intern: fortlaufend, extern: Muster).
+type fakeRange struct {
+	external bool
+	pattern  string
+	current  int
 }
 
 func (h *testHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error { return nil }
@@ -93,6 +103,41 @@ func (h *testHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	case "Account.Check":
 		g := h.granted[str(p["action"])]
 		return sdk.Response{Payload: map[string]any{"allowed": slices.Contains(g, "*") || slices.Contains(g, str(p["company_code"]))}}, nil
+	case "NumberRange.Define":
+		return sdk.Response{}, nil
+	case "NumberRange.Info", "NumberRange.Assign":
+		var in struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		_ = sdk.Decode(req.Payload, &in)
+		r := h.ranges[in.Key]
+		if r == nil {
+			r = &fakeRange{current: 99999}
+			h.ranges[in.Key] = r
+		}
+		if req.Action == "Info" {
+			return sdk.Response{Payload: map[string]any{"interval": "BusinessPartner|*|" + in.Key + "|0", "external": r.external,
+				"external_pattern": r.pattern, "from": 100000, "to": 999999, "exists": true, "active": true}}, nil
+		}
+		v := strings.ToUpper(strings.TrimSpace(in.Value))
+		switch {
+		case !r.external && v != "":
+			return sdk.Response{}, fmt.Errorf("%w: intern – Nummer leer lassen", sdk.ErrInvalidArgument)
+		case !r.external:
+			r.current++
+			return sdk.Response{Payload: map[string]any{"number": fmt.Sprintf("%06d", r.current), "value": r.current}}, nil
+		case v == "" || !regexp.MustCompile("^(?:"+r.pattern+")$").MatchString(v):
+			return sdk.Response{}, fmt.Errorf("%w: Nummer %q passt nicht zu %s", sdk.ErrInvalidArgument, v, r.pattern)
+		}
+		return sdk.Response{Payload: map[string]any{"number": v, "external": true}}, nil
+	case "SystemEvent.Push":
+		ev, _ := req.Payload.(map[string]any)
+		if ev == nil {
+			_ = sdk.Decode(req.Payload, &ev)
+		}
+		h.events = append(h.events, ev)
+		return sdk.Response{}, nil
 	case "Account.Granted":
 		g := h.granted[str(p["action"])]
 		if slices.Contains(g, "*") {
@@ -128,7 +173,7 @@ func setup(t *testing.T) *env {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.Close() })
 
-	h := &testHost{db: db, companyCodes: []string{"1000", "2000"}, granted: map[string][]string{
+	h := &testHost{db: db, companyCodes: []string{"1000", "2000"}, ranges: map[string]*fakeRange{}, granted: map[string][]string{
 		"list": {"*"}, "get": {"*"}, "create": {"*"}, "update": {"*"}, "delete": {"*"},
 	}}
 	p := newPlugin(t)
@@ -261,7 +306,7 @@ func TestSeedsAndCatalogRules(t *testing.T) {
 func TestBusinessPartnerAndContacts(t *testing.T) {
 	e := setup(t)
 	bp := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Acme AG", "name2", "Zürich"))
-	if bp["search_term"] != "ACME AG" || bp["is_blocked"] != false {
+	if bp["search_term"] != "ACMEAG" || bp["id"] != "100000" || bp["group_code"] != "STD" || bp["is_blocked"] != false {
 		t.Fatalf("Partner: %v", bp)
 	}
 	_, err := e.do("BusinessPartner", "create", data("type", "ROBOT", "name1", "x"))
@@ -448,7 +493,7 @@ func TestMetamodel(t *testing.T) {
 	}
 	desc := resp.Payload.(metamodel.DescribeResponse)
 	defs := desc.Objects
-	if len(defs) != 11 {
+	if len(defs) != 12 {
 		t.Fatalf("Objects: %d", len(defs))
 	}
 	for _, d := range defs {
@@ -475,13 +520,13 @@ func newPlugin(t *testing.T) *module.Plugin {
 	return p
 }
 
-// TestModule: Das Modul bündelt alle 11 Objects unter einem Namensraum,
+// TestModule: Das Modul bündelt alle 12 Objects unter einem Namensraum,
 // Kataloge in einer eigenen Gruppe; das Schema kommt mit schema-Block.
 func TestModule(t *testing.T) {
 	p := newPlugin(t)
 	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
 	desc := resp.Payload.(metamodel.DescribeResponse)
-	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 11 {
+	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 12 {
 		t.Fatalf("Module: %+v", desc.Modules)
 	}
 	defined := map[string]bool{}
@@ -495,7 +540,7 @@ func TestModule(t *testing.T) {
 	for _, o := range desc.Modules[0].Objects {
 		sections[o.Section]++
 	}
-	if sections["Kataloge"] != 4 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
+	if sections["Kataloge"] != 5 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
 		t.Fatalf("Navigation: %+v", desc.Modules[0].Objects)
 	}
 
