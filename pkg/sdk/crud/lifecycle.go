@@ -129,7 +129,8 @@ func (e *Entity) checkOverlap(ctx context.Context, rec Record) error {
 	args := []any{rec["valid_from"], rec["valid_to"], rec["valid_from"]}
 	for _, k := range e.Keys {
 		if k != "valid_from" {
-			where, args = append(where, k+" = ?"), append(args, rec[k])
+			c, a := keyCond(k, rec[k])
+			where, args = append(where, c), append(args, a...)
 		}
 	}
 	res, err := e.DB().Query(ctx, "SELECT valid_from, valid_to FROM "+e.Table+" WHERE "+strings.Join(where, " AND "), args...)

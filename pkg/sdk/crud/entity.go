@@ -263,10 +263,20 @@ func (e *Entity) keyWhere(key Record) (string, []any) {
 	var args []any
 	for _, k := range e.Keys {
 		if v, ok := key[k]; ok {
-			conds, args = append(conds, k+" = ?"), append(args, v)
+			c, a := keyCond(k, v)
+			conds, args = append(conds, c), append(args, a...)
 		}
 	}
 	return strings.Join(conds, " AND "), args
+}
+
+// keyCond: Bedingung für einen Schlüsselteil. Ein leerer Teil (z. B. „Objekt:
+// ganzer Vertrag“) steht als NULL oder "" in der Tabelle – "= ?" träfe NULL nie.
+func keyCond(k string, v any) (string, []any) {
+	if v == nil || Str(v) == "" {
+		return "(" + k + " IS NULL OR " + k + " = '')", nil
+	}
+	return k + " = ?", []any{v}
 }
 
 // --- Werte -------------------------------------------------------------------

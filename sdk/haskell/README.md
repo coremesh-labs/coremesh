@@ -56,6 +56,11 @@ Vollständiges Beispiel mit allen Aufrufrichtungen: [`example/Main.hs`](example/
   (`PermissionDenied`). Fremde Daten über `dispatch`/`dispatchRead`.
 - **Transaktionen:** `inTx` öffnet eine Transaktion (oder nimmt an der laufenden teil). Plugins,
   die man darin per `dispatch` aufruft, schreiben in dieselbe Transaktion (wie `sdk.InTx`).
+- **Systemanfragen:** `systemCall call tenant` eröffnet eine eigene Wurzelanfrage ohne Benutzer
+  im Mandanten – z. B. um einen Cache unabhängig vom aufrufenden Benutzer zu laden. Nur mit
+  `ingress: true` in der Host-Config.
+- **Events:** `subscribe call "Contract" "*" "*" "MyCache"` (in `pluginConfigure`) abonniert
+  SystemEvents; zugestellt wird an `MyCache.onEvent`, `eventOf (reqPayload req)` liest das Event.
 - **Logs:** `logMessage call LogInfo "…" [("feld", "wert")]` schreibt ins Host-Log.
   `stderrLog` geht ohne Host (vor Configure): JSON-Zeilen im hclog-Format, die go-plugin mit
   ihrer Stufe übernimmt. stdout gehört dem Handshake.
