@@ -27,8 +27,10 @@ type Host struct {
 	PluginStartTimeout time.Duration `yaml:"plugin_start_timeout"`
 	ShutdownTimeout    time.Duration `yaml:"shutdown_timeout"`
 	// Maximale Zahl gleichzeitig verschachtelter Plugin-Aufrufe pro Anfrage.
-	MaxCallDepth   int           `yaml:"max_call_depth"`
-	TxTimeout      time.Duration `yaml:"tx_timeout"`
+	MaxCallDepth int           `yaml:"max_call_depth"`
+	TxTimeout    time.Duration `yaml:"tx_timeout"`
+	// Zeitlimit nur lesender Transaktionen (z. B. Datenströme über Read).
+	ReadTxTimeout  time.Duration `yaml:"read_tx_timeout"`
 	MaxTxPerPlugin int           `yaml:"max_tx_per_plugin"`
 }
 
@@ -112,6 +114,7 @@ func (c *Config) applyDefaults() {
 	setDefault(&h.ShutdownTimeout, 10*time.Second)
 	setDefault(&h.MaxCallDepth, 8)
 	setDefault(&h.TxTimeout, 30*time.Second)
+	setDefault(&h.ReadTxTimeout, 10*time.Minute)
 	setDefault(&h.MaxTxPerPlugin, 16)
 
 	d := &c.Resolver.Download

@@ -47,6 +47,18 @@ func (s *pluginHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response,
 	return s.h.disp.HandleNested(ctx, req)
 }
 
+// Read ruft über den Dispatcher ein anderes Plugin als Datenstrom auf – wie
+// Handle innerhalb der laufenden Wurzelanfrage, für Ingress-Plugins auch als
+// eigene Wurzelanfrage.
+func (s *pluginHost) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	if s.ingress {
+		if _, err := s.h.disp.Verify(ctx); err != nil {
+			return s.h.disp.Read(ctx, req, w)
+		}
+	}
+	return s.h.disp.ReadNested(ctx, req, w)
+}
+
 func (s *pluginHost) Log(ctx context.Context, level sdk.LogLevel, msg string, fields map[string]string) error {
 	call := sdk.CallFromContext(ctx)
 	attrs := []any{"plugin", s.name}

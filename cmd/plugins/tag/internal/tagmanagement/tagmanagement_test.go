@@ -490,3 +490,11 @@ func TestDeprecatedTag(t *testing.T) {
 		"tag_set_code": "COMPLIANCE_1000", "tag_type_code": "CERTIFIED_AT", "valid_from": "2026-01-01"}}})
 	expect(t, err, sdk.ErrInvalidArgument, "veralteter Tag im Tag Set")
 }
+
+func (h *testHost) Read(_ context.Context, req sdk.Request, _ sdk.RowWriter) (sdk.ReadEnd, error) {
+	return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+}
+
+func (s pluginServices) Read(ctx context.Context, object, action string, payload any, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	return s.p.Read(ctx, sdk.Request{Object: object, Action: action, Payload: payload}, w)
+}

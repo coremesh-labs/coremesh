@@ -263,3 +263,7 @@ func TestInitializeFailureRollsBack(t *testing.T) {
 		t.Fatalf("unbekanntes Modul in settings: %v", err)
 	}
 }
+
+func (h *recHost) Read(context.Context, sdk.Request, sdk.RowWriter) (sdk.ReadEnd, error) {
+	return sdk.ReadEnd{}, sdk.ErrUnimplemented
+}

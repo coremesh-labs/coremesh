@@ -28,6 +28,7 @@ type Plugin struct {
 	info     Info
 	mounted  []*mounted
 	handlers map[[2]string]HandlerFunc
+	readers  map[[2]string]ReadFunc
 	err      error // Fehler aus RegisterRoutes – das Plugin startet dann nicht
 
 	mu      sync.Mutex
@@ -43,6 +44,7 @@ type mounted struct {
 
 var (
 	_ sdk.Plugin     = (*Plugin)(nil)
+	_ sdk.Reader     = (*Plugin)(nil)
 	_ sdk.Shutdowner = (*Plugin)(nil)
 )
 
@@ -50,7 +52,7 @@ var (
 // Fehler (doppelte Objects, ungültige Namen, …) liefert Err; der Host
 // startet ein solches Plugin nicht (Manifest schlägt fehl).
 func NewPlugin(info Info, modules ...Module) *Plugin {
-	p := &Plugin{info: info, handlers: map[[2]string]HandlerFunc{}}
+	p := &Plugin{info: info, handlers: map[[2]string]HandlerFunc{}, readers: map[[2]string]ReadFunc{}}
 	var errs []error
 	if info.Name == "" || info.Version == "" {
 		errs = append(errs, errors.New("Info.Name und Info.Version sind Pflicht"))
@@ -81,6 +83,9 @@ func NewPlugin(info Info, modules ...Module) *Plugin {
 		for _, o := range r.objects {
 			for _, a := range o.actions {
 				p.handlers[[2]string{o.name, a}] = o.handlers[a]
+			}
+			for _, a := range o.reads {
+				p.readers[[2]string{o.name, a}] = o.readers[a]
 			}
 		}
 		p.mounted = append(p.mounted, mt)
@@ -163,7 +168,8 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 			if o.def != nil {
 				desc = o.def.Title + " (" + mt.desc.Title + ")"
 			}
-			m.Capabilities = append(m.Capabilities, sdk.Capability{Object: o.name, Actions: slices.Clone(o.actions), Description: desc})
+			m.Capabilities = append(m.Capabilities, sdk.Capability{Object: o.name, Actions: slices.Clone(o.actions),
+				ReadActions: slices.Clone(o.reads), Description: desc})
 		}
 	}
 	if p.hasSchema() {
@@ -238,6 +244,14 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return h(ctx, req)
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+}
+
+// Read leitet einen Datenstrom (Object, Action) an das zuständige Modul.
+func (p *Plugin) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	if f := p.readers[[2]string{req.Object, req.Action}]; f != nil {
+		return f(ctx, req, w)
+	}
+	return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s ist nicht als Datenstrom abrufbar", sdk.ErrUnimplemented, req.Object, req.Action)
 }
 
 // Shutdown beendet die Module in umgekehrter Startreihenfolge.

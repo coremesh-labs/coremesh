@@ -2,7 +2,7 @@
 # Client: cmd/console (CLI). Anmeldung über iam; Rechte wie in der Weboberfläche.
 plugins:
   console:
-    version: 0.2.0
+    version: 0.3.0
     ingress: true                    # startet eigene Wurzelanfragen (CLI-Aufrufe)
     settings:
       listen: unix://./data/console.sock    # oder tcp://0.0.0.0:7443 (dann tls_cert/tls_key!)

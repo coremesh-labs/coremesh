@@ -23,6 +23,7 @@ console --object Greeting --action list
 console --object Greeting --action say --param name=Christof
 console --object BusinessPartner --action SampleFile --out ./partner_template.yaml
 console --object BusinessPartner --sample --format csv
+console --object JournalEntryItem --action list --read --param company_code_id=1000 --out items.csv
 console --object AssetsModule --action ExportBundle --param theme=dark --target-dir /var/www/coremesh/static
 console --logout
 ```
@@ -36,7 +37,8 @@ console --logout
 | `--param key=value` | mehrfach möglich. Gültiges JSON wird als Zahl, `true` oder Objekt übernommen, alles andere als Text. |
 | `--target-dir` | absolutes Verzeichnis **auf dem Server**. Dort wird `zip_content` aus der Antwort entpackt. |
 | `--sample` | wie `--action SampleFile` |
-| `--format` | `yaml` (Standard), `json` oder `csv` |
+| `--read` | Ergebnis als Datenstrom (`sdk.Reader`), z. B. `list` mit allen Treffern. Ausgabe fortlaufend, Zusammenfassung auf stderr; mit `--param limit=…` endet sie mit der Marke für `--param after=…` |
+| `--format` | Beispieldatei: `yaml` (Standard), `json` oder `csv`; mit `--read`: `csv` (Standard) oder `jsonl` |
 | `--out` | Ergebnis in eine Datei statt auf die Standardausgabe |
 | `--logout` | abmelden, gespeichertes Token löschen |
 

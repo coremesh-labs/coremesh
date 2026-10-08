@@ -72,6 +72,14 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	return target.Handle(ctx, req)
 }
 
+func (h *fakeHost) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	target, ok := h.routes[req.Object+"."+req.Action].(sdk.Reader)
+	if !ok {
+		return sdk.ReadEnd{}, fmt.Errorf("%w: kein Datenstrom für %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+	}
+	return target.Read(ctx, req, w)
+}
+
 func (h *fakeHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error { return nil }
 
 func (h *fakeHost) Query(ctx context.Context, database, sql string, args ...any) (*sdk.QueryResult, error) {
