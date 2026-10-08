@@ -54,6 +54,11 @@ type HostServiceClient interface {
 	// Query führt ein SELECT aus und liefert die Zeilen zurück.
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	// Exec führt INSERT/UPDATE/DELETE aus.
+	//
+	// Query und Exec: genau eine Anweisung; geändert werden nur eigene Tabellen
+	// des Plugins (Präfix <plugin>__ bzw. eigenes Schema), nur mit Freigabe
+	// access: write; kein DDL, keine Sitzungs- oder Transaktionssteuerung.
+	// Sonst PermissionDenied. Fremde Daten über Dispatch (Actions).
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (*ExecResponse, error)
 	// Transaktionen
 	//
@@ -203,6 +208,11 @@ type HostServiceServer interface {
 	// Query führt ein SELECT aus und liefert die Zeilen zurück.
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	// Exec führt INSERT/UPDATE/DELETE aus.
+	//
+	// Query und Exec: genau eine Anweisung; geändert werden nur eigene Tabellen
+	// des Plugins (Präfix <plugin>__ bzw. eigenes Schema), nur mit Freigabe
+	// access: write; kein DDL, keine Sitzungs- oder Transaktionssteuerung.
+	// Sonst PermissionDenied. Fremde Daten über Dispatch (Actions).
 	Exec(context.Context, *ExecRequest) (*ExecResponse, error)
 	// Transaktionen
 	//
