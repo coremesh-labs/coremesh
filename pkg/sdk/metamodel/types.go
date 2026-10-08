@@ -197,6 +197,10 @@ type ActionConfig struct {
 	// und erscheint in der Detailansicht, sonst in der Übersicht.
 	Fields []string `json:"fields,omitempty"`
 	Record bool     `json:"record,omitempty"`
+	// FormState: Beim Öffnen des Formulars fragt der WebServer die Maske des
+	// Objects ab (ObjectDefinition.FormState, Mode "action", Action = Name) –
+	// Vorbelegung und Hinweis, z. B. „Buchen bis“ = heute und der letzte Lauf.
+	FormState bool `json:"form_state,omitempty"`
 }
 
 // ActionKind sagt dem WebServer, wie er eine Aktion einbindet.
@@ -300,8 +304,9 @@ func (c *Condition) Holds(values map[string]string) bool {
 
 // FormStateRequest fragt die Maske eines Formulars ab (ObjectDefinition.FormState).
 type FormStateRequest struct {
-	Mode   string            `json:"mode"`             // create | edit
-	ID     string            `json:"id,omitempty"`     // edit: Datensatz
+	Mode   string            `json:"mode"`             // create | edit | action
+	Action string            `json:"action,omitempty"` // action: Name der Aktion (ActionConfig.FormState)
+	ID     string            `json:"id,omitempty"`     // edit, action: Datensatz
 	Values map[string]string `json:"values"`           // aktuelle Formularwerte
 	Locked []string          `json:"locked,omitempty"` // feste Felder (Master-Detail)
 }
