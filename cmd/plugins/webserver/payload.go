@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -273,6 +274,8 @@ type view struct {
 	// Ergebnisse
 	Action  metamodel.ActionConfig
 	Result  any
+	// ResultTable: Tabelle im Ergebnis einer Aktion ({"table": {"columns", "rows"}}).
+	ResultTable *resultTable
 	Message string
 	Toast   *toast
 }
@@ -427,3 +430,35 @@ func triggerURL(f metamodel.FieldDefinition, url string) string {
 
 // FilterFields sind die Felder der Filterleiste der Übersicht (filters.go).
 func (v view) FilterFields() []filterField { return v.FilterBar }
+
+// resultTable: Tabelle im Ergebnis einer eigenen Aktion, z. B. ein Tilgungsplan.
+type resultTable struct {
+	Columns []string   `json:"columns"`
+	Rows    [][]string `json:"rows"`
+}
+
+// tableOf liest {"table": {"columns": [...], "rows": [[...]]}} aus dem Ergebnis.
+func tableOf(payload any) *resultTable {
+	m, ok := payload.(map[string]any)
+	if !ok || m["table"] == nil {
+		return nil
+	}
+	var raw struct {
+		Columns []string `json:"columns"`
+		Rows    [][]any  `json:"rows"`
+	}
+	if err := sdk.Decode(m["table"], &raw); err != nil || len(raw.Columns) == 0 {
+		return nil
+	}
+	t := &resultTable{Columns: raw.Columns}
+	for _, r := range raw.Rows {
+		row := make([]string, len(r))
+		for i, v := range r {
+			if v != nil {
+				row[i] = fmt.Sprint(v)
+			}
+		}
+		t.Rows = append(t.Rows, row)
+	}
+	return t
+}

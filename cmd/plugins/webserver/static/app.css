@@ -65,6 +65,8 @@ dialog.modal article { background: var(--surface); border-radius: var(--radius);
 .field .error, .form-error { color: var(--danger); }
 form footer, dialog footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
 pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius); overflow: auto; }
+.result-table { max-height: 60vh; overflow: auto; margin-top: .75rem; }
+.result-table td { white-space: nowrap; }
 #toast-container { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 10; }
 .toast { display: flex; gap: 1rem; align-items: center; padding: .6rem .9rem; border-radius: var(--radius);
          background: var(--surface); border-left: 4px solid var(--success); box-shadow: 0 2px 10px rgba(0,0,0,.15);

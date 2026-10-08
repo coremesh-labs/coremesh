@@ -28,7 +28,11 @@
 {{define "result"}}
 {{if .Modal}}<dialog open class="modal"><article>{{end}}
 <h2>{{.Action.Label}}</h2>
-{{with .Message}}<p class="result-message">{{.}}</p>{{else}}<pre class="result">{{json .Result}}</pre>{{end}}
+{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not .ResultTable}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
+{{with .ResultTable}}<div class="result-table"><table class="data">
+  <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+  <tbody>{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>{{end}}</tbody>
+</table></div>{{end}}
 <footer>
   {{if .Modal}}
   <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.close"}}</button>
