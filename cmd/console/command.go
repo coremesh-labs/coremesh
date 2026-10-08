@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -53,14 +54,63 @@ func commandArgs(args []string, p params) []string {
 				value = "true"
 			}
 		}
-		_ = p.Set(name + "=" + value)
+		p[name] = value // als Text; convertParams wandelt nach dem Typ des Parameters
 	}
 	return rest
 }
 
 type commandParam struct {
-	Name, Description string
-	Required, File    bool
+	Name, Description, Type string
+	Required, File          bool
+}
+
+// convertParams wandelt die Befehlsparameter nach ihrem Typ um: text bleibt
+// Text (auch --company=2000), number, boolean, json werden gelesen; nicht
+// deklarierte Parameter wie bisher (gültiges JSON als Wert, sonst Text).
+func convertParams(def *commandDef, p params) error {
+	types := map[string]string{}
+	if def != nil {
+		for _, d := range def.Params {
+			types[d.Name] = d.Type
+			if d.File {
+				types[d.Name] = "file"
+			}
+		}
+	}
+	for name, v := range p {
+		s, ok := v.(string)
+		if !ok {
+			continue
+		}
+		typ, declared := types[name]
+		switch {
+		case typ == "file":
+		case !declared:
+			var j any
+			if json.Unmarshal([]byte(s), &j) == nil {
+				p[name] = j
+			}
+		case typ == "number":
+			n, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", "."), 64)
+			if err != nil {
+				return fmt.Errorf("--%s: Zahl erwartet, nicht %q", name, s)
+			}
+			p[name] = n
+		case typ == "boolean":
+			b, err := strconv.ParseBool(s)
+			if err != nil {
+				return fmt.Errorf("--%s: true oder false erwartet, nicht %q", name, s)
+			}
+			p[name] = b
+		case typ == "json":
+			var j any
+			if err := json.Unmarshal([]byte(s), &j); err != nil {
+				return fmt.Errorf("--%s: JSON erwartet: %v", name, err)
+			}
+			p[name] = j
+		}
+	}
+	return nil
 }
 
 type commandDef struct {
@@ -72,6 +122,9 @@ func runCommand(ctx context.Context, c consolev1.ConsoleServiceClient, o options
 	module, name, _ := strings.Cut(o.command, ":")
 	def, err := lookupCommand(ctx, c, module, name)
 	if err != nil {
+		return err
+	}
+	if err := convertParams(def, o.params); err != nil {
 		return err
 	}
 	if def != nil {
