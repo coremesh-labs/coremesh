@@ -578,11 +578,41 @@ func (s *server) loadAction(r *http.Request) (objectCtx, *metamodel.ActionConfig
 }
 
 func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string, values, errs map[string]string) view {
+	var message string
+	if values == nil {
+		values, message = s.actionDefaults(r, oc, act, id)
+	}
 	return view{
 		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name,
-		CancelURL: oc.URL, FormFields: actionFields(buildFields(oc.ActionDef, "action", values, errs, formOpts{}), act.Fields),
+		CancelURL: oc.URL, FormMessage: message,
+		FormFields: actionFields(buildFields(oc.ActionDef, "action", values, errs, formOpts{}), act.Fields),
 	}
+}
+
+// actionDefaults: Vorbelegung und Hinweis eines Aktionsformulars beim Öffnen
+// (ActionConfig.FormState) – aus der FormState-Action des Objects.
+func (s *server) actionDefaults(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string) (map[string]string, string) {
+	if !act.FormState || oc.Def.FormState == "" {
+		return nil, ""
+	}
+	req := metamodel.FormStateRequest{Mode: "action", Action: act.Name, ID: id, Values: map[string]string{}}
+	resp, err := s.call(r, oc.Object, oc.Def.FormState, req)
+	if err != nil {
+		s.logError(r, "FormState", err)
+		return nil, ""
+	}
+	var st metamodel.FormState
+	if err := sdk.Decode(resp.Payload, &st); err != nil {
+		return nil, ""
+	}
+	values := map[string]string{}
+	for k, fs := range st.Fields {
+		if fs.Value != nil {
+			values[k] = *fs.Value
+		}
+	}
+	return values, st.Message
 }
 
 // POST /action/{module}/{object}/{name}
