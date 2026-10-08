@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/coremesh-labs/coremesh/internal/database"
+	"github.com/coremesh-labs/coremesh/internal/txctx"
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	api "github.com/coremesh-labs/coremesh/pkg/sdk/numrange"
@@ -37,7 +38,7 @@ import (
 
 const (
 	Name    = "numrange"
-	Version = "0.1.0"
+	Version = "0.2.0"
 
 	defaultKey = "01"
 	allCC      = "*"
@@ -140,7 +141,7 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 
 type objectRow struct {
 	Object, Owner, Description, Pattern, Overflow, UpdatedAt string
-	PerCompanyCode, PerYear                                  bool
+	PerCompanyCode, PerYear, GapFree, Disjoint               bool
 	Width, WarnPercent                                       int
 	From, To                                                 int64
 }
@@ -252,15 +253,18 @@ func (p *Plugin) define(ctx context.Context, payload any) (sdk.Response, error) 
 	}
 	now := ts()
 	res, err := p.pool().ExecContext(ctx, p.q(`UPDATE numrange__object SET owner = ?, description = ?, per_company_code = ?, per_year = ?,
-		pattern = ?, width = ?, from_number = ?, to_number = ?, overflow = ?, warn_percent = ?, updated_at = ? WHERE object = ?`),
-		d.Owner, d.Description, b2i(d.PerCompanyCode), b2i(d.PerYear), d.Pattern, d.Width, d.From, d.To, d.Overflow, d.WarnPercent, now, d.Object)
+		pattern = ?, width = ?, from_number = ?, to_number = ?, overflow = ?, warn_percent = ?, gap_free = ?, disjoint = ?, updated_at = ? WHERE object = ?`),
+		d.Owner, d.Description, b2i(d.PerCompanyCode), b2i(d.PerYear), d.Pattern, d.Width, d.From, d.To, d.Overflow, d.WarnPercent,
+		b2i(d.GapFree), b2i(d.Disjoint), now, d.Object)
 	if err != nil {
 		return sdk.Response{}, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		if _, err := p.pool().ExecContext(ctx, p.q(`INSERT INTO numrange__object (object, owner, description, per_company_code, per_year,
-			pattern, width, from_number, to_number, overflow, warn_percent, defined_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-			d.Object, d.Owner, d.Description, b2i(d.PerCompanyCode), b2i(d.PerYear), d.Pattern, d.Width, d.From, d.To, d.Overflow, d.WarnPercent, now, now); err != nil {
+			pattern, width, from_number, to_number, overflow, warn_percent, gap_free, disjoint, defined_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+			d.Object, d.Owner, d.Description, b2i(d.PerCompanyCode), b2i(d.PerYear), d.Pattern, d.Width, d.From, d.To, d.Overflow, d.WarnPercent,
+			b2i(d.GapFree), b2i(d.Disjoint), now, now); err != nil {
 			return sdk.Response{}, err
 		}
 	}
@@ -299,13 +303,14 @@ func pow10(n int) int64 {
 
 func (p *Plugin) loadObject(ctx context.Context, q database.Querier, object string) (*objectRow, error) {
 	res, err := database.Query(ctx, q, p.q(`SELECT object, owner, description, per_company_code, per_year, pattern, width,
-		from_number, to_number, overflow, warn_percent, updated_at FROM numrange__object WHERE object = ?`), object)
+		from_number, to_number, overflow, warn_percent, updated_at, gap_free, disjoint FROM numrange__object WHERE object = ?`), object)
 	if err != nil || len(res.Rows) == 0 {
 		return nil, err
 	}
 	r := res.Rows[0]
 	return &objectRow{Object: s(r[0]), Owner: s(r[1]), Description: s(r[2]), PerCompanyCode: i64(r[3]) != 0, PerYear: i64(r[4]) != 0,
-		Pattern: s(r[5]), Width: int(i64(r[6])), From: i64(r[7]), To: i64(r[8]), Overflow: s(r[9]), WarnPercent: int(i64(r[10])), UpdatedAt: s(r[11])}, nil
+		Pattern: s(r[5]), Width: int(i64(r[6])), From: i64(r[7]), To: i64(r[8]), Overflow: s(r[9]), WarnPercent: int(i64(r[10])), UpdatedAt: s(r[11]),
+		GapFree: i64(r[12]) != 0, Disjoint: i64(r[13]) != 0}, nil
 }
 
 // --- Next ------------------------------------------------------------------------------
@@ -315,14 +320,29 @@ func (p *Plugin) next(ctx context.Context, payload any) (sdk.Response, error) {
 	if err := sdk.Decode(payload, &r); err != nil {
 		return sdk.Response{}, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err)
 	}
+	obj, err := p.loadObject(ctx, p.pool(), strings.TrimSpace(r.Object))
+	if err != nil {
+		return sdk.Response{}, err
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	var out api.Result
-	err := p.inTx(ctx, func(tx *sql.Tx) error {
+	draw := func(q database.Querier) error {
 		var err error
-		out, err = p.draw(ctx, tx, r)
+		out, err = p.draw(ctx, q, r)
 		return err
-	})
+	}
+	if obj != nil && obj.GapFree {
+		// Lückenlos: in der Transaktion des Aufrufers – ein Rollback gibt die Nummer zurück.
+		txID, ok := txctx.Get(ctx, p.settings.Database)
+		if !ok {
+			return sdk.Response{}, fmt.Errorf("%w: Nummernkreis %s ist lückenlos – Next nur in einer Transaktion (sdk.InTx) auf %s",
+				sdk.ErrFailedPrecondition, obj.Object, p.settings.Database)
+		}
+		err = p.db.WithTx(sdk.CallFromContext(ctx).RequestID, p.settings.Database, txID, draw)
+	} else {
+		err = p.inTx(ctx, func(tx *sql.Tx) error { return draw(tx) })
+	}
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -330,7 +350,7 @@ func (p *Plugin) next(ctx context.Context, payload any) (sdk.Response, error) {
 }
 
 // draw vergibt die Nummer in der Transaktion tx.
-func (p *Plugin) draw(ctx context.Context, tx *sql.Tx, r api.Request) (api.Result, error) {
+func (p *Plugin) draw(ctx context.Context, tx database.Querier, r api.Request) (api.Result, error) {
 	obj, err := p.loadObject(ctx, tx, strings.TrimSpace(r.Object))
 	if err != nil {
 		return api.Result{}, err
@@ -409,7 +429,7 @@ func (p *Plugin) draw(ctx context.Context, tx *sql.Tx, r api.Request) (api.Resul
 // findOrCreate: Intervall des Buchungskreises, sonst für alle (*); fehlt es,
 // entsteht es aus dem jüngsten Vorjahr desselben Schlüssels oder aus den
 // Standardwerten des Objekts.
-func (p *Plugin) findOrCreate(ctx context.Context, tx *sql.Tx, obj *objectRow, cc, key string, year int) (*interval, error) {
+func (p *Plugin) findOrCreate(ctx context.Context, tx database.Querier, obj *objectRow, cc, key string, year int) (*interval, error) {
 	for _, c := range slices.Compact([]string{cc, allCC}) {
 		ivs, err := p.loadIntervals(ctx, tx, "WHERE object = ? AND company_code = ? AND range_key = ? AND year = ?", obj.Object, c, key, year)
 		if err != nil {
@@ -437,6 +457,11 @@ func (p *Plugin) findOrCreate(ctx context.Context, tx *sql.Tx, obj *objectRow, c
 		}
 	}
 	iv.ID = intervalID(iv.Object, iv.CompanyCode, iv.Key, iv.Year)
+	if obj.Disjoint {
+		if err := p.checkDisjoint(ctx, tx, iv); err != nil {
+			return nil, fmt.Errorf("%w (Intervall für Schlüssel %s im Jahr %d unter Nummernkreise mit eigenem Bereich anlegen)", err, iv.Key, iv.Year)
+		}
+	}
 	now := ts()
 	if _, err := tx.ExecContext(ctx, p.q(`INSERT INTO numrange__interval (id, object, company_code, range_key, year, description, from_number, to_number,
 		current_number, width, pattern, overflow, next_key, warn_percent, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1, ?, ?)`),
@@ -446,6 +471,22 @@ func (p *Plugin) findOrCreate(ctx context.Context, tx *sql.Tx, obj *objectRow, c
 	}
 	p.log(ctx, sdk.LogInfo, "Nummernkreis-Intervall angelegt", map[string]string{"id": iv.ID})
 	return &iv, nil
+}
+
+// checkDisjoint: Bei überschneidungsfreien Objekten darf das Intervall keines
+// eines anderen Schlüssels im selben Buchungskreis (oder *) und Jahr überlappen.
+func (p *Plugin) checkDisjoint(ctx context.Context, q database.Querier, iv interval) error {
+	others, err := p.loadIntervals(ctx, q, `WHERE object = ? AND company_code IN (?, ?) AND year = ? AND range_key <> ?
+		AND from_number <= ? AND to_number >= ?`, iv.Object, iv.CompanyCode, allCC, iv.Year, iv.Key, iv.To, iv.From)
+	if err != nil {
+		return err
+	}
+	if len(others) > 0 {
+		o := others[0]
+		return fmt.Errorf("%w: %s %d–%d überschneidet sich mit Schlüssel %s (%d–%d) – Intervalle dieses Objekts müssen überschneidungsfrei sein",
+			sdk.ErrInvalidArgument, iv.ID, iv.From, iv.To, o.Key, o.From, o.To)
+	}
+	return nil
 }
 
 const intervalCols = `id, object, company_code, range_key, year, description, from_number, to_number, current_number, width, pattern,
@@ -502,6 +543,9 @@ func s(v any) string {
 		return v
 	case []byte:
 		return string(v)
+	case float64:
+		// Zahlen aus JSON: 1000000001 nicht als 1.000000001e+09
+		return strconv.FormatFloat(v, 'f', -1, 64)
 	}
 	return fmt.Sprint(v)
 }
