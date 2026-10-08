@@ -115,7 +115,8 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	case "Search.run":
 		return sdk.Response{Payload: map[string]any{"hits": 1}}, nil
 	case "Partner.Notify":
-		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt"}}, nil
+		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt",
+			"table": map[string]any{"columns": []any{"Fällig", "Betrag"}, "rows": []any{[]any{"30.01.2026", "300.00"}, []any{"28.02.2026", nil}}}}}, nil
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
 }
@@ -388,7 +389,8 @@ func TestDeleteAndCustomAction(t *testing.T) {
 	mustContain(t, form, `hx-post="/action/crm/Partner/Notify" hx-target="#modal"`, `name="_id" value="p1"`)
 
 	w = do(s, "POST", "/action/crm/Partner/Notify", url.Values{"_id": {"p1"}, "company_name": {"x"}}, true)
-	mustContain(t, w.Body.String(), "Benachrichtigung verschickt")
+	mustContain(t, w.Body.String(), "Benachrichtigung verschickt", `<div class="result-table"><table class="data">`, "<th>Fällig</th>",
+		"<td>30.01.2026</td><td>300.00</td>", "<td>28.02.2026</td><td></td>")
 	if w.Header().Get("HX-Trigger") != "coremesh-changed" {
 		t.Fatal("HX-Trigger fehlt")
 	}
