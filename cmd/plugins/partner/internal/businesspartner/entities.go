@@ -36,7 +36,7 @@ func (m *Module) entities() []*entity {
 	return []*entity{
 		m.businessPartner(), m.partnerRole(), m.partnerCompanyCode(),
 		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(),
-		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(),
+		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(), m.salutationCatalog(),
 	}
 }
 
@@ -142,7 +142,8 @@ func (m *Module) businessPartner() *entity {
 		// (Rolle + Zeitscheibe) zu wiederverwendbaren PartnerAddressData.
 		TitleField: "name1",
 		Sections: []metamodel.SectionDefinition{
-			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"id", "group_code", "type", "name1", "name2", "search_term", "is_blocked"}},
+			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"id", "group_code", "type", "salutation_code", "name1", "name2", "gender",
+				"letter_salutation", "search_term", "is_blocked"}},
 			{Key: "gueltigkeit", Title: "Gültigkeit", Fields: []string{"valid_from", "valid_to"}},
 			{Key: "rollen", Title: "Rollen", Relation: &metamodel.Relation{Object: "PartnerRole", ForeignKey: "bp_id",
 				Columns: []string{"role_code", "company_codes", "valid_from", "valid_to"}}},
@@ -167,18 +168,25 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "id", Label: "BP-Nummer", Type: tText, Listable: true, Immutable: true},
 			field{Key: "group_code", Label: "Partnergruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
 				Lookup: &metamodel.Lookup{Object: "PartnerGroup", ValueField: "code", LabelFields: []string{"description"}}},
-			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: []metamodel.Option{
-				{Value: "ORGANIZATION", Label: "Organisation"}, {Value: "PERSON", Label: "Person"}}},
+			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: personTypeOptions, Trigger: true},
+			field{Key: "salutation_code", Label: "Anrede (leer = Vorschlag nach Art und Geschlecht)", Type: tText,
+				Lookup: &metamodel.Lookup{Object: "PartnerSalutation", ValueField: "code", LabelFields: []string{"description"}}},
+			field{Key: "gender", Label: "Geschlecht", Type: tSelect, Options: genderOptions, ShowIf: showPerson},
 			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true, Trigger: true},
 			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
 			field{Key: "search_term", Label: "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)", Type: tText, Listable: true},
+			field{Key: "letter_salutation", Label: "Briefanrede", Type: tText, ReadOnly: true, Virtual: true},
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		),
 		Prepare:   m.preparePartner,
 		FormState: m.partnerFormState,
+		Decorate: m.decoratePerson,
 		Validate: func(ctx context.Context, rec, old record) error {
 			if err := m.checkShortName(ctx, rec, old); err != nil {
+				return err
+			}
+			if err := m.checkPerson(ctx, rec); err != nil {
 				return err
 			}
 			if old == nil {
