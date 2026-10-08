@@ -106,8 +106,34 @@ table "partner__bp" {
     type    = date
     default = "9999-12-31"
   }
+  # Partnergruppe (seit 0.10.0): Intervall des Nummernkreises BusinessPartner
+  column "group_code" {
+    type = text
+    null = true
+  }
+  # GUID bis 0.9.0 (Migration auf BP-Nummern; BusinessPartnerService.resolve)
+  column "legacy_id" {
+    type = text
+    null = true
+  }
   primary_key { columns = [column.id, column.valid_from] }
   index "partner__bp_search" { columns = [column.search_term] }
+  index "partner__bp_legacy" { columns = [column.legacy_id] }
+}
+
+table "partner__groups" {
+  schema = schema.main
+  column "code"        { type = text }
+  column "description" { type = text }
+  column "range_key" {
+    type = text
+    null = true
+  }
+  column "is_default" {
+    type    = boolean
+    default = false
+  }
+  primary_key { columns = [column.code] }
 }
 
 table "partner__roles" {
@@ -237,6 +263,9 @@ func row(kv ...any) map[string]any {
 // seeds: Grundbestand der Kataloge. DBSchema fügt nur fehlende Zeilen ein;
 // geänderte oder ergänzte Einträge im Bestand bleiben erhalten.
 var seeds = []sdk.SchemaSeed{
+	{Table: "partner__groups", Rows: []map[string]any{
+		row("code", defaultGroup, "description", "Standard", "range_key", defaultGroup, "is_default", true),
+	}},
 	{Table: "partner__comm_categories", Rows: []map[string]any{
 		row("code", "PHONE", "description", "Telefon"),
 		row("code", "EMAIL", "description", "E-Mail"),

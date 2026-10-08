@@ -29,6 +29,7 @@ type Plugin struct {
 	mounted  []*mounted
 	handlers map[[2]string]HandlerFunc
 	readers  map[[2]string]ReadFunc
+	owner    map[[2]string]*mounted // (Object, Action) → Modul
 	err      error // Fehler aus RegisterRoutes – das Plugin startet dann nicht
 
 	mu      sync.Mutex
@@ -40,6 +41,27 @@ type mounted struct {
 	desc   Descriptor
 	router *Router
 	env    Env // ab Configure (für Aggregate)
+
+	migrateMu sync.Mutex
+	migrated  bool
+}
+
+// migrate: Migrator des Moduls einmal je Prozess (siehe Migrator).
+func (m *mounted) migrate(ctx context.Context) error {
+	mig, ok := m.mod.(Migrator)
+	if !ok {
+		return nil
+	}
+	m.migrateMu.Lock()
+	defer m.migrateMu.Unlock()
+	if m.migrated {
+		return nil
+	}
+	if err := mig.Migrate(ctx); err != nil {
+		return fmt.Errorf("Modul %s: Migration: %w", m.desc.Name, err)
+	}
+	m.migrated = true
+	return nil
 }
 
 var (
@@ -52,7 +74,7 @@ var (
 // Fehler (doppelte Objects, ungültige Namen, …) liefert Err; der Host
 // startet ein solches Plugin nicht (Manifest schlägt fehl).
 func NewPlugin(info Info, modules ...Module) *Plugin {
-	p := &Plugin{info: info, handlers: map[[2]string]HandlerFunc{}, readers: map[[2]string]ReadFunc{}}
+	p := &Plugin{info: info, handlers: map[[2]string]HandlerFunc{}, readers: map[[2]string]ReadFunc{}, owner: map[[2]string]*mounted{}}
 	var errs []error
 	if info.Name == "" || info.Version == "" {
 		errs = append(errs, errors.New("Info.Name und Info.Version sind Pflicht"))
@@ -83,9 +105,11 @@ func NewPlugin(info Info, modules ...Module) *Plugin {
 		for _, o := range r.objects {
 			for _, a := range o.actions {
 				p.handlers[[2]string{o.name, a}] = o.handlers[a]
+				p.owner[[2]string{o.name, a}] = mt
 			}
 			for _, a := range o.reads {
 				p.readers[[2]string{o.name, a}] = o.readers[a]
+				p.owner[[2]string{o.name, "read:" + a}] = mt
 			}
 		}
 		p.mounted = append(p.mounted, mt)
@@ -241,6 +265,9 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return sdk.Response{Payload: p.describe()}, nil
 	}
 	if h := p.handlers[[2]string{req.Object, req.Action}]; h != nil {
+		if err := p.owner[[2]string{req.Object, req.Action}].migrate(ctx); err != nil {
+			return sdk.Response{}, err
+		}
 		return h(ctx, req)
 	}
 	return sdk.Response{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
@@ -249,6 +276,9 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 // Read leitet einen Datenstrom (Object, Action) an das zuständige Modul.
 func (p *Plugin) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
 	if f := p.readers[[2]string{req.Object, req.Action}]; f != nil {
+		if err := p.owner[[2]string{req.Object, "read:" + req.Action}].migrate(ctx); err != nil {
+			return sdk.ReadEnd{}, err
+		}
 		return f(ctx, req, w)
 	}
 	return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s ist nicht als Datenstrom abrufbar", sdk.ErrUnimplemented, req.Object, req.Action)
