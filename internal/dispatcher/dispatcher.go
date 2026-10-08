@@ -37,6 +37,8 @@ type plugin struct {
 	name     string
 	manifest sdk.Manifest
 	handler  sdk.Handler
+	reader   sdk.Reader   // nil: Plugin liefert keine Datenströme
+	reads    map[key]bool // Capability.ReadActions
 	inflight atomic.Int64
 }
 
@@ -180,6 +182,8 @@ func (d *Dispatcher) Register(name string, m sdk.Manifest, h sdk.Handler) error 
 	}
 	var keys []key
 	seen := map[key]bool{}
+	reads := map[key]bool{}
+	reader, _ := h.(sdk.Reader)
 	for _, c := range m.Capabilities {
 		if !objectRe.MatchString(c.Object) {
 			return fmt.Errorf("%w: Plugin %s: ungültiges Object %q (PascalCase erwartet)", sdk.ErrInvalidArgument, name, c.Object)
@@ -199,6 +203,18 @@ func (d *Dispatcher) Register(name string, m sdk.Manifest, h sdk.Handler) error 
 			if !lifecycle[k] {
 				keys = append(keys, k)
 			}
+		}
+		for _, a := range c.ReadActions {
+			k := key{c.Object, a}
+			switch {
+			case !slices.Contains(c.Actions, a):
+				return fmt.Errorf("%w: Plugin %s: Read-Action %s.%s fehlt in actions", sdk.ErrInvalidArgument, name, c.Object, a)
+			case lifecycle[k] || hostOnly[k] || rootOnly[k]:
+				return fmt.Errorf("%w: Plugin %s: %s.%s ist nicht als Datenstrom erlaubt", sdk.ErrInvalidArgument, name, c.Object, a)
+			case reader == nil:
+				return fmt.Errorf("%w: Plugin %s meldet Read-Actions, implementiert aber kein Read", sdk.ErrInvalidArgument, name)
+			}
+			reads[k] = true
 		}
 	}
 
@@ -228,7 +244,7 @@ func (d *Dispatcher) Register(name string, m sdk.Manifest, h sdk.Handler) error 
 	if len(conflicts) > 0 {
 		return fmt.Errorf("%w: Plugin %s: %s", sdk.ErrAlreadyExists, name, strings.Join(conflicts, ", "))
 	}
-	p := &plugin{name: name, manifest: m, handler: h}
+	p := &plugin{name: name, manifest: m, handler: h, reader: reader, reads: reads}
 	d.plugins[name] = p
 	for _, k := range keys {
 		d.routes[k] = p
@@ -293,6 +309,7 @@ type Entry struct {
 	Plugin      string
 	Version     string
 	Description string // Beschreibung der Capability aus dem Manifest
+	Read        bool   // zusätzlich als Datenstrom abrufbar (sdk.Reader)
 }
 
 // Catalog liefert alle von außen aufrufbaren Routen, sortiert nach Object
@@ -306,7 +323,7 @@ func (d *Dispatcher) Catalog() []Entry {
 		if hostOnly[k] {
 			continue
 		}
-		e := Entry{Object: k.object, Action: k.action, Plugin: p.name, Version: p.manifest.Version}
+		e := Entry{Object: k.object, Action: k.action, Plugin: p.name, Version: p.manifest.Version, Read: p.reads[k] && p.reader != nil}
 		for _, c := range p.manifest.Capabilities {
 			if c.Object == k.object && slices.Contains(c.Actions, k.action) {
 				e.Description = c.Description
@@ -383,8 +400,45 @@ func (d *Dispatcher) Handle(ctx context.Context, req sdk.Request) (sdk.Response,
 
 // HandleNested leitet den Aufruf eines Plugins weiter (HostService.Dispatch).
 func (d *Dispatcher) HandleNested(ctx context.Context, req sdk.Request) (sdk.Response, error) {
+	ctx, done, err := d.nested(ctx, req)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	defer done()
+	return d.route(ctx, req, false)
+}
+
+// Read ist der Einstiegspunkt für Datenströme von außen (implementiert sdk.Reader).
+func (d *Dispatcher) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	ctx, end, err := d.Begin(ctx)
+	if err != nil {
+		return sdk.ReadEnd{}, err
+	}
+	defer end()
+	if err := d.authorize(ctx, req); err != nil {
+		return sdk.ReadEnd{}, err
+	}
+	return d.routeRead(ctx, req, w)
+}
+
+// ReadNested leitet den Datenstrom-Aufruf eines Plugins weiter
+// (HostService.DispatchRead) – mit denselben Prüfungen wie HandleNested. Die
+// Aufruftiefe bleibt belegt, bis der Strom endet.
+func (d *Dispatcher) ReadNested(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	ctx, done, err := d.nested(ctx, req)
+	if err != nil {
+		return sdk.ReadEnd{}, err
+	}
+	defer done()
+	return d.routeRead(ctx, req, w)
+}
+
+// nested prüft einen verschachtelten Aufruf gegen die laufende Wurzelanfrage,
+// belegt eine Stufe der Aufruftiefe und setzt den vertrauenswürdigen
+// CallContext. done gibt die Stufe wieder frei.
+func (d *Dispatcher) nested(ctx context.Context, req sdk.Request) (_ context.Context, done func(), _ error) {
 	if rootOnly[key{req.Object, req.Action}] {
-		return sdk.Response{}, fmt.Errorf("%w: %s.%s ist nur als Wurzelanfrage erreichbar", sdk.ErrPermissionDenied, req.Object, req.Action)
+		return ctx, nil, fmt.Errorf("%w: %s.%s ist nur als Wurzelanfrage erreichbar", sdk.ErrPermissionDenied, req.Object, req.Action)
 	}
 	got := sdk.CallFromContext(ctx)
 
@@ -392,24 +446,23 @@ func (d *Dispatcher) HandleNested(ctx context.Context, req sdk.Request) (sdk.Res
 	r, ok := d.requests[got.RequestID]
 	if !ok {
 		d.reqMu.Unlock()
-		return sdk.Response{}, fmt.Errorf("%w: unbekannte request_id", sdk.ErrPermissionDenied)
+		return ctx, nil, fmt.Errorf("%w: unbekannte request_id", sdk.ErrPermissionDenied)
 	}
 	if d.maxDepth > 0 && r.nested >= d.maxDepth {
 		d.reqMu.Unlock()
-		return sdk.Response{}, fmt.Errorf("%w: maximale Aufruftiefe %d erreicht (Zyklus?) bei %s.%s",
+		return ctx, nil, fmt.Errorf("%w: maximale Aufruftiefe %d erreicht (Zyklus?) bei %s.%s",
 			sdk.ErrFailedPrecondition, d.maxDepth, req.Object, req.Action)
 	}
 	r.nested++
 	trusted := r.call
 	d.reqMu.Unlock()
-	defer func() {
+
+	trusted.Metadata = got.Metadata
+	return sdk.WithCall(ctx, trusted), func() {
 		d.reqMu.Lock()
 		r.nested--
 		d.reqMu.Unlock()
-	}()
-
-	trusted.Metadata = got.Metadata
-	return d.route(sdk.WithCall(ctx, trusted), req, false)
+	}, nil
 }
 
 // Call routet einen Aufruf des Hosts selbst innerhalb einer bereits mit Begin
@@ -436,6 +489,28 @@ func (d *Dispatcher) route(ctx context.Context, req sdk.Request, fromHost bool) 
 	}
 	defer p.inflight.Add(-1)
 	return p.handler.Handle(ctx, req)
+}
+
+func (d *Dispatcher) routeRead(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	k := key{req.Object, req.Action}
+	if hostOnly[k] {
+		return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s ist dem Host vorbehalten", sdk.ErrPermissionDenied, req.Object, req.Action)
+	}
+	d.mu.RLock()
+	p, ok := d.routes[k]
+	readable := ok && p.reader != nil && p.reads[k]
+	if readable {
+		p.inflight.Add(1) // Drain wartet auch auf laufende Ströme
+	}
+	d.mu.RUnlock()
+	switch {
+	case !ok:
+		return sdk.ReadEnd{}, fmt.Errorf("%w: kein Plugin für %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+	case !readable:
+		return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s ist nicht als Datenstrom abrufbar", sdk.ErrUnimplemented, req.Object, req.Action)
+	}
+	defer p.inflight.Add(-1)
+	return p.reader.Read(ctx, req, w)
 }
 
 // NewRequestID erzeugt eine zufällige Korrelations-ID.

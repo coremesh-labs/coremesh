@@ -26,6 +26,11 @@ service ConsoleService {
 
   // SampleFile erzeugt aus dem Metamodell (Catalog) eine Beispieldatei.
   rpc SampleFile(SampleFileRequest) returns (SampleFileResponse);
+
+  // Read ruft target_object.target_action als Datenstrom auf (sdk.Reader,
+  // z. B. JournalEntryItem.list): erst columns, dann rows-Blöcke, zum Schluss
+  // end. Rechte wie bei Execute; target_directory wird nicht ausgewertet.
+  rpc Read(ExecuteRequest) returns (stream ReadChunk);
 }
 
 message LoginRequest {
@@ -81,4 +86,28 @@ message SampleFileResponse {
   // Vorschlag für den Dateinamen, z. B. "business_partner_sample.yaml"
   string filename = 3;
   string content_type = 4;
+}
+
+message ReadChunk {
+  oneof part {
+    ReadColumns columns = 1;
+    ReadRows rows = 2;
+    ReadSummary end = 3;
+  }
+}
+
+message ReadColumns {
+  repeated string names = 1;
+  map<string, string> metadata = 2;
+}
+
+message ReadRows {
+  // Je Zeile die Werte in der Reihenfolge von ReadColumns.names.
+  repeated google.protobuf.ListValue rows = 1;
+}
+
+message ReadSummary {
+  int64 rows = 1;
+  // Fortsetzungsmarke (z. B. nach --param limit=…): --param after=<cursor>.
+  string cursor = 2;
 }

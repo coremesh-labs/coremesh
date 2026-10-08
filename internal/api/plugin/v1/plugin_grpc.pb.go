@@ -22,6 +22,7 @@ const (
 	PluginService_GetManifest_FullMethodName = "/coremesh.plugin.v1.PluginService/GetManifest"
 	PluginService_Configure_FullMethodName   = "/coremesh.plugin.v1.PluginService/Configure"
 	PluginService_Handle_FullMethodName      = "/coremesh.plugin.v1.PluginService/Handle"
+	PluginService_Read_FullMethodName        = "/coremesh.plugin.v1.PluginService/Read"
 )
 
 // PluginServiceClient is the client API for PluginService service.
@@ -36,6 +37,17 @@ type PluginServiceClient interface {
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	// Handle verarbeitet eine vom Dispatcher weitergeleitete (object, action).
 	Handle(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error)
+	// Read liefert das Ergebnis einer (object, action) als Datenstrom – für
+	// große Datenmengen, z. B. alle Einzelposten eines Geschäftsjahres für ein
+	// Rechenmodul. Routing, Mandant, Benutzer und Berechtigung wie bei Handle;
+	// die Action muss im Manifest zusätzlich unter Capability.read_actions
+	// stehen, sonst antwortet der Dispatcher mit Unimplemented.
+	//
+	// Ablauf des Stroms (siehe ReadResponse): genau ein header, dann beliebig
+	// viele batch, zum Schluss genau ein end. Ein Fehler mitten im Strom endet
+	// als gRPC-Status; bereits gelieferte Zeilen sind dann unvollständig.
+	// Gegendruck regelt gRPC: Liest der Empfänger langsamer, wartet der Sender.
+	Read(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (PluginService_ReadClient, error)
 }
 
 type pluginServiceClient struct {
@@ -73,6 +85,38 @@ func (c *pluginServiceClient) Handle(ctx context.Context, in *HandleRequest, opt
 	return out, nil
 }
 
+func (c *pluginServiceClient) Read(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (PluginService_ReadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PluginService_ServiceDesc.Streams[0], PluginService_Read_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &pluginServiceReadClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PluginService_ReadClient interface {
+	Recv() (*ReadResponse, error)
+	grpc.ClientStream
+}
+
+type pluginServiceReadClient struct {
+	grpc.ClientStream
+}
+
+func (x *pluginServiceReadClient) Recv() (*ReadResponse, error) {
+	m := new(ReadResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // PluginServiceServer is the server API for PluginService service.
 // All implementations must embed UnimplementedPluginServiceServer
 // for forward compatibility
@@ -85,6 +129,17 @@ type PluginServiceServer interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	// Handle verarbeitet eine vom Dispatcher weitergeleitete (object, action).
 	Handle(context.Context, *HandleRequest) (*HandleResponse, error)
+	// Read liefert das Ergebnis einer (object, action) als Datenstrom – für
+	// große Datenmengen, z. B. alle Einzelposten eines Geschäftsjahres für ein
+	// Rechenmodul. Routing, Mandant, Benutzer und Berechtigung wie bei Handle;
+	// die Action muss im Manifest zusätzlich unter Capability.read_actions
+	// stehen, sonst antwortet der Dispatcher mit Unimplemented.
+	//
+	// Ablauf des Stroms (siehe ReadResponse): genau ein header, dann beliebig
+	// viele batch, zum Schluss genau ein end. Ein Fehler mitten im Strom endet
+	// als gRPC-Status; bereits gelieferte Zeilen sind dann unvollständig.
+	// Gegendruck regelt gRPC: Liest der Empfänger langsamer, wartet der Sender.
+	Read(*HandleRequest, PluginService_ReadServer) error
 	mustEmbedUnimplementedPluginServiceServer()
 }
 
@@ -100,6 +155,9 @@ func (UnimplementedPluginServiceServer) Configure(context.Context, *ConfigureReq
 }
 func (UnimplementedPluginServiceServer) Handle(context.Context, *HandleRequest) (*HandleResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Handle not implemented")
+}
+func (UnimplementedPluginServiceServer) Read(*HandleRequest, PluginService_ReadServer) error {
+	return status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
 func (UnimplementedPluginServiceServer) mustEmbedUnimplementedPluginServiceServer() {}
 
@@ -168,6 +226,27 @@ func _PluginService_Handle_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PluginService_Read_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(HandleRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PluginServiceServer).Read(m, &pluginServiceReadServer{stream})
+}
+
+type PluginService_ReadServer interface {
+	Send(*ReadResponse) error
+	grpc.ServerStream
+}
+
+type pluginServiceReadServer struct {
+	grpc.ServerStream
+}
+
+func (x *pluginServiceReadServer) Send(m *ReadResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // PluginService_ServiceDesc is the grpc.ServiceDesc for PluginService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -188,6 +267,12 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PluginService_Handle_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Read",
+			Handler:       _PluginService_Read_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "plugin/v1/plugin.proto",
 }

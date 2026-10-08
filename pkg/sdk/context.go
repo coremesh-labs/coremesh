@@ -71,6 +71,9 @@ var errNoHost = fmt.Errorf("%w: kein Host im Kontext (Plugin noch nicht konfigur
 func (unavailableHost) Handle(context.Context, Request) (Response, error) {
 	return Response{}, errNoHost
 }
+func (unavailableHost) Read(context.Context, Request, RowWriter) (ReadEnd, error) {
+	return ReadEnd{}, errNoHost
+}
 func (unavailableHost) Log(context.Context, LogLevel, string, map[string]string) error {
 	return errNoHost
 }

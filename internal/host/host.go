@@ -72,6 +72,11 @@ func (h *Host) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error
 	return h.disp.Handle(ctx, req)
 }
 
+// Read ist der Einstiegspunkt für Datenströme von außen.
+func (h *Host) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	return h.disp.Read(ctx, req, w)
+}
+
 // Routes liefert die aktuelle Routing-Tabelle.
 func (h *Host) Routes() []dispatcher.Route { return h.disp.Routes() }
 
@@ -263,6 +268,20 @@ type inProcess struct {
 
 func (p *inProcess) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	return p.Plugin.Handle(sdk.WithHost(ctx, p.host), req)
+}
+
+// Read reicht Datenströme an Core-Plugins durch, die sdk.Reader implementieren.
+func (p *inProcess) Read(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	r, ok := p.Plugin.(sdk.Reader)
+	if !ok {
+		return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s ist nicht als Datenstrom abrufbar", sdk.ErrUnimplemented, req.Object, req.Action)
+	}
+	sw := &sdk.StrictWriter{W: w}
+	end, err := r.Read(sdk.WithHost(ctx, p.host), req, sw)
+	if err != nil {
+		return end, err
+	}
+	return sw.Finish(end)
 }
 
 func capabilities(m sdk.Manifest) []string {

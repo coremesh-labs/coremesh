@@ -26,7 +26,7 @@ import (
 
 const (
 	name    = "console"
-	version = "0.2.0"
+	version = "0.3.0"
 
 	maxMessage = 64 << 20 // max. Größe einer gRPC-Nachricht (CLI <-> Plugin)
 )
@@ -82,11 +82,7 @@ func (c *console) Configure(ctx context.Context, cfg sdk.Config) error {
 		return fmt.Errorf("%w: listen %s: %v", sdk.ErrUnavailable, s.Listen, err)
 	}
 	svc := newService(cfg.Host, s)
-	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(svc.authInterceptor),
-		grpc.MaxRecvMsgSize(maxMessage),
-		grpc.MaxSendMsgSize(maxMessage),
-	}
+	opts := append(svc.interceptors(), grpc.MaxRecvMsgSize(maxMessage), grpc.MaxSendMsgSize(maxMessage))
 	secure := false
 	if s.TLSCert != "" || s.TLSKey != "" {
 		if socket != "" {

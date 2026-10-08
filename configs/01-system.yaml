@@ -11,6 +11,7 @@ host:
   shutdown_timeout: 10s
   max_call_depth: 8                  # verschachtelte Plugin-Aufrufe pro Anfrage
   tx_timeout: 30s
+  read_tx_timeout: 10m               # nur lesende Transaktionen, z. B. Datenströme (Read)
   max_tx_per_plugin: 16
 
 databases:

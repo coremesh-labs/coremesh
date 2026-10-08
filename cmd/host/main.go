@@ -75,6 +75,7 @@ func run() error {
 	// 2. Datenbank-Pools
 	db, err := database.Open(ctx, cfg.Databases, database.Options{
 		TxTimeout:     cfg.Host.TxTimeout,
+		ReadTxTimeout: cfg.Host.ReadTxTimeout,
 		MaxTxPerOwner: cfg.Host.MaxTxPerPlugin,
 	}, log.With("component", "database"))
 	if err != nil {

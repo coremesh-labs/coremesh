@@ -56,6 +56,9 @@ type DB interface {
 // Aufrufer kennt nur (Object, Action) – nicht das Plugin dahinter.
 type Services interface {
 	Call(ctx context.Context, object, action string, payload any) (sdk.Response, error)
+	// Read ruft (Object, Action) als Datenstrom auf (sdk.Reader); die Zeilen
+	// gehen blockweise an w.
+	Read(ctx context.Context, object, action string, payload any, w sdk.RowWriter) (sdk.ReadEnd, error)
 }
 
 // --- Implementierung über den Host-Rückkanal ---------------------------------
@@ -95,6 +98,11 @@ type hostServices struct{ host sdk.Host }
 func (s hostServices) Call(ctx context.Context, object, action string, payload any) (sdk.Response, error) {
 	ctx = bind(ctx, s.host)
 	return sdk.HostFrom(ctx).Handle(ctx, sdk.Request{Object: object, Action: action, Payload: payload})
+}
+
+func (s hostServices) Read(ctx context.Context, object, action string, payload any, w sdk.RowWriter) (sdk.ReadEnd, error) {
+	ctx = bind(ctx, s.host)
+	return sdk.HostFrom(ctx).Read(ctx, sdk.Request{Object: object, Action: action, Payload: payload}, w)
 }
 
 // hostLog ist ein slog.Handler, der in das Log des Hosts schreibt.

@@ -107,7 +107,10 @@ type pluginClient struct {
 	broker *goplugin.GRPCBroker
 }
 
-var _ sdk.Plugin = (*pluginClient)(nil)
+var (
+	_ sdk.Plugin = (*pluginClient)(nil)
+	_ sdk.Reader = (*pluginClient)(nil)
+)
 
 func (c *pluginClient) Manifest(ctx context.Context) (sdk.Manifest, error) {
 	resp, err := c.client.GetManifest(ctx, &pluginv1.GetManifestRequest{
@@ -405,7 +408,7 @@ func ctxFromProto(ctx context.Context, c *pluginv1.Context) context.Context {
 func manifestToProto(m sdk.Manifest) *pluginv1.Manifest {
 	caps := make([]*pluginv1.Capability, len(m.Capabilities))
 	for i, c := range m.Capabilities {
-		caps[i] = &pluginv1.Capability{Object: c.Object, Actions: c.Actions, Description: c.Description}
+		caps[i] = &pluginv1.Capability{Object: c.Object, Actions: c.Actions, Description: c.Description, ReadActions: c.ReadActions}
 	}
 	return &pluginv1.Manifest{Name: m.Name, Version: m.Version, Description: m.Description, Capabilities: caps}
 }
@@ -413,7 +416,7 @@ func manifestToProto(m sdk.Manifest) *pluginv1.Manifest {
 func manifestFromProto(m *pluginv1.Manifest) sdk.Manifest {
 	caps := make([]sdk.Capability, len(m.GetCapabilities()))
 	for i, c := range m.GetCapabilities() {
-		caps[i] = sdk.Capability{Object: c.GetObject(), Actions: c.GetActions(), Description: c.GetDescription()}
+		caps[i] = sdk.Capability{Object: c.GetObject(), Actions: c.GetActions(), Description: c.GetDescription(), ReadActions: c.GetReadActions()}
 	}
 	return sdk.Manifest{Name: m.GetName(), Version: m.GetVersion(), Description: m.GetDescription(), Capabilities: caps}
 }
