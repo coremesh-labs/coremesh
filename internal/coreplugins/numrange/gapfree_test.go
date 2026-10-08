@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/coremesh-labs/coremesh/internal/database"
 	"github.com/coremesh-labs/coremesh/internal/txctx"
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	api "github.com/coremesh-labs/coremesh/pkg/sdk/numrange"
@@ -84,5 +85,38 @@ func TestDisjointIntervals(t *testing.T) {
 	// Anderes Jahr oder anderer Buchungskreis: unabhängig
 	if n := next(t, p, api.Request{Object: "Doc", CompanyCode: "2000", Key: "2L", Year: 2026}); n.Number != "1000000001" {
 		t.Fatalf("anderer Buchungskreis: %v", n)
+	}
+}
+
+// SQLite: Hält der Aufrufer eine Schreibsperre (Transaktion, z. B. saveAggregate),
+// vergibt numrange auch nicht lückenlose Nummern in seiner Transaktion – eine
+// zweite Verbindung wartete sonst auf die Sperre.
+func TestNextInCallerTransactionSQLite(t *testing.T) {
+	p := setup(t)
+	must(t, p, api.Object, api.ActionDefine, api.Definition{Object: "BusinessPartner", Owner: "partner", Width: 6, From: 100000, To: 999999})
+	txID, err := p.db.BeginTx("partner", "r1", "main", sql.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Schreibsperre des Aufrufers
+	if err := p.db.WithTx("r1", "main", txID, func(q database.Querier) error {
+		_, err := q.ExecContext(testCtx, "CREATE TABLE lock_probe (a int)")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := txctx.With(testCtx, "main", txID)
+	resp, err := p.Handle(ctx, sdk.Request{Object: api.Object, Action: api.ActionNext, Payload: api.Request{Object: "BusinessPartner"}})
+	if err != nil {
+		t.Fatalf("Nummer in der Transaktion des Aufrufers: %v", err)
+	}
+	if n := resp.Payload.(api.Result).Number; n != "100000" {
+		t.Fatalf("Nummer: %s", n)
+	}
+	if err := p.db.CommitTx("partner", "r1", txID); err != nil {
+		t.Fatal(err)
+	}
+	if n := next(t, p, api.Request{Object: "BusinessPartner"}); n.Number != "100001" {
+		t.Fatalf("danach: %v", n)
 	}
 }
