@@ -65,6 +65,10 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	// Mehrsprachigkeit: Sprachwähler, Wörterbuch, eigenes Profil (siehe i18n.go).
 	s.mux.HandleFunc("POST /locale", s.setLocale)
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
+	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
+	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
+	s.mux.HandleFunc("POST /docs/{entity}/{id}", s.docSectionAttach)
+	s.mux.HandleFunc("POST /docs/{entity}/{id}/{doc}/remove", s.docSectionRemove)
 	s.mux.HandleFunc("GET /tags/{entity}/{id}", s.tagEditorGet)
 	s.mux.HandleFunc("POST /tags/{entity}/{id}", s.tagEditorPost)
 	s.mux.HandleFunc("POST /tags/{entity}/{id}/preview", s.tagEditorPost)

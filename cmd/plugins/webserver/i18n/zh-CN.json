@@ -112,5 +112,19 @@
   "core.tags.deprecated": "已弃用",
   "core.tags.amount": "金额",
   "core.tags.currency": "币种",
-  "core.tags.choose": "– 请选择 –"
+  "core.tags.choose": "– 请选择 –",
+  "core.docs.unavailable": "文档不可用（document 插件或文档管理未启动）",
+  "core.docs.empty": "暂无文档",
+  "core.docs.date": "日期",
+  "core.docs.type": "文档类型",
+  "core.docs.title": "标题",
+  "core.docs.location": "存放位置",
+  "core.docs.location_hint": "文件名、存放位置或链接",
+  "core.docs.valid": "有效期",
+  "core.docs.valid_from": "有效起始",
+  "core.docs.valid_to": "有效截止",
+  "core.docs.note": "备注",
+  "core.docs.attach": "添加文档",
+  "core.docs.remove": "移除",
+  "core.docs.remove_confirm": "移除文档引用？"
 }

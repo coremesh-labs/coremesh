@@ -14,6 +14,7 @@
   "businesspartner.BusinessPartner.sections.adressen": "地址",
   "businesspartner.BusinessPartner.sections.bank": "银行账户",
   "businesspartner.BusinessPartner.sections.buchungskreise": "公司代码数据",
+  "businesspartner.BusinessPartner.sections.dokumente": "文档",
   "businesspartner.BusinessPartner.sections.gueltigkeit": "有效期",
   "businesspartner.BusinessPartner.sections.kommunikation": "联系方式",
   "businesspartner.BusinessPartner.sections.merkmale": "特征",

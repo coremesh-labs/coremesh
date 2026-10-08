@@ -1,0 +1,9 @@
+# Dokumentverweise (externes Plugin, eigenes Go-Modul unter cmd/plugins/document).
+# Andere Plugins und der WebServer nutzen es nur über pkg/sdk/docservice (Object
+# Documents) – ein Dokumentenmanagementsystem ersetzt es über ein Adapter-Plugin
+# mit derselben Schnittstelle (dann diese Datei durch die des Adapters ersetzen).
+plugins:
+  document:
+    version: 0.1.0
+    databases:
+      main: { access: write }        # Tabellen document__* via DBSchema.Init
