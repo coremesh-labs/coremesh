@@ -14,7 +14,7 @@ var (
 )
 
 var (
-	fieldTypes  = map[FieldType]bool{TypeText: true, TypeTextarea: true, TypeNumber: true, TypeDate: true, TypeSelect: true, TypeEmail: true, TypeBoolean: true, TypePassword: true}
+	fieldTypes  = map[FieldType]bool{TypeText: true, TypeTextarea: true, TypeNumber: true, TypeDate: true, TypeSelect: true, TypeEmail: true, TypeBoolean: true, TypePassword: true, TypeFile: true}
 	actionKinds = map[ActionKind]bool{KindList: true, KindItem: true, KindCreate: true, KindUpdate: true, KindExpire: true, KindDeactivate: true, KindCustom: true}
 )
 
@@ -35,6 +35,9 @@ func (d ObjectDefinition) Validate() error {
 		where := fmt.Sprintf("fields[%d] %q", i, f.Key)
 		if !keyRe.MatchString(f.Key) {
 			add("%s: key muss [a-z][a-z0-9_]* sein", where)
+		}
+		if f.Type == TypeFile && !f.ActionOnly {
+			add("%s: type file nur bei action_only (Formulare eigener Aktionen)", where)
 		}
 		if keys[f.Key] {
 			add("%s: key doppelt", where)
@@ -74,7 +77,7 @@ func (d ObjectDefinition) Validate() error {
 					add("%s: lookup: ungültiges Feld %q", where, k)
 				}
 			}
-			if f.Type == TypeSelect || f.Type == TypeBoolean || f.Type == TypePassword {
+			if f.Type == TypeSelect || f.Type == TypeBoolean || f.Type == TypePassword || f.Type == TypeFile {
 				add("%s: lookup nicht bei type %s", where, f.Type)
 			}
 		}

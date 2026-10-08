@@ -169,6 +169,10 @@ Actions: []metamodel.ActionConfig{
 - `ActionConfig.Fields` beschränkt das Formular einer `custom`-Action auf diese Felder (in
   dieser Reihenfolge), sonst erscheinen alle editierbaren Felder. Ausgewertet werden beim
   Absenden ebenfalls nur diese Felder.
+- **Datei hochladen:** Ein Feld vom Typ `file` (nur `ActionOnly`) macht das Formular zu
+  `multipart/form-data` (höchstens 20 MB). Die Action erhält den Inhalt als Text im Feld
+  (UTF-8; andere Bytes werden als Latin-1 gelesen) und den Dateinamen in `<Feld>_name` –
+  z. B. Kontoauszüge (CSV) einlesen.
 - Liefert ein Modul `"_locked": true` im Datensatz (z. B. eine gebuchte Vorerfassung), blendet
   die Oberfläche Bearbeiten, Beenden und Aktionen je Datensatz aus. Prüfen muss weiterhin das Modul.
 - In der Detailansicht stehen unter „Allgemein“ nur Felder, die der Datensatz liefert.
