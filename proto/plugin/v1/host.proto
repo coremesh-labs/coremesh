@@ -32,6 +32,12 @@ service HostService {
   // FailedPrecondition. Kein Treffer: Unimplemented.
   rpc Dispatch(HandleRequest) returns (HandleResponse);
 
+  // DispatchRead ist das Gegenstück zu PluginService.Read: Der Host leitet
+  // die Anfrage wie Dispatch weiter (gleiche Prüfung von request_id,
+  // Aufruftiefe und Berechtigung) und reicht den Datenstrom des Ziel-Plugins
+  // unverändert durch.
+  rpc DispatchRead(HandleRequest) returns (stream ReadResponse);
+
   rpc Log(LogRequest) returns (LogResponse);
 
   // Query führt ein SELECT aus und liefert die Zeilen zurück.

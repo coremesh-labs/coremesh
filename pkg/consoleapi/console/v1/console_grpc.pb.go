@@ -23,6 +23,7 @@ const (
 	ConsoleService_Logout_FullMethodName     = "/coremesh.console.v1.ConsoleService/Logout"
 	ConsoleService_Execute_FullMethodName    = "/coremesh.console.v1.ConsoleService/Execute"
 	ConsoleService_SampleFile_FullMethodName = "/coremesh.console.v1.ConsoleService/SampleFile"
+	ConsoleService_Read_FullMethodName       = "/coremesh.console.v1.ConsoleService/Read"
 )
 
 // ConsoleServiceClient is the client API for ConsoleService service.
@@ -37,6 +38,10 @@ type ConsoleServiceClient interface {
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error)
 	// SampleFile erzeugt aus dem Metamodell (Catalog) eine Beispieldatei.
 	SampleFile(ctx context.Context, in *SampleFileRequest, opts ...grpc.CallOption) (*SampleFileResponse, error)
+	// Read ruft target_object.target_action als Datenstrom auf (sdk.Reader,
+	// z. B. JournalEntryItem.list): erst columns, dann rows-Blöcke, zum Schluss
+	// end. Rechte wie bei Execute; target_directory wird nicht ausgewertet.
+	Read(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (ConsoleService_ReadClient, error)
 }
 
 type consoleServiceClient struct {
@@ -83,6 +88,38 @@ func (c *consoleServiceClient) SampleFile(ctx context.Context, in *SampleFileReq
 	return out, nil
 }
 
+func (c *consoleServiceClient) Read(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (ConsoleService_ReadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ConsoleService_ServiceDesc.Streams[0], ConsoleService_Read_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &consoleServiceReadClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ConsoleService_ReadClient interface {
+	Recv() (*ReadChunk, error)
+	grpc.ClientStream
+}
+
+type consoleServiceReadClient struct {
+	grpc.ClientStream
+}
+
+func (x *consoleServiceReadClient) Recv() (*ReadChunk, error) {
+	m := new(ReadChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ConsoleServiceServer is the server API for ConsoleService service.
 // All implementations must embed UnimplementedConsoleServiceServer
 // for forward compatibility
@@ -95,6 +132,10 @@ type ConsoleServiceServer interface {
 	Execute(context.Context, *ExecuteRequest) (*ExecuteResponse, error)
 	// SampleFile erzeugt aus dem Metamodell (Catalog) eine Beispieldatei.
 	SampleFile(context.Context, *SampleFileRequest) (*SampleFileResponse, error)
+	// Read ruft target_object.target_action als Datenstrom auf (sdk.Reader,
+	// z. B. JournalEntryItem.list): erst columns, dann rows-Blöcke, zum Schluss
+	// end. Rechte wie bei Execute; target_directory wird nicht ausgewertet.
+	Read(*ExecuteRequest, ConsoleService_ReadServer) error
 	mustEmbedUnimplementedConsoleServiceServer()
 }
 
@@ -113,6 +154,9 @@ func (UnimplementedConsoleServiceServer) Execute(context.Context, *ExecuteReques
 }
 func (UnimplementedConsoleServiceServer) SampleFile(context.Context, *SampleFileRequest) (*SampleFileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SampleFile not implemented")
+}
+func (UnimplementedConsoleServiceServer) Read(*ExecuteRequest, ConsoleService_ReadServer) error {
+	return status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
 func (UnimplementedConsoleServiceServer) mustEmbedUnimplementedConsoleServiceServer() {}
 
@@ -199,6 +243,27 @@ func _ConsoleService_SampleFile_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ConsoleService_Read_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ExecuteRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ConsoleServiceServer).Read(m, &consoleServiceReadServer{stream})
+}
+
+type ConsoleService_ReadServer interface {
+	Send(*ReadChunk) error
+	grpc.ServerStream
+}
+
+type consoleServiceReadServer struct {
+	grpc.ServerStream
+}
+
+func (x *consoleServiceReadServer) Send(m *ReadChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // ConsoleService_ServiceDesc is the grpc.ServiceDesc for ConsoleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -223,6 +288,12 @@ var ConsoleService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ConsoleService_SampleFile_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Read",
+			Handler:       _ConsoleService_Read_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "console/v1/console.proto",
 }

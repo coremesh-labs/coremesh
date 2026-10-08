@@ -42,52 +42,12 @@ func (e *Entity) scan(ctx context.Context, cols []string, row []any) (Record, er
 func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 	query := listQuery(payload)
 	cols := e.Columns()
-	var where []string
-	var args []any
-	for _, f := range e.Filters {
-		if v, ok := query[f]; ok && Str(v) != "" {
-			if fx := e.FilterExpr[f]; fx != nil {
-				w, a := fx(v)
-				where, args = append(where, w), append(args, a...)
-				continue
-			}
-			where, args = append(where, f+" = ?"), append(args, e.filterArg(f, v))
-		}
-	}
-	if !IncludeHistory(query) {
-		if e.TimeSlice {
-			where, args = append(where, "valid_from <= ? AND valid_to >= ?"), append(args, Today(), Today())
-		}
-		if e.StatusField != "" {
-			active, _ := e.statusValues()
-			where, args = append(where, e.StatusField+" = ?"), append(args, active)
-		}
-	}
-	if q := Str(query["q"]); q != "" && len(e.Search) > 0 {
-		var ors []string
-		for _, c := range e.Search {
-			ors, args = append(ors, "LOWER("+c+") LIKE ?"), append(args, "%"+strings.ToLower(q)+"%")
-		}
-		where = append(where, "("+strings.Join(ors, " OR ")+")")
-	}
-	if e.ListScope != nil {
-		w, a, none, err := e.ListScope(ctx)
-		if err != nil {
-			return sdk.Response{}, err
-		}
-		if none {
-			return sdk.Response{Payload: map[string]any{"items": []any{}}}, nil
-		}
-		if w != "" {
-			where, args = append(where, w), append(args, a...)
-		}
-	}
-	ac, err := e.accessCheck(ctx)
+	where, args, none, ac, err := e.listWhere(ctx, query)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	if w, a := ac.scope(); w != "" {
-		where, args = append(where, w), append(args, a...)
+	if none {
+		return sdk.Response{Payload: map[string]any{"items": []any{}}}, nil
 	}
 	sql := "SELECT " + strings.Join(cols, ", ") + " FROM " + e.Table
 	if len(where) > 0 {
@@ -117,6 +77,53 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 		items[i] = r
 	}
 	return sdk.Response{Payload: map[string]any{"items": items}}, nil
+}
+
+// listWhere sind die Bedingungen von list (und ReadList): Filter, Suche q,
+// Gültigkeit, ListScope und Leserechte. none: ListScope schließt alles aus.
+func (e *Entity) listWhere(ctx context.Context, query map[string]any) (where []string, args []any, none bool, ac *accessCheck, err error) {
+	for _, f := range e.Filters {
+		if v, ok := query[f]; ok && Str(v) != "" {
+			if fx := e.FilterExpr[f]; fx != nil {
+				w, a := fx(v)
+				where, args = append(where, w), append(args, a...)
+				continue
+			}
+			where, args = append(where, f+" = ?"), append(args, e.filterArg(f, v))
+		}
+	}
+	if !IncludeHistory(query) {
+		if e.TimeSlice {
+			where, args = append(where, "valid_from <= ? AND valid_to >= ?"), append(args, Today(), Today())
+		}
+		if e.StatusField != "" {
+			active, _ := e.statusValues()
+			where, args = append(where, e.StatusField+" = ?"), append(args, active)
+		}
+	}
+	if q := Str(query["q"]); q != "" && len(e.Search) > 0 {
+		var ors []string
+		for _, c := range e.Search {
+			ors, args = append(ors, "LOWER("+c+") LIKE ?"), append(args, "%"+strings.ToLower(q)+"%")
+		}
+		where = append(where, "("+strings.Join(ors, " OR ")+")")
+	}
+	if e.ListScope != nil {
+		w, a, none, err := e.ListScope(ctx)
+		if err != nil || none {
+			return nil, nil, none, nil, err
+		}
+		if w != "" {
+			where, args = append(where, w), append(args, a...)
+		}
+	}
+	if ac, err = e.accessCheck(ctx); err != nil {
+		return nil, nil, false, nil, err
+	}
+	if w, a := ac.scope(); w != "" {
+		where, args = append(where, w), append(args, a...)
+	}
+	return where, args, false, ac, nil
 }
 
 // Load liest einen Datensatz über seinen Schlüssel (oder sdk.ErrNotFound).

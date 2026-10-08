@@ -24,6 +24,10 @@ type Host interface {
 	// Kein zuständiges Plugin: ErrUnimplemented. Zu tiefe Aufrufkette
 	// (z. B. Zyklus A -> B -> A): ErrFailedPrecondition.
 	Handler
+	// Read ruft ein anderes Plugin als Datenstrom auf (sdk.Reader): gleiche
+	// Weiterleitung und Prüfung wie Handle, der Strom des Ziel-Plugins geht an w.
+	// Ziel-Action nicht in dessen ReadActions: ErrUnimplemented.
+	Reader
 
 	Log(ctx context.Context, level LogLevel, msg string, fields map[string]string) error
 	// Query führt ein SELECT auf dem logischen Pool database aus.

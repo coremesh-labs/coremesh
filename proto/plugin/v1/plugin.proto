@@ -32,6 +32,18 @@ service PluginService {
 
   // Handle verarbeitet eine vom Dispatcher weitergeleitete (object, action).
   rpc Handle(HandleRequest) returns (HandleResponse);
+
+  // Read liefert das Ergebnis einer (object, action) als Datenstrom – für
+  // große Datenmengen, z. B. alle Einzelposten eines Geschäftsjahres für ein
+  // Rechenmodul. Routing, Mandant, Benutzer und Berechtigung wie bei Handle;
+  // die Action muss im Manifest zusätzlich unter Capability.read_actions
+  // stehen, sonst antwortet der Dispatcher mit Unimplemented.
+  //
+  // Ablauf des Stroms (siehe ReadResponse): genau ein header, dann beliebig
+  // viele batch, zum Schluss genau ein end. Ein Fehler mitten im Strom endet
+  // als gRPC-Status; bereits gelieferte Zeilen sind dann unvollständig.
+  // Gegendruck regelt gRPC: Liest der Empfänger langsamer, wartet der Sender.
+  rpc Read(HandleRequest) returns (stream ReadResponse);
 }
 
 // Context begleitet jeden Aufruf über die Prozessgrenze hinweg.
@@ -79,6 +91,9 @@ message Capability {
   // Muss mindestens einen Eintrag enthalten und darf keine Duplikate haben.
   repeated string actions = 2;
   string description = 3;
+  // Teilmenge von actions, die zusätzlich über Read als Datenstrom abrufbar
+  // sind (z. B. ["list"]). Berechtigt wird über dieselbe Action.
+  repeated string read_actions = 4;
 }
 
 message GetManifestRequest {
@@ -121,4 +136,47 @@ message HandleResponse {
   Context context = 1;
   // Fachliches Ergebnis, frei strukturiert.
   google.protobuf.Value payload = 2;
+}
+
+// ReadResponse ist eine Nachricht im Datenstrom von Read bzw.
+// HostService.DispatchRead.
+message ReadResponse {
+  // Kontext der Anfrage (nur in der ersten Nachricht gesetzt).
+  Context context = 1;
+  oneof part {
+    ReadHeader header = 2;
+    ReadBatch batch = 3;
+    ReadEnd end = 4;
+  }
+}
+
+// ReadHeader kommt genau einmal, vor dem ersten batch.
+message ReadHeader {
+  // Spaltennamen; jede Zeile eines batch hat ihre Werte in dieser Reihenfolge.
+  repeated string columns = 1;
+  // Frei, z. B. Typen der Spalten oder Quelle; Schlüssel in Kleinbuchstaben.
+  map<string, string> metadata = 2;
+}
+
+// ReadBatch ist ein Block von Zeilen. Der Sender teilt so, dass eine
+// Nachricht deutlich unter der gRPC-Grenze (4 MiB) bleibt.
+message ReadBatch {
+  repeated ReadRow rows = 1;
+}
+
+message ReadRow {
+  // Werte wie im Payload: Zahlen als double (Ganzzahlen über 2^53 als Text),
+  // Datum als Text, NULL als null_value.
+  repeated google.protobuf.Value values = 1;
+}
+
+// ReadEnd schließt einen erfolgreichen Strom ab.
+message ReadEnd {
+  // Anzahl gelieferter Zeilen.
+  int64 rows = 1;
+  // Fortsetzungsmarke: gesetzt, wenn der Anbieter nach einer Grenze (z. B.
+  // limit) aufgehört hat; ein neuer Read mit diesem Wert (Payload "after")
+  // liefert den Rest.
+  string cursor = 2;
+  map<string, string> metadata = 3;
 }

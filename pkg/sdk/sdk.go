@@ -28,6 +28,9 @@ type Capability struct {
 	Object      string
 	Actions     []string
 	Description string
+	// ReadActions ist die Teilmenge von Actions, die zusätzlich als Datenstrom
+	// abrufbar ist (Reader). Das Plugin muss dafür sdk.Reader implementieren.
+	ReadActions []string
 }
 
 // Config enthält die Einstellungen aus der Host-Config und den Rückkanal zum Host.

@@ -22,7 +22,10 @@ import (
 
 // Options steuert die Transaktionsverwaltung.
 type Options struct {
-	TxTimeout     time.Duration
+	TxTimeout time.Duration
+	// ReadTxTimeout gilt für nur lesende Transaktionen, z. B. lange
+	// Datenströme (Read); 0 = TxTimeout.
+	ReadTxTimeout time.Duration
 	MaxTxPerOwner int
 }
 

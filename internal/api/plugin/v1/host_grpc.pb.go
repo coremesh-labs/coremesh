@@ -19,13 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	HostService_Dispatch_FullMethodName   = "/coremesh.plugin.v1.HostService/Dispatch"
-	HostService_Log_FullMethodName        = "/coremesh.plugin.v1.HostService/Log"
-	HostService_Query_FullMethodName      = "/coremesh.plugin.v1.HostService/Query"
-	HostService_Exec_FullMethodName       = "/coremesh.plugin.v1.HostService/Exec"
-	HostService_BeginTx_FullMethodName    = "/coremesh.plugin.v1.HostService/BeginTx"
-	HostService_CommitTx_FullMethodName   = "/coremesh.plugin.v1.HostService/CommitTx"
-	HostService_RollbackTx_FullMethodName = "/coremesh.plugin.v1.HostService/RollbackTx"
+	HostService_Dispatch_FullMethodName     = "/coremesh.plugin.v1.HostService/Dispatch"
+	HostService_DispatchRead_FullMethodName = "/coremesh.plugin.v1.HostService/DispatchRead"
+	HostService_Log_FullMethodName          = "/coremesh.plugin.v1.HostService/Log"
+	HostService_Query_FullMethodName        = "/coremesh.plugin.v1.HostService/Query"
+	HostService_Exec_FullMethodName         = "/coremesh.plugin.v1.HostService/Exec"
+	HostService_BeginTx_FullMethodName      = "/coremesh.plugin.v1.HostService/BeginTx"
+	HostService_CommitTx_FullMethodName     = "/coremesh.plugin.v1.HostService/CommitTx"
+	HostService_RollbackTx_FullMethodName   = "/coremesh.plugin.v1.HostService/RollbackTx"
 )
 
 // HostServiceClient is the client API for HostService service.
@@ -44,6 +45,11 @@ type HostServiceClient interface {
 	// Verschachtelungstiefe pro request_id und antwortet dann mit
 	// FailedPrecondition. Kein Treffer: Unimplemented.
 	Dispatch(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (*HandleResponse, error)
+	// DispatchRead ist das Gegenstück zu PluginService.Read: Der Host leitet
+	// die Anfrage wie Dispatch weiter (gleiche Prüfung von request_id,
+	// Aufruftiefe und Berechtigung) und reicht den Datenstrom des Ziel-Plugins
+	// unverändert durch.
+	DispatchRead(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (HostService_DispatchReadClient, error)
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error)
 	// Query führt ein SELECT aus und liefert die Zeilen zurück.
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
@@ -84,6 +90,38 @@ func (c *hostServiceClient) Dispatch(ctx context.Context, in *HandleRequest, opt
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *hostServiceClient) DispatchRead(ctx context.Context, in *HandleRequest, opts ...grpc.CallOption) (HostService_DispatchReadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &HostService_ServiceDesc.Streams[0], HostService_DispatchRead_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &hostServiceDispatchReadClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type HostService_DispatchReadClient interface {
+	Recv() (*ReadResponse, error)
+	grpc.ClientStream
+}
+
+type hostServiceDispatchReadClient struct {
+	grpc.ClientStream
+}
+
+func (x *hostServiceDispatchReadClient) Recv() (*ReadResponse, error) {
+	m := new(ReadResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *hostServiceClient) Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error) {
@@ -156,6 +194,11 @@ type HostServiceServer interface {
 	// Verschachtelungstiefe pro request_id und antwortet dann mit
 	// FailedPrecondition. Kein Treffer: Unimplemented.
 	Dispatch(context.Context, *HandleRequest) (*HandleResponse, error)
+	// DispatchRead ist das Gegenstück zu PluginService.Read: Der Host leitet
+	// die Anfrage wie Dispatch weiter (gleiche Prüfung von request_id,
+	// Aufruftiefe und Berechtigung) und reicht den Datenstrom des Ziel-Plugins
+	// unverändert durch.
+	DispatchRead(*HandleRequest, HostService_DispatchReadServer) error
 	Log(context.Context, *LogRequest) (*LogResponse, error)
 	// Query führt ein SELECT aus und liefert die Zeilen zurück.
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
@@ -188,6 +231,9 @@ type UnimplementedHostServiceServer struct {
 
 func (UnimplementedHostServiceServer) Dispatch(context.Context, *HandleRequest) (*HandleResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Dispatch not implemented")
+}
+func (UnimplementedHostServiceServer) DispatchRead(*HandleRequest, HostService_DispatchReadServer) error {
+	return status.Errorf(codes.Unimplemented, "method DispatchRead not implemented")
 }
 func (UnimplementedHostServiceServer) Log(context.Context, *LogRequest) (*LogResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Log not implemented")
@@ -236,6 +282,27 @@ func _HostService_Dispatch_Handler(srv interface{}, ctx context.Context, dec fun
 		return srv.(HostServiceServer).Dispatch(ctx, req.(*HandleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_DispatchRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(HandleRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(HostServiceServer).DispatchRead(m, &hostServiceDispatchReadServer{stream})
+}
+
+type HostService_DispatchReadServer interface {
+	Send(*ReadResponse) error
+	grpc.ServerStream
+}
+
+type hostServiceDispatchReadServer struct {
+	grpc.ServerStream
+}
+
+func (x *hostServiceDispatchReadServer) Send(m *ReadResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _HostService_Log_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -382,6 +449,12 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HostService_RollbackTx_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "DispatchRead",
+			Handler:       _HostService_DispatchRead_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "plugin/v1/host.proto",
 }

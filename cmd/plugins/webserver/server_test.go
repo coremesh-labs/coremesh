@@ -438,3 +438,7 @@ func TestStatic(t *testing.T) {
 		t.Fatalf("app.css: %d", w.Code)
 	}
 }
+
+func (h *fakeHost) Read(_ context.Context, req sdk.Request, _ sdk.RowWriter) (sdk.ReadEnd, error) {
+	return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+}

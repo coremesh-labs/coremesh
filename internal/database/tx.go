@@ -57,7 +57,11 @@ func (m *Manager) BeginTx(owner, requestID, database string, opts sql.TxOptions)
 		return "", err
 	}
 	t := &Tx{ID: newTxID(), Database: database, RequestID: requestID, Owner: owner, tx: sqlTx}
-	t.timer = time.AfterFunc(m.opts.TxTimeout, func() {
+	timeout := m.opts.TxTimeout
+	if opts.ReadOnly && m.opts.ReadTxTimeout > 0 {
+		timeout = m.opts.ReadTxTimeout
+	}
+	t.timer = time.AfterFunc(timeout, func() {
 		_ = m.finish(t, false, "Zeitüberschreitung")
 	})
 

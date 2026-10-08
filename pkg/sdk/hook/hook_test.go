@@ -72,3 +72,7 @@ func TestFunc(t *testing.T) {
 		t.Fatalf("%+v", out)
 	}
 }
+
+func (s *services) Read(_ context.Context, object, action string, _ any, _ sdk.RowWriter) (sdk.ReadEnd, error) {
+	return sdk.ReadEnd{}, sdk.ErrUnimplemented
+}
