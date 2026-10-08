@@ -13,6 +13,9 @@ import (
 // HandlerFunc bedient eine Action eines Objects.
 type HandlerFunc func(ctx context.Context, req sdk.Request) (sdk.Response, error)
 
+// ReadFunc liefert eine Action eines Objects als Datenstrom (sdk.Reader).
+type ReadFunc func(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.ReadEnd, error)
+
 // Router nimmt die Routen eines Moduls auf. Jedes Modul erhält einen eigenen
 // Router; ein Object gehört genau einem Modul.
 //
@@ -39,6 +42,8 @@ type ObjectRoutes struct {
 	def      *metamodel.ObjectDefinition
 	actions  []string
 	handlers map[string]HandlerFunc
+	reads    []string // Actions, die zusätzlich als Datenstrom abrufbar sind
+	readers  map[string]ReadFunc
 }
 
 var (
@@ -55,7 +60,7 @@ func (r *Router) fail(format string, args ...any) {
 
 // Object meldet ein Object des Moduls an.
 func (r *Router) Object(name string) *ObjectRoutes {
-	o := &ObjectRoutes{r: r, name: name, handlers: map[string]HandlerFunc{}}
+	o := &ObjectRoutes{r: r, name: name, handlers: map[string]HandlerFunc{}, readers: map[string]ReadFunc{}}
 	switch {
 	case !objectRe.MatchString(name):
 		r.fail("Object %q muss %s entsprechen", name, objectRe)
@@ -106,6 +111,25 @@ func (o *ObjectRoutes) Handle(action string, h HandlerFunc) *ObjectRoutes {
 	return o
 }
 
+// Read macht eine mit Handle registrierte Action zusätzlich als Datenstrom
+// abrufbar (Capability.ReadActions). Berechtigt wird über dieselbe Action:
+//
+//	r.Object("JournalEntryItem").Handle("list", m.list).Read("list", m.readList)
+func (o *ObjectRoutes) Read(action string, f ReadFunc) *ObjectRoutes {
+	switch {
+	case !actionRe.MatchString(action):
+		o.r.fail("%s: Read-Action %q muss %s entsprechen", o.name, action, actionRe)
+	case f == nil:
+		o.r.fail("%s.%s: Read ist nil", o.name, action)
+	case o.readers[action] != nil:
+		o.r.fail("%s.%s: Read doppelt registriert", o.name, action)
+	default:
+		o.readers[action] = f
+		o.reads = append(o.reads, action)
+	}
+	return o
+}
+
 // Command meldet einen Konsolenbefehl an: `console <modul>:<name> --param=wert`
 // ruft object.action des Moduls mit den Parametern auf.
 //
@@ -123,6 +147,11 @@ func (r *Router) check() {
 	for _, o := range r.objects {
 		if len(o.actions) == 0 {
 			r.fail("Object %s hat keine Actions", o.name)
+		}
+		for _, a := range o.reads {
+			if o.handlers[a] == nil {
+				o.r.fail("Object %s: Read-Action %s ist nicht mit Handle registriert", o.name, a)
+			}
 		}
 		if o.def != nil && o.def.FormState != "" && o.handlers[o.def.FormState] == nil {
 			r.fail("Object %s: FormState-Action %s ist nicht registriert", o.name, o.def.FormState)

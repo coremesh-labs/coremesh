@@ -125,8 +125,38 @@ type principalKey struct{}
 // authInterceptor verlangt für alle Methoden außer Login ein gültiges Token
 // und legt den Benutzer (frisch aus iam) in den Kontext.
 func (s *service) authInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, h grpc.UnaryHandler) (any, error) {
-	if info.FullMethod == consolev1.ConsoleService_Login_FullMethodName {
-		return h(ctx, req)
+	ctx, err := s.authenticate(ctx, info.FullMethod)
+	if err != nil {
+		return nil, err
+	}
+	return h(ctx, req)
+}
+
+// interceptors: Anmeldung für alle Aufrufe, einzeln und als Datenstrom.
+func (s *service) interceptors() []grpc.ServerOption {
+	return []grpc.ServerOption{grpc.UnaryInterceptor(s.authInterceptor), grpc.StreamInterceptor(s.authStreamInterceptor)}
+}
+
+// authStreamInterceptor: wie authInterceptor für Datenströme (Read).
+func (s *service) authStreamInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, h grpc.StreamHandler) error {
+	ctx, err := s.authenticate(ss.Context(), info.FullMethod)
+	if err != nil {
+		return err
+	}
+	return h(srv, &authStream{ServerStream: ss, ctx: ctx})
+}
+
+type authStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (a *authStream) Context() context.Context { return a.ctx }
+
+// authenticate prüft das Token und liefert ctx mit dem Benutzer.
+func (s *service) authenticate(ctx context.Context, method string) (context.Context, error) {
+	if method == consolev1.ConsoleService_Login_FullMethodName {
+		return ctx, nil
 	}
 	tok := bearer(ctx)
 	s.mu.Lock()
@@ -139,8 +169,8 @@ func (s *service) authInterceptor(ctx context.Context, req any, info *grpc.Unary
 	if tok == "" || !ok {
 		return nil, status.Error(codes.Unauthenticated, "nicht angemeldet oder Anmeldung abgelaufen")
 	}
-	if info.FullMethod == consolev1.ConsoleService_Logout_FullMethodName {
-		return h(ctx, req)
+	if method == consolev1.ConsoleService_Logout_FullMethodName {
+		return ctx, nil
 	}
 	// Bei jedem Aufruf neu: deaktivierte oder gelöschte Benutzer sind sofort draußen.
 	resp, err := s.host.Handle(s.userCtx(ctx, principal{ID: sess.userID, Username: sess.username}),
@@ -155,7 +185,7 @@ func (s *service) authInterceptor(ctx context.Context, req any, info *grpc.Unary
 	if err := sdk.Decode(resp.Payload, &p); err != nil {
 		return nil, toStatus(err)
 	}
-	return h(context.WithValue(ctx, principalKey{}, p), req)
+	return context.WithValue(ctx, principalKey{}, p), nil
 }
 
 // --- Execute ---------------------------------------------------------------------

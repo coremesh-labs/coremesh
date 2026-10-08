@@ -122,6 +122,28 @@ Object `SystemEvent`):
 Empfangen: eine Route `<Object>.onEvent` anmelden und in `Initialize` mit `events.Register`
 abonnieren. Details: [internal/coreplugins/event](../../../internal/coreplugins/event/README.md).
 
+## Datenströme (Read)
+
+Für große Datenmengen (z. B. alle Einzelposten eines Jahres für ein Rechenmodul) gibt es
+neben `Handle` die Aufrufform `sdk.Reader`: Header mit den Spalten, dann Zeilen in Blöcken,
+zum Schluss `sdk.ReadEnd` (Anzahl, Fortsetzungsmarke). Sie gilt in beide Richtungen wie
+`Handle` – Protokoll `PluginService.Read` und `HostService.DispatchRead`.
+
+- **Anbieten:** `r.Object("X").Handle("list", m.list).Read("list", m.readList)`. Die Action
+  steht dann im Manifest unter `ReadActions`; berechtigt wird über dieselbe Action
+  (`X.list`). **crud-Entities** bieten `list` automatisch als Strom an
+  (`Entity.ReadList`): dieselben Filter, Suche und Leserechte wie `list`, nach dem
+  Schlüssel sortiert, Rohwerte ohne Labels und `Decorate`, alle Seiten in einer nur
+  lesenden Transaktion (`host.read_tx_timeout`). Payload zusätzlich `limit` und `after`.
+- **Abrufen:** `env.Services.Read(ctx, "JournalEntryItem", "list", payload, w)` mit einem
+  `sdk.RowWriter` w. Rows blockiert, solange w nicht nachkommt; liefert w einen Fehler,
+  bricht der Strom ab. Für kleine Ergebnisse und Tests: `sdk.ReadAll`.
+- **Werte** wie im Payload: Zahlen als `float64` (Ganzzahlen über 2^53 als Text liefern),
+  Datum als Text, NULL als `nil`. Beträge im Ledger sind ganze Zahlen in der kleinsten
+  Währungseinheit.
+- **Konsole:** `console --object JournalEntryItem --action list --read --param company_code_id=1000`
+  schreibt CSV (`--format jsonl`: eine JSON-Zeile je Datensatz).
+
 ## Konsolenbefehle
 
 `r.Command(metamodel.CommandDefinition{…})` meldet einen Befehl für die Console an:

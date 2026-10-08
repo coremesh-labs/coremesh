@@ -7,6 +7,8 @@
 //	console --object Greeting --action say --param name=Christof
 //	console --object BusinessPartner --action SampleFile --out ./partner_template.yaml
 //	console --object BusinessPartner --sample --format csv
+//	console --object JournalEntryItem --action list --read --param company_code=1000 --out items.csv
+//	console --object JournalEntryItem --action list --read --format jsonl --param limit=100000
 //	console --object AssetsModule --action ExportBundle --param theme=dark --target-dir /var/www/coremesh/static
 //	console --logout
 //
@@ -77,7 +79,7 @@ type options struct {
 	addr, tlsCA, user         string
 	object, action, targetDir string
 	format, out               string
-	sample, logout            bool
+	sample, logout, read      bool
 	params                    params
 	timeout                   time.Duration
 }
@@ -92,7 +94,8 @@ func main() {
 	flag.Var(o.params, "param", "Parameter key=value (mehrfach möglich)")
 	flag.StringVar(&o.targetDir, "target-dir", "", "absolutes Verzeichnis auf dem Server: zip_content der Antwort dort entpacken")
 	flag.BoolVar(&o.sample, "sample", false, "Beispieldatei aus dem Metamodell erzeugen (wie --action SampleFile)")
-	flag.StringVar(&o.format, "format", "yaml", "Format der Beispieldatei: yaml, json oder csv")
+	flag.BoolVar(&o.read, "read", false, "Ergebnis als Datenstrom abrufen (Read; z. B. list mit allen Treffern)")
+	flag.StringVar(&o.format, "format", "", "Beispieldatei: yaml (Standard), json oder csv; --read: csv (Standard) oder jsonl")
 	flag.StringVar(&o.out, "out", "", "Ergebnis in diese Datei schreiben statt auf die Standardausgabe")
 	flag.BoolVar(&o.logout, "logout", false, "abmelden und gespeichertes Token löschen")
 	flag.DurationVar(&o.timeout, "timeout", 2*time.Minute, "Zeitlimit des Aufrufs")
@@ -151,8 +154,15 @@ func call(ctx context.Context, c consolev1.ConsoleServiceClient, o options) erro
 	if o.command != "" {
 		return runCommand(ctx, c, o)
 	}
+	if o.read {
+		return readStream(ctx, c, o)
+	}
 	if o.sample || strings.EqualFold(o.action, "SampleFile") {
-		resp, err := c.SampleFile(ctx, &consolev1.SampleFileRequest{TargetObject: o.object, Format: o.format})
+		format := o.format
+		if format == "" {
+			format = "yaml"
+		}
+		resp, err := c.SampleFile(ctx, &consolev1.SampleFileRequest{TargetObject: o.object, Format: format})
 		if err != nil {
 			return err
 		}

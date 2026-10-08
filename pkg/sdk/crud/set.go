@@ -47,7 +47,8 @@ func (s *Set) Entity(object string) *Entity { return s.byObject[object] }
 func (s *Set) Entities() []*Entity { return s.entities }
 
 // Register meldet je Entity list, get, create, update und – je nach
-// Lebenszyklus – expire oder deactivate mit Metamodell an. defaultSection
+// Lebenszyklus – expire oder deactivate mit Metamodell an; list ist zusätzlich
+// als Datenstrom abrufbar (ReadList). defaultSection
 // gilt für Entities ohne eigene Section.
 func (s *Set) Register(r *module.Router, defaultSection string) {
 	for _, e := range s.entities {
@@ -57,6 +58,7 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		}
 		o := r.Object(e.Object).Section(section).Describe(e.Definition()).
 			Handle("list", payloadOnly(e.List)).
+			Read("list", e.ReadList).
 			Handle("get", payloadOnly(e.Get))
 		if !e.ReadOnly {
 			o.Handle("create", payloadOnly(e.Create))

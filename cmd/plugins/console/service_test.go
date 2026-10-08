@@ -84,7 +84,7 @@ func startService(t *testing.T, h *fakeHost) consolev1.ConsoleServiceClient {
 	cfg := settings{tokenTTL: time.Hour, MaxExtractBytes: 1 << 20, MaxExtractFiles: 100}
 	svc := newService(h, cfg)
 	ln := bufconn.Listen(1 << 20)
-	srv := grpc.NewServer(grpc.UnaryInterceptor(svc.authInterceptor))
+	srv := grpc.NewServer(svc.interceptors()...)
 	consolev1.RegisterConsoleServiceServer(srv, svc)
 	go srv.Serve(ln)
 	t.Cleanup(srv.Stop)
