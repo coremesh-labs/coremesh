@@ -157,6 +157,7 @@ func (m *Module) businessPartner() *entity {
 			// Tags aus dem TagManagement (Plugin tag) – je nach Tag Sets für BusinessPartner
 			// und Buchungskreis. Fehlt das Plugin, zeigt der Abschnitt einen Hinweis.
 			{Key: "merkmale", Title: "Merkmale", Tags: true},
+			{Key: "dokumente", Title: "Dokumente", Collapsed: true, Documents: true},
 		},
 		// Zeitscheibe seit 0.5.0 (Lebenszyklus timeslice): Ein Partner endet zu einem
 		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann

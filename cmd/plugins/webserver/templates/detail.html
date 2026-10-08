@@ -39,6 +39,10 @@
       <div class="tag-section" hx-get="{{.Section.URL}}" hx-trigger="load" hx-swap="innerHTML">
         <p class="muted">{{t "core.app.loading"}}</p>
       </div>
+      {{else if .Section.Documents}}
+      <div class="doc-section" hx-get="{{.Section.URL}}" hx-trigger="load" hx-swap="innerHTML">
+        <p class="muted">{{t "core.app.loading"}}</p>
+      </div>
       {{else}}
       {{template "section-fields" .}}
       {{end}}

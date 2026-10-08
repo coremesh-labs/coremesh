@@ -591,6 +591,9 @@ abhängen:
 - Felder mit `Trigger: true` laden bei jeder Änderung nur den Formularinhalt neu
   (`POST /m/{module}/{object}/_form` → Block `form-body`), auch nach der Wahl im
   Lookup-Dialog.
+- **Dokumente:** Ein Abschnitt mit `Documents: true` zeigt die Dokumentverweise des
+  Datensatzes (Object `Documents`, `pkg/sdk/docservice` – Plugin `document` oder ein
+  DMS-Adapter): Liste mit Link, Anhängen, Entfernen (`/docs/{entity}/{id}`).
 - **Ergebnis-Tabellen:** Liefert eine eigene Aktion `{"message", "table": {"columns": [...],
   "rows": [[...]]}}`, zeigt das Ergebnis die Tabelle unter der Meldung (z. B. Tilgungsplan).
 - **Aktionsformulare** (eigene Aktionen mit `Fields`): Mit `ActionConfig.FormState: true`

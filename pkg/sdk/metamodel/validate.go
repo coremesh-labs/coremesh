@@ -118,13 +118,13 @@ func (d ObjectDefinition) Validate() error {
 			add("%s: title fehlt", where)
 		}
 		kinds := 0
-		for _, set := range []bool{len(s.Fields) > 0, s.Relation != nil, s.Tags} {
+		for _, set := range []bool{len(s.Fields) > 0, s.Relation != nil, s.Tags, s.Documents} {
 			if set {
 				kinds++
 			}
 		}
 		if kinds != 1 {
-			add("%s: genau eines von fields, relation und tags angeben", where)
+			add("%s: genau eines von fields, relation, tags und documents angeben", where)
 		}
 		for _, k := range s.Fields {
 			switch {
