@@ -56,6 +56,16 @@ table "numrange__object" {
     type    = integer
     default = 90
   }
+  # 1 = Vergabe in der Transaktion des Aufrufers (lückenlos)
+  column "gap_free" {
+    type    = integer
+    default = 0
+  }
+  # 1 = Intervalle verschiedener Schlüssel je Buchungskreis und Jahr überschneidungsfrei
+  column "disjoint" {
+    type    = integer
+    default = 0
+  }
   column "defined_at" {
     type = text
   }
@@ -212,6 +222,8 @@ var (
 			{Key: "to_number", Label: "Standard bis", Type: metamodel.TypeNumber},
 			{Key: "overflow", Label: "Standard bei Überlauf", Type: metamodel.TypeSelect, Options: overflowOptions},
 			{Key: "warn_percent", Label: "Standard-Warnschwelle (%)", Type: metamodel.TypeNumber},
+			{Key: "gap_free", Label: "Lückenlos (in der Transaktion des Aufrufers)", Type: metamodel.TypeBoolean, Listable: true},
+			{Key: "disjoint", Label: "Intervalle überschneidungsfrei", Type: metamodel.TypeBoolean, Listable: true},
 			{Key: "updated_at", Label: "Zuletzt angemeldet", Type: metamodel.TypeText},
 		},
 		Actions: []metamodel.ActionConfig{
