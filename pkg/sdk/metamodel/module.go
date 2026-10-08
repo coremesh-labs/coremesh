@@ -41,12 +41,25 @@ type CommandDefinition struct {
 // CommandParam ist ein Parameter eines Konsolenbefehls. File: Der Wert ist ein
 // lokaler Dateipfad; die CLI liest die Datei und sendet ihren Inhalt (JSON
 // geparst, sonst als Text) – so laden Befehle Daten vom Rechner des Benutzers.
+// Type: wie die CLI den Wert umwandelt – text (Standard: immer Text, auch
+// --company=2000), number, boolean oder json.
 type CommandParam struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required,omitempty"`
-	File        bool   `json:"file,omitempty"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	Required    bool      `json:"required,omitempty"`
+	File        bool      `json:"file,omitempty"`
+	Type        ParamType `json:"type,omitempty"`
 }
+
+// ParamType: Datentyp eines Befehlsparameters (leer = ParamText).
+type ParamType string
+
+const (
+	ParamText    ParamType = "text"
+	ParamNumber  ParamType = "number"
+	ParamBoolean ParamType = "boolean"
+	ParamJSON    ParamType = "json"
+)
 
 // ModuleObject ordnet ein Business-Object einem Modul zu.
 type ModuleObject struct {
