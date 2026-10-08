@@ -57,6 +57,7 @@ Folgejahre übernehmen die Einstellung.
 | Option | Bedeutung |
 |---|---|
 | **lückenlos** (`gap_free`) | Die Nummer wird in der **Transaktion des Aufrufers** gezogen (`sdk.InTx`, gleiche Datenbank); ohne Transaktion lehnt `Next` ab. Rollt der Aufrufer zurück, ist die Nummer wieder frei – keine Lücke, z. B. für Belegnummern. Gleichzeitige Buchungen warten aufeinander |
+| nicht lückenlos auf **SQLite** | Läuft der Aufruf in einer Transaktion auf derselben Datenbank (z. B. `saveAggregate`), zieht numrange die Nummer in ihr – SQLite hat nur einen Schreiber; eine eigene Transaktion wartete auf die Sperre des Aufrufers. Sonst (und auf PostgreSQL) in einer eigenen, kurzen Transaktion |
 | **Intervalle überschneidungsfrei** (`disjoint`) | Intervalle verschiedener Schlüssel desselben Objekts, Buchungskreises (bzw. `*`) und Jahres dürfen sich nicht überlappen – beim Anlegen, Ändern und bei der automatischen Neuanlage. Eine Nummer ist dann im Buchungskreis und Jahr eindeutig, gleich aus welchem Intervall |
 
 ## Aufrufe
