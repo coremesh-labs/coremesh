@@ -42,6 +42,9 @@ type Field struct {
 	Immutable  bool // nach dem Anlegen nicht änderbar
 	ReadOnly   bool // nur Anzeige (z. B. generierte id)
 	Virtual    bool // nicht in der Tabelle (verarbeiten Hooks)
+	// ActionOnly: nur Eingabe in Formularen eigener Aktionen (Action.Fields),
+	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
+	ActionOnly bool
 	Options    []metamodel.Option
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
 	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls
@@ -122,6 +125,10 @@ type Entity struct {
 	EventFields []string
 
 	// Hooks
+	// Prepare läuft beim Anlegen vor der Transaktion – für Schritte mit eigener
+	// Transaktion, z. B. Nummern aus numrange. Aus der laufenden heraus schlüge
+	// das unter SQLite fehl (der Lesestand der Transaktion veraltet, BUSY_SNAPSHOT).
+	Prepare     func(ctx context.Context, rec Record) error
 	Validate    func(ctx context.Context, rec, old Record) error // nach der Typprüfung, in der Transaktion
 	AfterCreate func(ctx context.Context, rec Record) error      // in der Transaktion
 	ListScope   func(ctx context.Context) (where string, args []any, none bool, err error)
@@ -171,7 +178,7 @@ func (e *Entity) Field(key string) *Field {
 func (e *Entity) Columns() []string {
 	var out []string
 	for _, f := range e.Fields {
-		if !f.Virtual {
+		if !f.Virtual && !f.ActionOnly {
 			out = append(out, f.Key)
 		}
 	}

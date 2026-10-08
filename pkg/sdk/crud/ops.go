@@ -185,7 +185,7 @@ func (e *Entity) Input(payload any) (Record, error) {
 	for i := range e.Fields {
 		f := &e.Fields[i]
 		v, present := data[f.Key]
-		if !present || f.ReadOnly {
+		if !present || f.ReadOnly || f.ActionOnly {
 			continue
 		}
 		if f.Virtual {
@@ -204,7 +204,7 @@ func (e *Entity) Input(payload any) (Record, error) {
 // Check: Pflichtfelder, Booleans, Zeitscheibe, Überschneidung, Verweise, Validate-Hook.
 func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 	for _, f := range e.Fields {
-		if f.Virtual || f.ReadOnly {
+		if f.Virtual || f.ReadOnly || f.ActionOnly {
 			continue
 		}
 		if f.Type == metamodel.TypeBoolean && rec[f.Key] == nil {
@@ -220,7 +220,7 @@ func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 		}
 	}
 	for _, f := range e.Fields {
-		if f.Virtual || f.ReadOnly {
+		if f.Virtual || f.ReadOnly || f.ActionOnly {
 			continue
 		}
 		if f.Required && rec[f.Key] == nil {
@@ -320,6 +320,11 @@ func (e *Entity) Create(ctx context.Context, payload any) (sdk.Response, error) 
 	}
 	if e.StatusField != "" { // neue Datensätze sind aktiv
 		rec[e.StatusField], _ = e.statusValues()
+	}
+	if e.Prepare != nil {
+		if err := e.Prepare(ctx, rec); err != nil {
+			return sdk.Response{}, err
+		}
 	}
 	if err := e.DB().InTx(ctx, nil, func(ctx context.Context) error { return e.Insert(ctx, rec) }); err != nil {
 		return sdk.Response{}, err
