@@ -58,7 +58,7 @@ func sampleValue(f metamodel.FieldDefinition) any {
 func sampleFields(d metamodel.ObjectDefinition) []sampleField {
 	var out []sampleField
 	for _, f := range d.Fields {
-		if f.Editable {
+		if f.Editable && !f.ActionOnly { // Aktionsfelder sind keine Daten des Objects
 			out = append(out, sampleField{Def: f, Value: sampleValue(f)})
 		}
 	}

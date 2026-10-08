@@ -101,6 +101,10 @@ type FieldDefinition struct {
 	// Field einen der Werte hat.
 	ShowIf     *Condition `json:"show_if,omitempty"`
 	RequiredIf *Condition `json:"required_if,omitempty"`
+	// ActionOnly: Eingabe nur in Formularen eigener Aktionen (ActionConfig.Fields),
+	// z. B. „Buchen bis“ an einem Vertrag. Erscheint nicht in Liste, Detail,
+	// Neu oder Bearbeiten und ist kein Datenfeld des Objects.
+	ActionOnly bool `json:"action_only,omitempty"`
 }
 
 // Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object

@@ -106,6 +106,13 @@ Soll = Haben), gibt es `Entity.ReadOnly` (kein generisches create/update; ein Ag
 dann nur `getAggregate`) und `Entity.Actions` (eigene Actions mit `metamodel.ActionConfig`,
 etwa `post` oder `reverse` mit `Record: true`).
 
+- **Felder nur für Aktionen:** `Field.ActionOnly` (Metamodell `action_only`) ist eine Eingabe
+  ausschließlich im Formular einer eigenen Action (`ActionConfig.Fields`), z. B. „Buchen bis“ an
+  einem Vertrag. Es erscheint nicht in Liste, Detail, Neu oder Bearbeiten und ist keine Spalte.
+- **`Entity.Prepare`** läuft beim Anlegen vor der Transaktion – für Schritte mit eigener
+  Transaktion wie Nummern aus `numrange`. Aus `Validate` (in der Transaktion) heraus schlüge das
+  unter SQLite fehl: Der Lesestand der Transaktion veraltet (`SQLITE_BUSY_SNAPSHOT`).
+
 
 Masken: `Field.Group`, `Field.Trigger`, `Field.ShowIf`/`RequiredIf` und der Hook
 `Entity.FormState` (meldet die Action `formState` an); `Entity.Filters` und `Search`
