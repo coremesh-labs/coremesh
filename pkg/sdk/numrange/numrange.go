@@ -23,6 +23,8 @@
 // Die Nummer wird in einer eigenen Transaktion vergeben. Scheitert danach das
 // Speichern im Modul, bleibt eine Lücke; jede vergebene Nummer steht mit
 // Zeitpunkt, Benutzer, Request und Referenz im Protokoll (NumberRangeLog).
+// Lückenlose Nummernkreise (Definition.GapFree) vergeben stattdessen in der
+// Transaktion des Aufrufers (sdk.InTx) – ein Rollback gibt die Nummer zurück.
 package numrange
 
 import (
@@ -69,6 +71,14 @@ type Definition struct {
 	To             int64  `json:"to"`               // Standard 10^Width-1 bzw. 999999999
 	Overflow       string `json:"overflow"`         // Standard OverflowError
 	WarnPercent    int    `json:"warn_percent"`     // Standard 90; 0 = keine Warnung
+	// GapFree: Vergabe in der Transaktion des Aufrufers (lückenlos, z. B.
+	// Buchungsbelege) – ein Rollback gibt die Nummer zurück. Next braucht dann
+	// eine laufende Transaktion auf der Datenbank des Nummernkreises.
+	GapFree bool `json:"gap_free"`
+	// Disjoint: Intervalle verschiedener Schlüssel eines Buchungskreises und
+	// Jahres dürfen sich nicht überschneiden (Nummern bleiben über alle
+	// Schlüssel eindeutig, z. B. Belegnummern je Ledger).
+	Disjoint bool `json:"disjoint"`
 }
 
 // Request: nächste Nummer eines Intervalls.
