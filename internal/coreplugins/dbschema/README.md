@@ -165,10 +165,22 @@ des Moduls immer `?`-Platzhalter: Für PostgreSQL wandelt der Host sie in
 `$1, $2, …` um.
 
 **Sicherheitsgrenze:** Für Migrationen setzt DBSchema die Isolation in beiden
-Modi vollständig durch. Zur Laufzeit ist der `search_path` nur Komfort: Ein
-Modul könnte `mod_other.tabelle` voll qualifiziert ansprechen, weil alle Module
-denselben DB-Benutzer nutzen. Eine harte Grenze ziehen erst eigene DB-Rollen pro
-Modul (siehe „Grenzen“).
+Modi vollständig durch. **Zur Laufzeit** prüft der Host jede Anweisung, die ein
+Plugin über `HostService.Query`/`Exec` schickt (`internal/database/guard.go`):
+
+- genau eine Anweisung; nur `SELECT`, `WITH`, `VALUES`, `INSERT`, `UPDATE`, `DELETE`,
+  `REPLACE` – kein DDL, kein `PRAGMA`, `ATTACH`, `SET`, keine Transaktionssteuerung
+  (`BEGIN`/`COMMIT` …, dafür `BeginTx`), kein `SELECT … INTO`;
+- **geändert werden nur eigene Tabellen:** Jedes Ziel von `INSERT`, `UPDATE`, `DELETE`,
+  `REPLACE`, `MERGE` – auch in CTEs und Unterabfragen – trägt das Präfix des Plugins
+  bzw. liegt im eigenen Schema `mod_<modul>`; ohne Freigabe `access: write` ändert ein
+  Plugin gar nichts, auch nicht über `Query`;
+- Lesen fremder Tabellen bleibt möglich; fremde Daten gehören aber über die Actions des
+  anderen Plugins gelesen (dort greifen dessen Rechte).
+
+Die Prüfung arbeitet auf Tokens, nicht als vollständiger SQL-Parser. Funktionen mit
+Seiteneffekten (PostgreSQL) erkennt sie nicht; eine harte Grenze ziehen erst eigene
+DB-Rollen pro Modul (siehe „Grenzen“).
 
 ## Namensregeln (Präfix-Modus)
 

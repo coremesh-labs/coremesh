@@ -44,6 +44,11 @@ service HostService {
   rpc Query(QueryRequest) returns (QueryResponse);
 
   // Exec führt INSERT/UPDATE/DELETE aus.
+  //
+  // Query und Exec: genau eine Anweisung; geändert werden nur eigene Tabellen
+  // des Plugins (Präfix <plugin>__ bzw. eigenes Schema), nur mit Freigabe
+  // access: write; kein DDL, keine Sitzungs- oder Transaktionssteuerung.
+  // Sonst PermissionDenied. Fremde Daten über Dispatch (Actions).
   rpc Exec(ExecRequest) returns (ExecResponse);
 
   // Transaktionen

@@ -37,6 +37,7 @@ var partnerDef = metamodel.ObjectDefinition{
 		{Key: "kind", Label: "Art", Type: metamodel.TypeSelect, Listable: true, Editable: true,
 			Options: []metamodel.Option{{Value: "customer", Label: "Kunde"}, {Value: "supplier", Label: "Lieferant"}}},
 		{Key: "created_at", Label: "Angelegt", Type: metamodel.TypeDate, Listable: true, Editable: false},
+		{Key: "remind_on", Label: "Erinnern am", Type: metamodel.TypeDate, Editable: true, ActionOnly: true},
 	},
 	Actions: []metamodel.ActionConfig{
 		{Name: "List", Kind: metamodel.KindList, Label: "Übersicht"},
@@ -45,6 +46,7 @@ var partnerDef = metamodel.ObjectDefinition{
 		{Name: "Update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
 		{Name: "Deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: "Partner inaktivieren?"},
 		{Name: "Notify", Kind: metamodel.KindCustom, Label: "Benachrichtigen"},
+		{Name: "Remind", Kind: metamodel.KindCustom, Label: "Erinnern …", Record: true, Fields: []string{"remind_on"}},
 	},
 	// Typ B: Status-Flag active – „Inaktivieren“ statt Löschen.
 	Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
@@ -441,4 +443,23 @@ func TestStatic(t *testing.T) {
 
 func (h *fakeHost) Read(_ context.Context, req sdk.Request, _ sdk.RowWriter) (sdk.ReadEnd, error) {
 	return sdk.ReadEnd{}, fmt.Errorf("%w: %s.%s", sdk.ErrUnimplemented, req.Object, req.Action)
+}
+
+// Felder nur für Aktionen erscheinen im Aktionsformular, sonst nirgends.
+func TestActionOnlyField(t *testing.T) {
+	s, h := newTestServer(t, "")
+	create := do(s, "GET", "/m/crm/Partner/new", nil, true).Body.String()
+	mustContain(t, create, `name="company_name"`)
+	mustNotContain(t, create, `name="remind_on"`)
+	detail := do(s, "GET", "/m/crm/Partner/p%2F1", nil, true).Body.String()
+	mustContain(t, detail, "Firmenname")
+	mustNotContain(t, detail, "Erinnern am")
+	form := do(s, "GET", "/action/crm/Partner/Remind?id=p1", nil, true).Body.String()
+	mustContain(t, form, `name="remind_on"`, `type="date"`)
+	mustNotContain(t, form, `name="company_name"`)
+	do(s, "POST", "/action/crm/Partner/Remind", url.Values{"_id": {"p1"}, "remind_on": {"2026-11-30"}}, true)
+	p := h.last().Payload.(map[string]any)
+	if data, _ := p["data"].(map[string]any); data["remind_on"] != "2026-11-30" || p["id"] != "p1" {
+		t.Fatalf("Payload: %v", p)
+	}
 }
