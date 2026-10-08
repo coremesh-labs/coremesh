@@ -66,12 +66,32 @@ func TestIngressStartsRootRequests(t *testing.T) {
 	grants := map[string]config.Grant{"main": {Access: "write"}}
 	webDB := h.services("webserver", config.Plugin{Ingress: true, Databases: grants})
 	dbCtx := sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-2"})
-	if _, err := webDB.Exec(dbCtx, "main", `CREATE TABLE webserver__t (id TEXT)`); err != nil {
+	// Tabellen legt nur DBSchema an; ein Plugin darf zur Laufzeit kein DDL.
+	if _, err := webDB.Exec(dbCtx, "main", `CREATE TABLE webserver__t (id TEXT)`); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("DDL zur Laufzeit: %v", err)
+	}
+	pool, _ := db.DB("main")
+	if _, err := pool.Exec(`CREATE TABLE webserver__t (id TEXT)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := webDB.Exec(sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-3"}),
 		"main", `INSERT INTO webserver__t (id) VALUES (?)`, "a"); err != nil {
 		t.Fatal(err)
+	}
+	// Fremde Tabellen ändern: abgelehnt – auch über Query.
+	for _, q := range []string{`UPDATE iam__users SET username = 'x'`, `DELETE FROM webserver__t; DELETE FROM iam__users`} {
+		if _, err := webDB.Exec(sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-5"}), "main", q); !errors.Is(err, sdk.ErrPermissionDenied) {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if _, err := webDB.Query(sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-6"}), "main",
+		`DELETE FROM iam__users RETURNING id`); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("Schreiben über Query: %v", err)
+	}
+	readOnly := h.services("webserver", config.Plugin{Ingress: true, Databases: map[string]config.Grant{"main": {Access: "read"}}})
+	if _, err := readOnly.Query(sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-7"}), "main",
+		`DELETE FROM webserver__t RETURNING id`); !errors.Is(err, sdk.ErrPermissionDenied) {
+		t.Fatalf("Schreiben ohne write-Freigabe über Query: %v", err)
 	}
 	res, err := webDB.Query(sdk.WithCall(context.Background(), sdk.CallContext{RequestID: "http-4"}), "main", `SELECT id FROM webserver__t`)
 	if err != nil || len(res.Rows) != 1 {

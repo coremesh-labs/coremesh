@@ -163,7 +163,8 @@ type objectCtx struct {
 	Object    string
 	URL       string // /m/{module}/{object}
 	ActionURL string // /action/{module}/{object}
-	Def       metamodel.ObjectDefinition
+	Def       metamodel.ObjectDefinition         // ohne Felder nur für Aktionen (ActionOnly)
+	ActionDef metamodel.ObjectDefinition         // mit ihnen: Formulare eigener Aktionen
 	Has       map[string]*metamodel.ActionConfig // Kind → Action (list, item, create, update, delete)
 	Display   []displayRule                      // Darstellungsregeln des Benutzers (display.go)
 	Custom    []metamodel.ActionConfig           // Kind custom
@@ -171,8 +172,10 @@ type objectCtx struct {
 }
 
 func newObjectCtx(module, object string, d metamodel.ObjectDefinition) objectCtx {
+	full := d
+	d.Fields = slices.DeleteFunc(slices.Clone(d.Fields), func(f metamodel.FieldDefinition) bool { return f.ActionOnly })
 	oc := objectCtx{Module: module, Object: object, URL: moduleURL(module, object), ActionURL: actionURL(module, object),
-		Def: d, Has: map[string]*metamodel.ActionConfig{}}
+		Def: d, ActionDef: full, Has: map[string]*metamodel.ActionConfig{}}
 	for i := range d.Actions {
 		a := &d.Actions[i]
 		if a.Kind == metamodel.KindCustom {

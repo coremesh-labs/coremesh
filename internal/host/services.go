@@ -82,6 +82,9 @@ func (s *pluginHost) Query(ctx context.Context, db, query string, args ...any) (
 	if err != nil {
 		return nil, err
 	}
+	if err := database.CheckStatement(query, s.writeScope(db)); err != nil {
+		return nil, err
+	}
 	var res *sdk.QueryResult
 	err = s.withQuerier(ctx, call, db, func(q database.Querier) (err error) {
 		res, err = database.Query(ctx, q, database.Rebind(s.h.db.Driver(db), query), args...)
@@ -98,6 +101,9 @@ func (s *pluginHost) Exec(ctx context.Context, db, query string, args ...any) (s
 	defer end()
 	call, err := s.authorize(ctx, db, true)
 	if err != nil {
+		return sdk.ExecResult{}, err
+	}
+	if err := database.CheckStatement(query, s.writeScope(db)); err != nil {
 		return sdk.ExecResult{}, err
 	}
 	var res sdk.ExecResult
@@ -160,6 +166,19 @@ func (s *pluginHost) authorize(ctx context.Context, db string, write bool) (sdk.
 		return call, fmt.Errorf("%w: Plugin %s darf auf %q nur lesen", sdk.ErrPermissionDenied, s.name, db)
 	}
 	return call, nil
+}
+
+// writeScope: Das Plugin ändert nur eigene Tabellen (Präfix bzw. eigenes
+// Schema) und nur mit Freigabe access: write. Fremde Daten erreicht es über
+// Actions der anderen Plugins.
+func (s *pluginHost) writeScope(db string) database.WriteScope {
+	return database.WriteScope{
+		Plugin:          s.name,
+		Prefix:          sdk.TablePrefix(s.name),
+		Schema:          sdk.SchemaName(s.name),
+		SchemaIsolation: s.h.schemaIsolation() && db == s.h.schemaDatabase(),
+		Write:           s.grants[db].Access == "write",
+	}
 }
 
 // withQuerier führt fn in der laufenden Transaktion auf db aus, sonst auf dem Pool.
