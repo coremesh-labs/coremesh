@@ -174,6 +174,10 @@ const (
 	TypeBoolean  FieldType = "boolean"
 	// TypePassword: Eingabe verdeckt, wird nie angezeigt oder vorbelegt.
 	TypePassword FieldType = "password"
+	// TypeFile: Datei hochladen – nur in Formularen eigener Aktionen
+	// (ActionOnly). Die Aktion erhält den Inhalt als Text im Feld und den
+	// Dateinamen in <Feld>_name.
+	TypeFile FieldType = "file"
 )
 
 // Option ist ein Eintrag eines Auswahlfelds.
