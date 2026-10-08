@@ -41,6 +41,13 @@ z. B. die Vertragsart mit ihrem Intervallschlüssel `MV`. So bleibt `numrange` a
 - **Lücken:** Scheitert das Speichern im Modul nach der Vergabe, bleibt eine Lücke. Das
   Protokoll erklärt sie (wer, wann, Request, Referenz).
 
+## Optionen des Objekts
+
+| Option | Bedeutung |
+|---|---|
+| **lückenlos** (`gap_free`) | Die Nummer wird in der **Transaktion des Aufrufers** gezogen (`sdk.InTx`, gleiche Datenbank); ohne Transaktion lehnt `Next` ab. Rollt der Aufrufer zurück, ist die Nummer wieder frei – keine Lücke, z. B. für Belegnummern. Gleichzeitige Buchungen warten aufeinander |
+| **Intervalle überschneidungsfrei** (`disjoint`) | Intervalle verschiedener Schlüssel desselben Objekts, Buchungskreises (bzw. `*`) und Jahres dürfen sich nicht überlappen – beim Anlegen, Ändern und bei der automatischen Neuanlage. Eine Nummer ist dann im Buchungskreis und Jahr eindeutig, gleich aus welchem Intervall |
+
 ## Aufrufe
 
 | Aufruf | Payload → Antwort | Wer |
@@ -54,6 +61,10 @@ z. B. die Vertragsart mit ihrem Intervallschlüssel `MV`. So bleibt `numrange` a
 numrange.Define(ctx, env.Services, numrange.Definition{Object: "Contract", Owner: "contract",
 	Description: "Vertragsnummern", PerCompanyCode: true, PerYear: true,
 	Pattern: "{KEY}-{YYYY}-{N}", Width: 4})
+
+// lückenlos: Next nur innerhalb von sdk.InTx
+numrange.Define(ctx, env.Services, numrange.Definition{Object: "JournalEntry", Owner: "ledger",
+	PerCompanyCode: true, PerYear: true, Width: 10, GapFree: true, Disjoint: true})
 
 res, err := numrange.Next(ctx, env.Services, numrange.Request{Object: "Contract",
 	CompanyCode: "1000", Key: "MV", Year: 2026, Reference: "Mietvertrag Müller"})

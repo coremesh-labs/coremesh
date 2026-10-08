@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -28,7 +29,7 @@ func setup(t *testing.T) *Plugin {
 	ctx := context.Background()
 	db, err := database.Open(ctx, map[string]config.Database{
 		"main": {Driver: "sqlite", DSN: "file:" + filepath.Join(t.TempDir(), "nr.db") + "?_pragma=busy_timeout(5000)"},
-	}, database.Options{}, slog.New(slog.DiscardHandler))
+	}, database.Options{TxTimeout: time.Minute}, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

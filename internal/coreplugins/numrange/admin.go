@@ -172,6 +172,13 @@ func (p *Plugin) intervalSave(ctx context.Context, payload any, create bool) (sd
 	if err := iv.check(); err != nil {
 		return sdk.Response{}, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err)
 	}
+	if obj, err := p.loadObject(ctx, p.pool(), iv.Object); err != nil {
+		return sdk.Response{}, err
+	} else if obj != nil && obj.Disjoint {
+		if err := p.checkDisjoint(ctx, p.pool(), iv); err != nil {
+			return sdk.Response{}, err
+		}
+	}
 	now := ts()
 	if create {
 		if dup, err := p.loadIntervals(ctx, p.pool(), "WHERE id = ?", iv.ID); err != nil {
@@ -231,7 +238,8 @@ func (p *Plugin) requireCompanyCode(ctx context.Context, cc string) error {
 func (o objectRow) record() map[string]any {
 	return map[string]any{"id": o.Object, "object": o.Object, "owner": o.Owner, "description": o.Description,
 		"per_company_code": o.PerCompanyCode, "per_year": o.PerYear, "pattern": o.Pattern, "width": o.Width,
-		"from_number": o.From, "to_number": o.To, "overflow": o.Overflow, "warn_percent": o.WarnPercent, "updated_at": o.UpdatedAt}
+		"from_number": o.From, "to_number": o.To, "overflow": o.Overflow, "warn_percent": o.WarnPercent, "updated_at": o.UpdatedAt,
+		"gap_free": o.GapFree, "disjoint": o.Disjoint}
 }
 
 func (p *Plugin) objectList(ctx context.Context) (sdk.Response, error) {
