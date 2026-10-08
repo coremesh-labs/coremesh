@@ -1,0 +1,10 @@
+{
+  "documents.DocumentKind.fields.code": "Code",
+  "documents.DocumentKind.fields.is_active": "Aktiv",
+  "documents.DocumentKind.fields.name": "Bezeichnung",
+  "documents.DocumentKind.fields.sort_order": "Reihenfolge",
+  "documents.DocumentKind.title": "Dokumentarten",
+  "documents.module.description": "Dokumentverweise an Verträgen, Rechnungen, Partnern und allen anderen Objects",
+  "documents.module.title": "Dokumente",
+  "documents.navigation.kataloge": "Kataloge"
+}

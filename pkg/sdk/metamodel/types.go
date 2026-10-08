@@ -136,6 +136,9 @@ type SectionDefinition struct {
 	// Tags: Abschnitt mit den Tags des Datensatzes (Plugin tag, TagService) –
 	// Eingabefelder entstehen aus den Tag Sets, die dem Object zugewiesen sind.
 	Tags bool `json:"tags,omitempty"`
+	// Documents: Abschnitt mit den Dokumentverweisen des Datensatzes (Object
+	// Documents, pkg/sdk/docservice – Plugin document oder ein DMS-Adapter).
+	Documents bool `json:"documents,omitempty"`
 }
 
 // Relation verbindet ein Object (Master) mit Datensätzen eines Unter-Objects

@@ -112,5 +112,19 @@
   "core.tags.deprecated": "veraltet",
   "core.tags.amount": "Betrag",
   "core.tags.currency": "Währung",
-  "core.tags.choose": "– bitte wählen –"
+  "core.tags.choose": "– bitte wählen –",
+  "core.docs.unavailable": "Dokumente nicht verfügbar (Plugin document bzw. Dokumentenmanagement nicht gestartet)",
+  "core.docs.empty": "Noch keine Dokumente",
+  "core.docs.date": "Datum",
+  "core.docs.type": "Dokumentart",
+  "core.docs.title": "Titel",
+  "core.docs.location": "Ablage",
+  "core.docs.location_hint": "Dateiname, Ablageort oder Link",
+  "core.docs.valid": "Gültig",
+  "core.docs.valid_from": "Gültig ab",
+  "core.docs.valid_to": "Gültig bis",
+  "core.docs.note": "Bemerkung",
+  "core.docs.attach": "Dokument anhängen",
+  "core.docs.remove": "Entfernen",
+  "core.docs.remove_confirm": "Dokumentverweis entfernen?"
 }
