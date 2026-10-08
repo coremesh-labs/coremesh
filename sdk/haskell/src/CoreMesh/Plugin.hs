@@ -45,6 +45,11 @@ module CoreMesh.Plugin
   , LogLevel (..)
   , logMessage
   , stderrLog
+    -- * Systemanfragen und Events
+  , systemCall
+  , Event (..)
+  , subscribe
+  , eventOf
   ) where
 
 import CoreMesh.Plugin.Internal.Context
