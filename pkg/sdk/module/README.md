@@ -46,6 +46,7 @@ alles, was keine Fachlogik ist:
 |---|---|---|
 | `RegisterRoutes` | in `NewPlugin`, vor dem Start | rein deklarativ: Objects und Actions anmelden |
 | `Initialize` | beim Start (`Configure`), vor der ersten Anfrage | `Env` speichern, Konfiguration lesen, prüfen |
+| `Migrate` (optional, `module.Migrator`) | einmal je Prozess vor der ersten Anfrage an das Modul, in dieser Anfrage | Daten älterer Versionen umstellen, z. B. Verweise auf umgeschlüsselte Datensätze anderer Module (`pkg/sdk/bpref`) |
 | Handler | nebenläufig, eine Goroutine je Anfrage | Fachlogik |
 | `Shutdown` | der Host beendet das Plugin | Hintergrundarbeit stoppen (Zeitlimit ca. 1,5 s) |
 
@@ -53,6 +54,10 @@ alles, was keine Fachlogik ist:
 Manifest braucht, also bevor er dem Plugin Ressourcen gibt. Handler sind deshalb
 Methoden des Moduls und greifen erst zur Laufzeit auf die in `Initialize` gesetzten
 Felder zu.
+
+`Migrate` hat Datenbankzugriff und Services (anders als `Initialize`). Scheitert es, scheitert
+die Anfrage, und die nächste versucht es erneut; es muss wiederholbar sein und darf keine
+Actions des eigenen Plugins aufrufen.
 
 Scheitert ein `Initialize`, beendet das Plugin die bereits initialisierten Module wieder,
 und der Host startet das Plugin nicht. Fehler in `RegisterRoutes` (doppeltes Object,

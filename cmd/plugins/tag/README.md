@@ -247,6 +247,13 @@ Beispiel `RENTAL_OBJECT` → `RentalObject` am Mietvertrag oder `PARENT` → `Bu
 - `changed_at` und `changed_by` protokollieren jede Zeitscheibe. `Tags.history` liefert die
   vollständige Historie.
 
+### Umschlüsselung
+
+Ändert ein Modul den Schlüssel eines Datensatzes, meldet es das SystemEvent `<Object>.rekey`
+(`old_id`, `new_id`), z. B. `BusinessPartner.rekey` bei der Übernahme auf BP-Nummern. Das
+Tag-Plugin abonniert `*.rekey` und stellt Zuordnungen (`id` bzw. `id|Zeitscheibe`) und
+Verweis-Tags auf dieses Object um.
+
 ## TagService-API
 
 Go-Vertrag: [`pkg/sdk/tagservice`](../../../pkg/sdk/tagservice/tagservice.go). Ein anderes

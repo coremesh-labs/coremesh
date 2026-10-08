@@ -30,12 +30,14 @@ type Module struct {
 	services module.Services
 	log      *slog.Logger
 
-	set *crud.Set // Entities (pkg/sdk/crud) mit der Datenbank des Moduls
+	set      *crud.Set // Entities (pkg/sdk/crud) mit der Datenbank des Moduls
+	settings settings  // settings.modules.businesspartner
 }
 
 var (
 	_ module.Module         = (*Module)(nil)
 	_ module.SchemaProvider = (*Module)(nil)
+	_ module.Migrator       = (*Module)(nil)
 )
 
 // New erzeugt das Modul mit allen Entitäten.
@@ -57,12 +59,20 @@ func (m *Module) Descriptor() module.Descriptor {
 // (Status-Flag); Entitäten ohne beides (immutable) haben keine Ende-Action.
 func (m *Module) RegisterRoutes(r *module.Router) {
 	m.set.Register(r, "Partnerdaten")
+	// RFC-artig, ohne Oberfläche: Verweise auf alte Partner-GUIDs auflösen
+	r.Object(serviceObject).Handle(actionResolve, m.resolve)
 }
 
 // Initialize übernimmt Datenbank, Services und Logger.
 func (m *Module) Initialize(ctx context.Context, env module.Env) error {
 	m.db, m.services, m.log = env.DB, env.Services, env.Log
+	if err := env.Config(&m.settings); err != nil {
+		return err
+	}
 	m.set.Bind(env.DB)
+	if err := m.defineNumbers(ctx); err != nil {
+		m.log.WarnContext(ctx, "Nummernkreis BusinessPartner nicht angemeldet", "err", err.Error())
+	}
 	m.log.InfoContext(ctx, "Modul bereit", "objects", len(m.set.Entities()), "database", env.DB.Name())
 	return nil
 }

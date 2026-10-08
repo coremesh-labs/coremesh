@@ -38,7 +38,7 @@ import (
 
 const (
 	Name    = "numrange"
-	Version = "0.2.0"
+	Version = "0.3.0"
 
 	defaultKey = "01"
 	allCC      = "*"
@@ -74,7 +74,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 	return sdk.Manifest{
 		Name: Name, Version: Version, Description: "Nummernkreise: fortlaufende Nummern für alle Module",
 		Capabilities: []sdk.Capability{
-			{Object: api.Object, Actions: []string{api.ActionDefine, api.ActionNext, "list", "get", "create", "update", "deactivate"},
+			{Object: api.Object, Actions: []string{api.ActionDefine, api.ActionNext, api.ActionAssign, api.ActionInfo, "list", "get", "create", "update", "deactivate"},
 				Description: "Nummernkreise anmelden, Nummern vergeben, Intervalle pflegen"},
 			{Object: "NumberRangeObject", Actions: []string{"list", "get"}, Description: "Angemeldete Nummernkreis-Objekte"},
 			{Object: "NumberRangeLog", Actions: []string{"list", "get"}, Description: "Vergebene Nummern"},
@@ -113,6 +113,10 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		}}, nil
 	case api.Object + "." + api.ActionDefine:
 		return p.define(ctx, req.Payload)
+	case api.Object + "." + api.ActionAssign:
+		return p.assign(ctx, req.Payload)
+	case api.Object + "." + api.ActionInfo:
+		return p.info(ctx, req.Payload)
 	case api.Object + "." + api.ActionNext:
 		return p.next(ctx, req.Payload)
 	case api.Object + ".list":
@@ -151,6 +155,8 @@ type interval struct {
 	Year, Width, WarnPercent                                                        int
 	From, To, Current                                                               int64
 	Active                                                                          bool
+	External                                                                        bool   // Nummer kommt vom Aufrufer (Assign)
+	ExternalPattern                                                                 string // nur extern: regulärer Ausdruck; leer = Zahl von–bis
 }
 
 // format setzt die Platzhalter ein.
@@ -220,7 +226,20 @@ func (iv *interval) check() error {
 	if iv.Year == 0 && (strings.Contains(iv.Pattern, api.PlaceYear) || strings.Contains(iv.Pattern, api.PlaceYear2)) {
 		return fmt.Errorf("Format mit Jahr, aber Intervall ohne Jahr")
 	}
+	if iv.ExternalPattern != "" {
+		if !iv.External {
+			return fmt.Errorf("erlaubte externe Nummern nur bei externer Vergabe")
+		}
+		if _, err := externalRe(iv.ExternalPattern); err != nil {
+			return fmt.Errorf("erlaubte externe Nummern: %v", err)
+		}
+	}
 	return nil
+}
+
+// externalRe: Muster der externen Nummern, immer ganz (verankert).
+func externalRe(pattern string) (*regexp.Regexp, error) {
+	return regexp.Compile(`^(?:` + pattern + `)$`)
 }
 
 func intervalID(object, cc, key string, year int) string {
@@ -358,22 +377,9 @@ func (p *Plugin) draw(ctx context.Context, tx database.Querier, r api.Request) (
 	if obj == nil {
 		return api.Result{}, fmt.Errorf("%w: Nummernkreis-Objekt %q ist nicht angemeldet", sdk.ErrNotFound, r.Object)
 	}
-	cc, key, year := allCC, strings.ToUpper(strings.TrimSpace(r.Key)), 0
-	if key == "" {
-		key = defaultKey
-	}
-	if !keyRe.MatchString(key) {
-		return api.Result{}, fmt.Errorf("%w: Intervallschlüssel %q: A–Z, 0–9, _ (höchstens 12)", sdk.ErrInvalidArgument, key)
-	}
-	if obj.PerCompanyCode {
-		if cc = strings.TrimSpace(r.CompanyCode); cc == "" {
-			return api.Result{}, fmt.Errorf("%w: %s: Buchungskreis ist Pflicht", sdk.ErrInvalidArgument, obj.Object)
-		}
-	}
-	if obj.PerYear {
-		if year = r.Year; year == 0 {
-			year = time.Now().Year()
-		}
+	cc, key, year, err := obj.target(r)
+	if err != nil {
+		return api.Result{}, err
 	}
 	var warnings []string
 	seen := map[string]bool{}
@@ -386,6 +392,10 @@ func (p *Plugin) draw(ctx context.Context, tx database.Querier, r api.Request) (
 			return api.Result{}, fmt.Errorf("%w: Folgeintervalle von %s bilden einen Kreis", sdk.ErrInvalidArgument, iv.ID)
 		}
 		seen[iv.ID] = true
+		if iv.External {
+			return api.Result{}, fmt.Errorf("%w: Nummernkreis %s vergibt extern – die Nummer wird eingegeben (Assign mit Wert)",
+				sdk.ErrFailedPrecondition, iv.ID)
+		}
 		value := iv.nextValue()
 		if value == 0 { // Überlauf
 			switch iv.Overflow {
@@ -426,6 +436,133 @@ func (p *Plugin) draw(ctx context.Context, tx database.Querier, r api.Request) (
 	}
 }
 
+// target: Buchungskreis (* ohne PerCompanyCode), Schlüssel und Jahr einer Anfrage.
+func (obj *objectRow) target(r api.Request) (cc, key string, year int, err error) {
+	cc, key = allCC, strings.ToUpper(strings.TrimSpace(r.Key))
+	if key == "" {
+		key = defaultKey
+	}
+	if !keyRe.MatchString(key) {
+		return "", "", 0, fmt.Errorf("%w: Intervallschlüssel %q: A–Z, 0–9, _ (höchstens 12)", sdk.ErrInvalidArgument, key)
+	}
+	if obj.PerCompanyCode {
+		if cc = strings.TrimSpace(r.CompanyCode); cc == "" {
+			return "", "", 0, fmt.Errorf("%w: %s: Buchungskreis ist Pflicht", sdk.ErrInvalidArgument, obj.Object)
+		}
+	}
+	if obj.PerYear {
+		if year = r.Year; year == 0 {
+			year = time.Now().Year()
+		}
+	}
+	return cc, key, year, nil
+}
+
+// assign: Nummer nach der Vergabeart des Intervalls – intern die nächste (wie
+// Next), extern die mitgegebene, geprüft am Muster bzw. an von–bis. Ob die
+// Nummer frei ist, prüft das Modul (sein Schlüssel).
+func (p *Plugin) assign(ctx context.Context, payload any) (sdk.Response, error) {
+	var r api.AssignRequest
+	if err := sdk.Decode(payload, &r); err != nil {
+		return sdk.Response{}, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err)
+	}
+	obj, err := p.loadObject(ctx, p.pool(), strings.TrimSpace(r.Object))
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	if obj == nil {
+		return sdk.Response{}, fmt.Errorf("%w: Nummernkreis-Objekt %q ist nicht angemeldet", sdk.ErrNotFound, r.Object)
+	}
+	cc, key, year, err := obj.target(r.Request)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	value := strings.ToUpper(strings.TrimSpace(r.Value))
+	p.mu.Lock()
+	var out api.Result
+	var internal bool
+	err = p.inTx(ctx, func(tx *sql.Tx) error {
+		iv, err := p.findOrCreate(ctx, tx, obj, cc, key, year)
+		if err != nil {
+			return err
+		}
+		if !iv.External {
+			internal = true
+			if value != "" {
+				return fmt.Errorf("%w: Nummernkreis %s vergibt intern – Nummer leer lassen", sdk.ErrInvalidArgument, iv.ID)
+			}
+			return nil
+		}
+		if value == "" {
+			return fmt.Errorf("%w: Nummer ist Pflicht (Nummernkreis %s vergibt extern)", sdk.ErrInvalidArgument, iv.ID)
+		}
+		var n int64
+		number := value
+		if iv.ExternalPattern != "" {
+			re, err := externalRe(iv.ExternalPattern)
+			if err != nil {
+				return err
+			}
+			if !re.MatchString(value) {
+				return fmt.Errorf("%w: Nummer %q passt nicht zum Nummernkreis %s (erlaubt: %s)", sdk.ErrInvalidArgument, value, iv.ID, iv.ExternalPattern)
+			}
+		} else {
+			if n, err = strconv.ParseInt(value, 10, 64); err != nil || n < iv.From || n > iv.To {
+				return fmt.Errorf("%w: Nummer %q liegt nicht im Nummernkreis %s (%d–%d)", sdk.ErrInvalidArgument, value, iv.ID, iv.From, iv.To)
+			}
+			number = iv.format(n)
+		}
+		call := sdk.CallFromContext(ctx)
+		if _, err := tx.ExecContext(ctx, p.q(`INSERT INTO numrange__log (id, interval_id, object, company_code, range_key, year, value, number, reference, user_id, request_id, drawn_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`), newID(), iv.ID, iv.Object, iv.CompanyCode, iv.Key, iv.Year, n, number,
+			nullable(r.Reference), nullable(call.UserID), nullable(call.RequestID), ts()); err != nil {
+			return err
+		}
+		out = api.Result{Number: number, Value: n, Interval: iv.ID, External: true}
+		return nil
+	})
+	p.mu.Unlock()
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	if internal {
+		return p.next(ctx, r.Request)
+	}
+	return sdk.Response{Payload: out}, nil
+}
+
+// info: Vergabeart und Bereich des Intervalls, das ein Abruf nähme (ohne es
+// anzulegen) – für Masken (Nummer eingeben oder nicht).
+func (p *Plugin) info(ctx context.Context, payload any) (sdk.Response, error) {
+	var r api.Request
+	if err := sdk.Decode(payload, &r); err != nil {
+		return sdk.Response{}, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err)
+	}
+	obj, err := p.loadObject(ctx, p.pool(), strings.TrimSpace(r.Object))
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	if obj == nil {
+		return sdk.Response{}, fmt.Errorf("%w: Nummernkreis-Objekt %q ist nicht angemeldet", sdk.ErrNotFound, r.Object)
+	}
+	cc, key, year, err := obj.target(r)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	for _, c := range slices.Compact([]string{cc, allCC}) {
+		ivs, err := p.loadIntervals(ctx, p.pool(), "WHERE object = ? AND company_code = ? AND range_key = ? AND year = ?", obj.Object, c, key, year)
+		if err != nil {
+			return sdk.Response{}, err
+		}
+		if len(ivs) > 0 {
+			iv := ivs[0]
+			return sdk.Response{Payload: api.Info{Interval: iv.ID, Exists: true, External: iv.External, ExternalPattern: iv.ExternalPattern,
+				From: iv.From, To: iv.To, Active: iv.Active}}, nil
+		}
+	}
+	return sdk.Response{Payload: api.Info{Interval: intervalID(obj.Object, cc, key, year), From: obj.From, To: obj.To, Active: true}}, nil
+}
+
 // findOrCreate: Intervall des Buchungskreises, sonst für alle (*); fehlt es,
 // entsteht es aus dem jüngsten Vorjahr desselben Schlüssels oder aus den
 // Standardwerten des Objekts.
@@ -454,6 +591,7 @@ func (p *Plugin) findOrCreate(ctx context.Context, tx database.Querier, obj *obj
 			pv := prev[0]
 			iv.CompanyCode, iv.Description, iv.Pattern, iv.Width = pv.CompanyCode, pv.Description, pv.Pattern, pv.Width
 			iv.From, iv.To, iv.Overflow, iv.NextKey, iv.WarnPercent = pv.From, pv.To, pv.Overflow, pv.NextKey, pv.WarnPercent
+			iv.External, iv.ExternalPattern = pv.External, pv.ExternalPattern
 		}
 	}
 	iv.ID = intervalID(iv.Object, iv.CompanyCode, iv.Key, iv.Year)
@@ -464,9 +602,10 @@ func (p *Plugin) findOrCreate(ctx context.Context, tx database.Querier, obj *obj
 	}
 	now := ts()
 	if _, err := tx.ExecContext(ctx, p.q(`INSERT INTO numrange__interval (id, object, company_code, range_key, year, description, from_number, to_number,
-		current_number, width, pattern, overflow, next_key, warn_percent, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1, ?, ?)`),
+		current_number, width, pattern, overflow, next_key, warn_percent, active, created_at, updated_at, external, external_pattern)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`),
 		iv.ID, iv.Object, iv.CompanyCode, iv.Key, iv.Year, nullable(iv.Description), iv.From, iv.To, iv.Width, iv.Pattern, iv.Overflow,
-		nullable(iv.NextKey), iv.WarnPercent, now, now); err != nil {
+		nullable(iv.NextKey), iv.WarnPercent, now, now, b2i(iv.External), nullable(iv.ExternalPattern)); err != nil {
 		return nil, err
 	}
 	p.log(ctx, sdk.LogInfo, "Nummernkreis-Intervall angelegt", map[string]string{"id": iv.ID})
@@ -490,7 +629,7 @@ func (p *Plugin) checkDisjoint(ctx context.Context, q database.Querier, iv inter
 }
 
 const intervalCols = `id, object, company_code, range_key, year, description, from_number, to_number, current_number, width, pattern,
-	overflow, next_key, warn_percent, active, updated_at`
+	overflow, next_key, warn_percent, active, updated_at, external, external_pattern`
 
 func (p *Plugin) loadIntervals(ctx context.Context, q database.Querier, rest string, args ...any) ([]interval, error) {
 	res, err := database.Query(ctx, q, p.q(`SELECT `+intervalCols+` FROM numrange__interval `+rest), args...)
@@ -501,7 +640,8 @@ func (p *Plugin) loadIntervals(ctx context.Context, q database.Querier, rest str
 	for i, r := range res.Rows {
 		out[i] = interval{ID: s(r[0]), Object: s(r[1]), CompanyCode: s(r[2]), Key: s(r[3]), Year: int(i64(r[4])), Description: s(r[5]),
 			From: i64(r[6]), To: i64(r[7]), Current: i64(r[8]), Width: int(i64(r[9])), Pattern: s(r[10]), Overflow: s(r[11]),
-			NextKey: s(r[12]), WarnPercent: int(i64(r[13])), Active: i64(r[14]) != 0, UpdatedAt: s(r[15])}
+			NextKey: s(r[12]), WarnPercent: int(i64(r[13])), Active: i64(r[14]) != 0, UpdatedAt: s(r[15]),
+			External: i64(r[16]) != 0, ExternalPattern: s(r[17])}
 	}
 	return out, nil
 }
