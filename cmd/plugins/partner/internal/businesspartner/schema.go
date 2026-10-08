@@ -74,10 +74,44 @@ table "partner__role_types" {
 
 # --- Geschäftspartner und Beziehungen -----------------------------------------
 
+# Anreden (seit 0.11.0): Vorlage der Briefanrede je Art und Geschlecht
+table "partner__salutations" {
+  schema = schema.main
+  column "code"        { type = text }
+  column "description" { type = text }
+  column "letter_text" { type = text }
+  column "person_type" {
+    type = text
+    null = true
+  }
+  column "gender" {
+    type = text
+    null = true
+  }
+  column "sort_order" {
+    type    = bigint
+    default = 0
+  }
+  column "is_active" {
+    type    = boolean
+    default = true
+  }
+  primary_key { columns = [column.code] }
+}
+
 table "partner__bp" {
   schema = schema.main
   column "id"   { type = text }
   column "type" { type = text }
+  # seit 0.11.0: Anrede (Katalog partner__salutations), Geschlecht natürlicher Personen
+  column "salutation_code" {
+    type = text
+    null = true
+  }
+  column "gender" {
+    type = text
+    null = true
+  }
   column "name1" { type = text }
   column "name2" {
     type = text
@@ -281,10 +315,17 @@ var seeds = []sdk.SchemaSeed{
 		row("code", "MAIN", "description", "Hauptanschrift", "is_main", true, "valid_from", dateMin, "valid_to", dateMax),
 		row("code", "INVOICE", "description", "Rechnungsanschrift", "is_main", false, "valid_from", dateMin, "valid_to", dateMax),
 	}},
+	{Table: "partner__salutations", Rows: []map[string]any{
+		row("code", "FRAU", "description", "Frau", "letter_text", "Sehr geehrte Frau {name1}", "person_type", "PERSON", "gender", "FEMALE", "sort_order", 10, "is_active", true),
+		row("code", "HERR", "description", "Herr", "letter_text", "Sehr geehrter Herr {name1}", "person_type", "PERSON", "gender", "MALE", "sort_order", 20, "is_active", true),
+		row("code", "NEUTRAL", "description", "Guten Tag", "letter_text", "Guten Tag {name2} {name1}", "person_type", "PERSON", "gender", "DIVERSE", "sort_order", 30, "is_active", true),
+		row("code", "FIRMA", "description", "Firma", "letter_text", "Sehr geehrte Damen und Herren", "person_type", "ORGANIZATION", "sort_order", 40, "is_active", true),
+	}},
 	{Table: "partner__role_types", Rows: []map[string]any{
 		row("code", "DEBITOR", "description", "Debitor", "is_debitor", true, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
 		row("code", "CREDITOR", "description", "Kreditor", "is_debitor", false, "is_creditor", true, "valid_from", dateMin, "valid_to", dateMax),
 		row("code", "TENANT", "description", "Mieter", "is_debitor", true, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),
 		row("code", "LANDLORD", "description", "Vermieter", "is_debitor", false, "is_creditor", true, "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "AUTHORITY", "description", "Behörde / Amt", "is_debitor", false, "is_creditor", true, "valid_from", dateMin, "valid_to", dateMax),
 	}},
 }
