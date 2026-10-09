@@ -476,3 +476,17 @@ func TestSavedToast(t *testing.T) {
 		t.Fatalf("mit Warnung: %+v", got)
 	}
 }
+
+// TestKeyDateMetadata: Der Stichtag aus dem Profil geht mit jeder Anfrage an die Module.
+func TestKeyDateMetadata(t *testing.T) {
+	s := &server{}
+	r := httptest.NewRequest("GET", "/", nil)
+	r = r.WithContext(context.WithValue(r.Context(), userKey{}, &user{ID: "u1", Username: "u", KeyDate: "2026-01-01"}))
+	if md := s.callContext(r).Metadata; md[sdk.MetaKeyDate] != "2026-01-01" {
+		t.Fatalf("Metadaten: %v", md)
+	}
+	r = r.WithContext(context.WithValue(r.Context(), userKey{}, &user{ID: "u1", Username: "u"}))
+	if _, ok := s.callContext(r).Metadata[sdk.MetaKeyDate]; ok {
+		t.Fatal("ohne Stichtag keine Metadaten")
+	}
+}

@@ -94,10 +94,10 @@ func typeLabel(t string) string {
 	return t
 }
 
-// decoratePerson: heutige Rollen und Briefanrede aus der Vorlage der Anrede.
+// decoratePerson: Rollen zum Stichtag (sonst heute) und Briefanrede aus der Vorlage der Anrede.
 func (m *Module) decoratePerson(ctx context.Context, rec record) error {
 	res, err := m.db.Query(ctx, `SELECT DISTINCT role_code FROM partner__roles WHERE bp_id = ? AND valid_from <= ? AND valid_to >= ? ORDER BY role_code`,
-		str(rec["id"]), today(), today())
+		str(rec["id"]), keyDate(ctx), keyDate(ctx))
 	if err != nil {
 		return err
 	}

@@ -112,6 +112,12 @@ zur Schnittmenge; ohne Schnittmenge entfällt die Berechtigung. So genügt **ein
 `company_codes = 2000`. `CompanyCode.list` zeigt einem eingeschränkten Benutzer nur seine
 Buchungskreise (Auswahllisten).
 
+### Stichtag am Benutzer (seit 0.9.0)
+
+`Account.UpdateProfile {"key_date": "2026-01-01"}` (leer = heute) setzt das Arbeitsdatum des
+Benutzers; `Account.Me` liefert es als `key_date`. Der WebServer reicht es mit jeder Anfrage
+als Metadaten `key_date` an die Module (Stichtag im Benutzermenü).
+
 ### Was wird wann geprüft?
 
 | Situation | Prüfung |

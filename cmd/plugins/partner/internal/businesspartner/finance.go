@@ -113,14 +113,14 @@ func (m *Module) partnerRole() *entity {
 	}
 }
 
-// missingFinanceData: heute gültige Finanzrollen des Partners ohne
+// missingFinanceData: zum Stichtag (sonst heute) gültige Finanzrollen des Partners ohne
 // Buchungskreisdaten (z. B. Rollentyp nachträglich zur Finanzrolle gemacht).
 func (m *Module) missingFinanceData(ctx context.Context, bpID string) ([]string, error) {
 	res, err := m.db.Query(ctx, `SELECT DISTINCT r.role_code FROM partner__roles r
 		JOIN partner__role_types t ON t.code = r.role_code AND t.valid_from <= ? AND t.valid_to >= ?
 		WHERE r.bp_id = ? AND r.valid_from <= ? AND r.valid_to >= ? AND (t.is_debitor = ? OR t.is_creditor = ?)
 		AND NOT EXISTS (SELECT 1 FROM partner__company_codes c WHERE c.bp_id = r.bp_id AND c.role_code = r.role_code)
-		ORDER BY r.role_code`, today(), today(), bpID, today(), today(), true, true)
+		ORDER BY r.role_code`, keyDate(ctx), keyDate(ctx), bpID, keyDate(ctx), keyDate(ctx), true, true)
 	if err != nil {
 		return nil, err
 	}

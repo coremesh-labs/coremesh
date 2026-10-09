@@ -23,6 +23,7 @@ type userRow struct {
 	// CompanyCodes schränkt alle Rollen des Benutzers auf diese Buchungskreise
 	// ein; [*] = keine Einschränkung.
 	CompanyCodes []string
+	KeyDate      string // Stichtag (JJJJ-MM-TT), "" = heute
 	CreatedAt    string
 	Roles        []string // Rollennamen
 }
@@ -120,12 +121,12 @@ func (p *Plugin) countUsers(ctx context.Context) (int, error) {
 
 // --- Benutzer ------------------------------------------------------------------
 
-const userCols = `id, username, display_name, tenant_id, active, created_at, locale, company_codes`
+const userCols = `id, username, display_name, tenant_id, active, created_at, locale, company_codes, key_date`
 
 func scanUser(r []any) userRow {
 	ccs, _ := parseCompanyCodes(s(r[7]))
 	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5]), Locale: s(r[6]),
-		CompanyCodes: ccs}
+		CompanyCodes: ccs, KeyDate: s(r[8])}
 }
 
 // userCompanyCodes: Spaltenwert der Einschränkung ("" = keine).

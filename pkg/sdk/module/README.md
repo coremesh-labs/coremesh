@@ -132,6 +132,15 @@ Auswahlwerten `crud.SeverityOptions`. Bei einer Warnung wird gespeichert; die An
 `create`/`update` trägt die Texte in `_warnings` – der WebServer zeigt sie als gelbe
 Meldung, die Konsole in der Antwort. So bleiben Prüfungen konfigurierbar statt fest verdrahtet.
 
+## Stichtag (Arbeitsdatum)
+
+Vorbelegungen und Prüfungen „zum heutigen Tag“ nehmen `crud.KeyDate(ctx)` statt des
+Systemdatums: den Stichtag des Benutzers (Profil, Metadaten `sdk.MetaKeyDate`), sonst heute.
+Die CRUD-Engine belegt damit „Gültig ab“ neuer Zeitscheiben vor und prüft Verweise nicht
+zeitabhängiger Entitäten zu diesem Tag. So lässt sich ein vergangener Zeitraum nachträglich
+erfassen (z. B. Stichtag 01.01.2026). Fachcode mit eigenem „heute“ (Formular-Vorbelegungen,
+Buchungsdatum, Prüfungen) nimmt ebenfalls `crud.KeyDate(ctx)`.
+
 ## SystemEvents
 
 Änderungen an Bewegungsdaten meldet ein Modul an den Event-Dispatcher (Core-Plugin `event`,
