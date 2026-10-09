@@ -46,6 +46,12 @@ table "iam__users" {
     type = text
     null = true
   }
+  # Stichtag (Arbeitsdatum, JJJJ-MM-TT) des Benutzers; leer = heute. Seit 0.9.0:
+  # Vorbelegungen und Prüfungen „zum heutigen Tag“ nehmen ihn (Nachbuchen eines Zeitraums).
+  column "key_date" {
+    type = text
+    null = true
+  }
   column "created_at" {
     type = text
   }

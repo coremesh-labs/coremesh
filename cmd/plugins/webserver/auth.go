@@ -42,6 +42,7 @@ type user struct {
 	Roles       []string `json:"roles"`
 	Permissions []string `json:"permissions"` // "Object.Action[@Buchungskreis,…]" mit Platzhaltern
 	Locale      string   `json:"locale"`      // Sprache aus dem Profil ("" = automatisch)
+	KeyDate     string   `json:"key_date"`    // Stichtag (JJJJ-MM-TT) aus dem Profil, "" = heute
 }
 
 // Name ist der Anzeigename.

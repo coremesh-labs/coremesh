@@ -67,6 +67,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("GET /peek/{object}/{id}", s.peek)
 	// Mehrsprachigkeit: Sprachwähler, Wörterbuch, eigenes Profil (siehe i18n.go).
 	s.mux.HandleFunc("POST /locale", s.setLocale)
+	s.mux.HandleFunc("POST /keydate", s.setKeyDate)
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
 	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
 	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
@@ -108,6 +109,9 @@ func (s *server) callContext(r *http.Request) sdk.CallContext {
 	if u := userFrom(r); u != nil {
 		call.UserID = u.ID
 		md["username"] = u.Username
+		if u.KeyDate != "" {
+			md[sdk.MetaKeyDate] = u.KeyDate // Vorbelegungen und Prüfungen zum Stichtag (crud.KeyDate)
+		}
 		if u.TenantID != "" {
 			call.TenantID = u.TenantID
 		}

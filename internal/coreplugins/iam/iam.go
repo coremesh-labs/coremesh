@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.8.0"
+	Version = "0.9.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -293,6 +293,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
 		"roles": roles, "permissions": ps, "locale": u.Locale, "company_codes": userCompanyCodesText(u.CompanyCodes),
+		"key_date": u.KeyDate,
 	}}, nil
 }
 
@@ -795,7 +796,8 @@ func (p *Plugin) updateProfile(ctx context.Context, payload any) (sdk.Response, 
 		return sdk.Response{}, fmt.Errorf("%w: keine Anmeldung", sdk.ErrPermissionDenied)
 	}
 	var in struct {
-		Locale *string `json:"locale"`
+		Locale  *string `json:"locale"`
+		KeyDate *string `json:"key_date"`
 	}
 	if err := sdk.Decode(payload, &in); err != nil {
 		return sdk.Response{}, err
@@ -810,6 +812,20 @@ func (p *Plugin) updateProfile(ctx context.Context, payload any) (sdk.Response, 
 			value = loc
 		}
 		if _, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__users SET locale = ?, updated_at = ? WHERE id = ?`),
+			value, time.Now().UTC().Format(time.RFC3339), id); err != nil {
+			return sdk.Response{}, err
+		}
+	}
+	if in.KeyDate != nil {
+		var value any
+		if d := strings.TrimSpace(*in.KeyDate); d != "" {
+			t, err := time.Parse(time.DateOnly, d)
+			if err != nil {
+				return sdk.Response{}, fmt.Errorf("%w: Stichtag JJJJ-MM-TT erwartet, nicht %q", sdk.ErrInvalidArgument, d)
+			}
+			value = t.Format(time.DateOnly)
+		}
+		if _, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__users SET key_date = ?, updated_at = ? WHERE id = ?`),
 			value, time.Now().UTC().Format(time.RFC3339), id); err != nil {
 			return sdk.Response{}, err
 		}

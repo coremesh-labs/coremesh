@@ -274,6 +274,30 @@ func (s *server) setLocale(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// POST /keydate: Stichtag (Arbeitsdatum) im Profil setzen; leer oder
+// clear=1 = heute. Neuanlagen und Prüfungen „zum heutigen Tag“ nehmen ihn.
+func (s *server) setKeyDate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, s.T(r, "core.app.bad_request"), http.StatusBadRequest)
+		return
+	}
+	date := strings.TrimSpace(r.PostForm.Get("key_date"))
+	if r.PostForm.Get("clear") != "" {
+		date = ""
+	}
+	if _, err := s.call(r, "Account", "UpdateProfile", map[string]any{"key_date": date}); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	back := safeNext(r.PostForm.Get("next"))
+	if isHTMX(r) {
+		w.Header().Set("HX-Redirect", back)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
 // coreTexts: Framework-Texte aller Sprachen für Stellen ohne Übersetzungsdienst.
 var coreTexts = sync.OnceValue(func() metamodel.Translations {
 	t, _ := module.LoadTranslations(coreFiles, "i18n")

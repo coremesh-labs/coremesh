@@ -212,6 +212,9 @@ func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 		}
 	}
 	if e.TimeSlice {
+		if rec["valid_from"] == nil || Str(rec["valid_from"]) == "" {
+			rec["valid_from"] = KeyDate(ctx) // Stichtag des Benutzers, sonst heute
+		}
 		if err := CheckTimeSlice(rec); err != nil {
 			return err
 		}
@@ -227,7 +230,7 @@ func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 			return Invalid("%s ist Pflicht", f.Label)
 		}
 		if f.Ref != nil && rec[f.Key] != nil {
-			at := Today()
+			at := KeyDate(ctx)
 			if e.TimeSlice {
 				at = Str(rec["valid_from"])
 			}
