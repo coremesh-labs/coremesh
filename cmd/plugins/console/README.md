@@ -18,6 +18,39 @@ console (CLI) ──gRPC (Unix-Socket / TCP+TLS)──▶ Console-Plugin ──H
 
 ## CLI
 
+### Verben: handle, read, list, details
+
+```bash
+console list                                   # alle Objects
+console list Contract*                         # Objects nach Muster (* ?; ohne Platzhalter: Teil des Namens)
+console list Contract.*                        # Actions eines Objects
+console list hooks ledger.*                    # Hooks (Besitzer, Phasen, Zahl der Abos)
+console list events JournalDraft               # Event-Abonnements zu einem Object
+console list commands setup                    # Konsolenbefehle der Module
+console details BankAccount                    # Felder (Typ, Pflicht, Verweis), Actions, Filter
+console details Contract.activate              # Route (Plugin, Version), Art, Parameter
+console details hook ledger.posting            # Hook mit Phasen, Daten und Abos
+console details event JournalDraft.post        # Empfänger eines Events
+console handle CompanyCode.get --id=2000       # Action aufrufen
+console handle Contract.list --query='{"company_code":"2000"}'
+console handle BankAccount.importFile --id='1000|COBA' --file=./auszug.csv
+console read JournalEntryItem.list --company_code_id=2000 --format jsonl --out items.jsonl
+```
+
+- Verben ohne Rücksicht auf Groß-/Kleinschreibung (`Handle`, `List` …).
+- **Parameter** von `handle` und `read`: `--name=wert` (oder wie bisher `--param name=wert`).
+  Die CLI liest das Metamodell des Objects und wandelt nach dem Feldtyp um: Textfelder
+  bleiben Text (`--company_code=2000`), Zahl- und Schalterfelder werden gelesen, `data` und
+  `query` sind JSON, `id` ist immer Text. Datei-Felder (Typ `file`) liest die CLI lokal ein –
+  Inhalt und `<feld>_name` wie das Formular des WebServers. Nicht deklarierte Parameter:
+  gültiges JSON als Wert, sonst Text.
+- `list` und `details` geben eine Tabelle aus, mit `--format json` JSON.
+- Quellen: Catalog (`ListObjects`, `ListActions`, `GetDefinition`, `ListModules`), Hook
+  (`Hook.list/get`, `HookSubscription.list`), SystemEvent (`List`). Es gilt das Recht des
+  angemeldeten Benutzers auf diese Objects.
+
+### Bisherige Form
+
 ```bash
 console --object Greeting --action list
 console --object Greeting --action say --param name=Christof
