@@ -61,6 +61,7 @@ func (m *Module) RegisterRoutes(r *module.Router) {
 	m.set.Register(r, "Partnerdaten")
 	// RFC-artig, ohne Oberfläche: Verweise auf alte Partner-GUIDs auflösen
 	r.Object(serviceObject).Handle(actionResolve, m.resolve)
+	m.registerChartChange(r)
 }
 
 // Initialize übernimmt Datenbank, Services und Logger.
@@ -73,6 +74,7 @@ func (m *Module) Initialize(ctx context.Context, env module.Env) error {
 	if err := m.defineNumbers(ctx); err != nil {
 		m.log.WarnContext(ctx, "Nummernkreis BusinessPartner nicht angemeldet", "err", err.Error())
 	}
+	m.subscribeChartChange(ctx)
 	m.log.InfoContext(ctx, "Modul bereit", "objects", len(m.set.Entities()), "database", env.DB.Name())
 	return nil
 }
