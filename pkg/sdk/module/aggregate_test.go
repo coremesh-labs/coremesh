@@ -301,3 +301,19 @@ func TestAggregateRelationOutsideModule(t *testing.T) {
 		t.Fatalf("Relation über Modulgrenze: %v", err)
 	}
 }
+
+// TestAggregateLinkMatch: Relation mit Match (zusammengesetzter Schlüssel des
+// Masters) verbindet über die Felder des Master-Datensatzes, sonst über ForeignKey = id.
+func TestAggregateLinkMatch(t *testing.T) {
+	a := &aggregate{}
+	plain := relationRoute{rel: metamodel.Relation{Object: "Contact", ForeignKey: "account_id"}}
+	if got := a.link(plain, "A1", map[string]any{"id": "A1"}); !maps.Equal(got, map[string]any{"account_id": "A1"}) {
+		t.Fatalf("ohne Match: %v", got)
+	}
+	matched := relationRoute{rel: metamodel.Relation{Object: "ContractCondition", ForeignKey: "contract_id",
+		Match: map[string]string{"company_code": "company_code", "contract_id": "contract_id"}}}
+	master := map[string]any{"id": "2000|MV-1", "company_code": "2000", "contract_id": "MV-1"}
+	if got := a.link(matched, "2000|MV-1", master); !maps.Equal(got, map[string]any{"company_code": "2000", "contract_id": "MV-1"}) {
+		t.Fatalf("mit Match: %v", got)
+	}
+}

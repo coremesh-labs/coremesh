@@ -175,6 +175,11 @@ dann bleibt seine eigene Implementierung.
 | `getAggregate` | `{"id": "…"}` | `{"record": {…}, "relations": {"<section>": [{…}], …}}` |
 | `saveAggregate` | `{"id"?, "data"?, "relations": {"<section>": {"create": [{…}], "update": [{"id", "data"}], "expire": [{"id", "valid_to"}], "deactivate": ["id"]}}}` | wie `getAggregate`, Stand nach dem Speichern |
 
+Verknüpfung der Unter-Objects: mit `Relation.Match` (Master mit zusammengesetztem Schlüssel,
+z. B. `{"company_code": "company_code", "contract_id": "contract_id"}`) über diese Felder des
+Master-Datensatzes – beim Lesen als Filter, beim Anlegen und Ändern als Werte; sonst
+`ForeignKey` = id des Masters.
+
 So verarbeitet `saveAggregate` die Änderungen:
 
 ```
