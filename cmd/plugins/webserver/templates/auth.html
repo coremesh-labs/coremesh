@@ -68,6 +68,18 @@
 </form>
 {{end}}
 
+{{/* Stichtag (Arbeitsdatum) des Benutzers: gesetzt = hervorgehoben, mit „heute“ zurücksetzen. */}}
+{{define "key-date"}}
+<form class="key-date{{if .User.KeyDate}} active{{end}}" method="post" action="/keydate" title="{{t "core.keydate.hint"}}">
+  <input type="hidden" name="next" value="{{.Path}}">
+  <label>{{t "core.keydate.label"}}
+    <input type="date" name="key_date" value="{{.User.KeyDate}}" onchange="this.form.submit()">
+  </label>
+  {{if .User.KeyDate}}<button type="submit" name="clear" value="1" class="link">{{t "core.keydate.today"}}</button>{{end}}
+  <noscript><button type="submit" class="link">OK</button></noscript>
+</form>
+{{end}}
+
 {{/* Benutzermenü in der Sidebar. Daten: pageData. */}}
 {{define "user-menu"}}
 {{with .User}}
@@ -75,6 +87,7 @@
   <span class="user-name">{{.Name}}</span>
   <a href="/account/password" hx-get="/account/password" hx-target="#main-content" hx-push-url="true">{{t "core.auth.change_password"}}</a>
   {{template "locale-switch" $.Path}}
+  {{template "key-date" $}}
   <form method="post" action="/logout"><button type="submit" class="link">{{t "core.auth.logout"}}</button></form>
 </div>
 {{end}}
