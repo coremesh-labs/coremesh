@@ -110,6 +110,7 @@
   "core.tags.effective_date": "关键日期",
   "core.tags.empty": "在关键日期，此对象类型未分配任何标签集。",
   "core.tags.global": "所有公司代码（全局）",
+  "core.tags.protected": "受保护——无权查看该值",
   "core.tags.save": "保存标签",
   "core.tags.saved": "标签已保存。",
   "core.tags.scope": "公司代码 %s",

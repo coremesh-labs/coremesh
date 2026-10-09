@@ -176,6 +176,8 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
 			field{Key: "search_term", Label: "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)", Type: tText, Listable: true},
 			field{Key: "letter_salutation", Label: "Briefanrede", Type: tText, ReadOnly: true, Virtual: true},
+			// Rollen, die der Partner heute hat (kommagetrennt) – z. B. für Bedingungen von Tag Sets
+			field{Key: "roles", Label: "Rollen (heute)", Type: tText, ReadOnly: true, Virtual: true},
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		),

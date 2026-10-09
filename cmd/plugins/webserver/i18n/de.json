@@ -110,6 +110,7 @@
   "core.tags.effective_date": "Stichtag",
   "core.tags.empty": "Für diesen Objekttyp sind am Stichtag keine Tag Sets zugewiesen.",
   "core.tags.global": "Alle Buchungskreise (global)",
+  "core.tags.protected": "geschützt – kein Recht, den Wert zu sehen",
   "core.tags.save": "Tags speichern",
   "core.tags.saved": "Tags gespeichert.",
   "core.tags.scope": "BK %s",

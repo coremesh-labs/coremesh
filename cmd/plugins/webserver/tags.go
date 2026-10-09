@@ -59,6 +59,8 @@ type tagField struct {
 	Scope                string // Buchungskreis des Werts oder "*"
 	Required, Visible    bool
 	Deprecated           bool
+	Hidden               bool   // geschützt, der Benutzer darf den Wert nicht sehen
+	Pattern, Hint        string // Prüfmuster (Text) und Hinweis
 	Error                string
 }
 
@@ -255,7 +257,8 @@ func (ed *tagEditor) build(schema tagservice.Schema, st tagservice.State, errs m
 			seen[it.Tag.Code] = true
 			f := tagField{Code: it.Tag.Code, Name: it.Tag.Name, DataType: string(it.Tag.DataType), Scope: it.Scope,
 				Required: st.Required[it.Tag.Code], Visible: st.Visible[it.Tag.Code] || len(st.Visible) == 0,
-				Deprecated: it.Tag.Status != "ACTIVE", Error: errs[it.Tag.Code], RefObject: it.Tag.RefObject}
+				Deprecated: it.Tag.Status != "ACTIVE", Error: errs[it.Tag.Code], RefObject: it.Tag.RefObject,
+				Hidden: it.Tag.Hidden, Pattern: it.Tag.Pattern, Hint: it.Tag.PatternHint}
 			if it.Tag.ValueMode == tagservice.ModeOptions {
 				for _, o := range it.Tag.Options {
 					f.Options = append(f.Options, tagOption{Value: o.Code, Label: o.Label})
@@ -274,8 +277,8 @@ func formTagValues(schema tagservice.Schema, form url.Values) (map[string]*tagse
 	for _, set := range schema.Sets {
 		for _, it := range set.Items {
 			code := it.Tag.Code
-			if _, done := values[code]; done || it.Tag.Status != "ACTIVE" {
-				continue // veraltete Tags sind nur lesbar
+			if _, done := values[code]; done || it.Tag.Status != "ACTIVE" || it.Tag.Hidden {
+				continue // veraltete und verborgene (geschützte) Tags sind nur lesbar – nicht beenden
 			}
 			raw := strings.TrimSpace(form.Get("v." + code))
 			if it.Tag.ValueMode == tagservice.ModeOptions {
