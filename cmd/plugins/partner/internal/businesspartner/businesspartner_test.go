@@ -27,9 +27,9 @@ import (
 type testHost struct {
 	sdk.Host
 	db           *sql.DB
-	companyCodes []string            // in iam angelegt
-	granted      map[string][]string // action → erlaubte Buchungskreise ("*" = alle)
-	self         sdk.Handler         // Plugin selbst: alle übrigen Objects
+	companyCodes []string              // in iam angelegt
+	granted      map[string][]string   // action → erlaubte Buchungskreise ("*" = alle)
+	self         sdk.Handler           // Plugin selbst: alle übrigen Objects
 	ranges       map[string]*fakeRange // Nummernkreis BusinessPartner je Intervallschlüssel
 	events       []map[string]any      // gesendete SystemEvents
 }
