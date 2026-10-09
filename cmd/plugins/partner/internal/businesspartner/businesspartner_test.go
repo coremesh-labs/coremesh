@@ -18,6 +18,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/hook"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
 )
@@ -898,5 +899,41 @@ func TestPersonSalutation(t *testing.T) {
 	e.must("PartnerSalutation", "create", data("code", "dr", "description", "Frau Dr.", "letter_text", "Sehr geehrte Frau Dr. {name1}", "person_type", "PERSON"))
 	if d := e.must("BusinessPartner", "create", data("type", "PERSON", "name1", "Klug", "salutation_code", "DR")); d["letter_salutation"] != "Sehr geehrte Frau Dr. Klug" {
 		t.Fatalf("eigene Anrede: %v", d)
+	}
+}
+
+// TestChartChange: Abstimmkonten der Partner beim Kontenplanwechsel – ohne
+// Zuordnung Meldung E (check), sonst umgestellt (commit), nur im Buchungskreis.
+func TestChartChange(t *testing.T) {
+	e := setup(t)
+	id := e.newBP("Mieter Eins")
+	e.must("PartnerRole", "create", data("bp_id", id, "role_code", "TENANT", "company_codes", "1000;2000\n2000;2000"))
+	call := func(phase string, mapping map[string]any) []any {
+		t.Helper()
+		resp, err := e.p.Handle(e.ctx, sdk.Request{Object: chartChangeCallback, Action: hook.CallbackAction, Payload: map[string]any{
+			"hook": chartChangeHook, "action": phase, "data": map[string]any{"company_code": "2000", "to_chart": "SKR04", "mapping": mapping}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out struct {
+			Messages []any `json:"messages"`
+		}
+		if err := sdk.Decode(resp.Payload, &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.Messages
+	}
+	if msgs := call(hook.PhaseCheck, map[string]any{}); len(msgs) != 1 || !strings.Contains(fmt.Sprint(msgs[0]), "2000") {
+		t.Fatalf("ohne Zuordnung: %v", msgs)
+	}
+	if msgs := call(hook.PhaseCheck, map[string]any{"2000": "1200"}); len(msgs) != 0 {
+		t.Fatalf("mit Zuordnung: %v", msgs)
+	}
+	call(hook.PhaseCommit, map[string]any{"2000": "1200"})
+	var a1000, a2000 string
+	e.h.db.QueryRow(`SELECT reconciliation_account FROM partner__company_codes WHERE company_code = '1000'`).Scan(&a1000)
+	e.h.db.QueryRow(`SELECT reconciliation_account FROM partner__company_codes WHERE company_code = '2000'`).Scan(&a2000)
+	if a2000 != "1200" || a1000 != "2000" {
+		t.Fatalf("umgestellt: 2000=%q, 1000 unverändert=%q", a2000, a1000)
 	}
 }

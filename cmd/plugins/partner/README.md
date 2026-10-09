@@ -176,6 +176,9 @@ Geprüft wird über die `category_code` des Kommunikationstyps:
   in einer Transaktion. Bei anderen Rollen sind Buchungskreise nicht erlaubt.
 - **Buchungskreisdaten** gibt es nur für Finanzrollen, die der Partner hat. Das
   **Abstimmkonto ist Pflicht** (seit 0.9.0).
+- **Kontenplanwechsel** (seit 0.12.0): Abonnent des Hooks `ledger.chart_change` des Hauptbuchs –
+  Abstimmkonten ohne Zuordnung verhindern den Wechsel (check), sonst werden sie im Buchungskreis
+  umgestellt (commit).
 - **Speichern nur vollständig:** Hat ein Partner eine heute gültige Finanzrolle ohne
   Buchungskreisdaten (etwa weil der Rollentyp nachträglich zur Finanzrolle wurde), lehnt
   `BusinessPartner.update` ab und nennt die Rolle. Ergänzen über „Buchungskreisdaten“.
