@@ -7,6 +7,7 @@
   "businesspartner.BusinessPartner.fields.letter_salutation": "Letter salutation",
   "businesspartner.BusinessPartner.fields.name1": "Name 1 (company / last name)",
   "businesspartner.BusinessPartner.fields.name2": "Name 2 (first name / addition)",
+  "businesspartner.BusinessPartner.fields.roles": "Roles (today)",
   "businesspartner.BusinessPartner.fields.salutation_code": "Salutation (empty = proposal by kind and gender)",
   "businesspartner.BusinessPartner.fields.search_term": "Short name (matchcode; empty = suggestion from the name)",
   "businesspartner.BusinessPartner.fields.type": "Type",

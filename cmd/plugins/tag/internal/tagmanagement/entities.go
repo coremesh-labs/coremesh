@@ -62,6 +62,12 @@ func checkCode(rec crud.Record, key string) error {
 	return nil
 }
 
+// Rechte für geschützte Tags (TagType, einschränkbar nach code).
+const (
+	actionReadValue   = "readValue"
+	actionChangeValue = "changeValue"
+)
+
 // TagType: Definition eines Tags. Keine Zeitscheibe, sondern Status
 // ACTIVE/DEPRECATED (Lebenszyklus status): Veraltete Tags erscheinen nicht
 // mehr für Neu-Eingaben, Bestandswerte bleiben lesbar.
@@ -80,9 +86,17 @@ func (m *Module) tagType() *crud.Entity {
 			{Key: "translation_key", Label: "Übersetzungsschlüssel", Type: tText},
 			{Key: "description", Label: "Beschreibung", Type: tArea},
 			{Key: "status", Label: "Status", Type: tSelect, Listable: true, ReadOnly: true, Options: statuses},
+			{Key: "pattern", Label: "Prüfmuster (regulärer Ausdruck, ganzer Wert; nur Text)", Type: tText, Group: "Prüfung"},
+			{Key: "pattern_hint", Label: "Hinweis bei falschem Wert (z. B. 11 Ziffern)", Type: tText, Group: "Prüfung"},
+			{Key: "protected", Label: "Geschützt: Werte nur mit Recht „Werte geschützter Tags sehen/ändern“", Type: tBool, Listable: true, Group: "Prüfung"},
 		},
+		// Geschützte Tags (z. B. Steuer-ID): Rechte TagType.readValue/changeValue,
+		// einschränkbar nach Tag-Code.
+		Authorization: &metamodel.Authorization{Fields: []string{"code"}, Actions: []metamodel.AuthAction{
+			{Name: actionReadValue, Label: "Werte geschützter Tags sehen"}, {Name: actionChangeValue, Label: "Werte geschützter Tags ändern"}}},
 		Sections: []metamodel.SectionDefinition{
 			{Key: "definition", Title: "Definition", Fields: []string{"code", "name", "data_type", "value_mode", "ref_object", "status", "translation_key", "description"}},
+			{Key: "pruefung", Title: "Prüfung und Schutz", Fields: []string{"pattern", "pattern_hint", "protected"}},
 			{Key: "options", Title: "Auswahlwerte", Relation: &metamodel.Relation{Object: "TagValueOption", ForeignKey: "tag_type_code",
 				Columns: []string{"code", "label", "translation_key", "sort_order", "valid_from", "valid_to"}}},
 		},
@@ -90,6 +104,20 @@ func (m *Module) tagType() *crud.Entity {
 			dt := tagservice.DataType(crud.Str(rec["data_type"]))
 			if crud.Str(rec["value_mode"]) == string(tagservice.ModeOptions) && (dt == tagservice.TypeCurrency || dt == tagservice.TypeReference) {
 				return crud.Invalid("Auswahlwerte gibt es für den Datentyp %s nicht", dt)
+			}
+			if p := strings.TrimSpace(crud.Str(rec["pattern"])); p != "" {
+				if dt != tagservice.TypeString {
+					return crud.Invalid("Prüfmuster gibt es nur für den Datentyp Text")
+				}
+				if _, err := regexp.Compile(`^(?:` + p + `)$`); err != nil {
+					return crud.Invalid("Prüfmuster: %v", err)
+				}
+				rec["pattern"] = p
+			} else {
+				rec["pattern"] = nil
+			}
+			if rec["protected"] == nil {
+				rec["protected"] = false
 			}
 			if old != nil {
 				return nil
@@ -249,10 +277,19 @@ func (m *Module) setAssignment() *crud.Entity {
 			crud.Field{Key: "tag_set_code", Label: "Tag Set", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refTagSet},
 			crud.Field{Key: "condition_field", Label: "Nur wenn Feld (optional, z. B. contract_type)", Type: tText, Listable: true},
 			crud.Field{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
+			crud.Field{Key: "condition_field_2", Label: "Und Feld (optional, z. B. roles)", Type: tText, Listable: true},
+			crud.Field{Key: "condition_values_2", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
 		),
 		Validate: func(ctx context.Context, rec, old crud.Record) error {
-			if err := m.checkCondition(ctx, rec); err != nil {
+			if err := m.checkCondition(ctx, rec, "condition_field", "condition_values"); err != nil {
 				return err
+			}
+			if err := m.checkCondition(ctx, rec, "condition_field_2", "condition_values_2"); err != nil {
+				return err
+			}
+			if rec["condition_field"] == nil && rec["condition_field_2"] != nil {
+				rec["condition_field"], rec["condition_values"], rec["condition_field_2"], rec["condition_values_2"] =
+					rec["condition_field_2"], rec["condition_values_2"], nil, nil
 			}
 			if !objectRe.MatchString(strings.TrimSpace(crud.Str(rec["entity_type"]))) {
 				return crud.Invalid("Objekttyp %q: Name eines Objects in PascalCase erwartet, z. B. BusinessPartner", crud.Str(rec["entity_type"]))
@@ -293,14 +330,14 @@ func (m *Module) checkRefObject(ctx context.Context, rec crud.Record) error {
 
 // checkCondition prüft Feld und Werte einer Bedingung gegen das Metamodell des
 // Objekttyps und speichert die Werte normalisiert ("RENT,LEASE").
-func (m *Module) checkCondition(ctx context.Context, rec crud.Record) error {
-	field := strings.TrimSpace(crud.Str(rec["condition_field"]))
-	values := splitValues(crud.Str(rec["condition_values"]))
+func (m *Module) checkCondition(ctx context.Context, rec crud.Record, fieldKey, valuesKey string) error {
+	field := strings.TrimSpace(crud.Str(rec[fieldKey]))
+	values := splitValues(crud.Str(rec[valuesKey]))
 	if field == "" {
 		if len(values) > 0 {
 			return crud.Invalid("Werte der Bedingung ohne Feld – Feld angeben oder Werte leeren")
 		}
-		rec["condition_field"], rec["condition_values"] = nil, nil
+		rec[fieldKey], rec[valuesKey] = nil, nil
 		return nil
 	}
 	if len(values) == 0 {
@@ -330,6 +367,6 @@ func (m *Module) checkCondition(ctx context.Context, rec crud.Record) error {
 			}
 		}
 	}
-	rec["condition_field"], rec["condition_values"] = field, strings.Join(values, ",")
+	rec[fieldKey], rec[valuesKey] = field, strings.Join(values, ",")
 	return nil
 }

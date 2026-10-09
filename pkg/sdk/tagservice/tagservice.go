@@ -26,6 +26,7 @@ package tagservice
 
 import (
 	"context"
+	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
@@ -101,9 +102,13 @@ type TagType struct {
 	TranslationKey string        `json:"translation_key,omitempty"`
 	DataType       DataType      `json:"data_type"`
 	ValueMode      ValueMode     `json:"value_mode"`
-	RefObject      string        `json:"ref_object,omitempty"` // REFERENCE: Object des Ziels, z. B. "RentalObject"
-	Status         string        `json:"status"`               // ACTIVE | DEPRECATED
-	Options        []ValueOption `json:"options,omitempty"`    // am Stichtag gültig
+	RefObject      string        `json:"ref_object,omitempty"`   // REFERENCE: Object des Ziels, z. B. "RentalObject"
+	Pattern        string        `json:"pattern,omitempty"`      // Prüfmuster (regulärer Ausdruck, ganzer Wert)
+	PatternHint    string        `json:"pattern_hint,omitempty"` // Hinweis bei Verstoß, z. B. "11 Ziffern"
+	Protected      bool          `json:"protected,omitempty"`    // Werte nur mit TagType.readValue/changeValue
+	Hidden         bool          `json:"hidden,omitempty"`       // geschützt und der Benutzer darf den Wert nicht sehen
+	Status         string        `json:"status"`                 // ACTIVE | DEPRECATED
+	Options        []ValueOption `json:"options,omitempty"`      // am Stichtag gültig
 }
 
 // ValueOption ist ein vordefinierter Auswahlwert.
@@ -150,6 +155,25 @@ type TagSet struct {
 type SetCondition struct {
 	Field  string   `json:"field"`
 	Values []string `json:"values"`
+	// And: zweite Bedingung (beide müssen gelten).
+	And *SetCondition `json:"and,omitempty"`
+}
+
+// Matches: Das Feld hat einen der Werte; Felder mit mehreren Werten
+// (kommagetrennt, z. B. Rollen "TENANT,DEBITOR") genügt einer.
+func (c *SetCondition) Matches(attrs map[string]string) bool {
+	if c == nil {
+		return true
+	}
+	hit := false
+	for _, v := range strings.Split(attrs[c.Field], ",") {
+		for _, want := range c.Values {
+			if strings.TrimSpace(v) == want {
+				hit = true
+			}
+		}
+	}
+	return hit && c.And.Matches(attrs)
 }
 
 // Schema sind die Tag Sets eines Objekttyps am Stichtag (für Eingabemasken).

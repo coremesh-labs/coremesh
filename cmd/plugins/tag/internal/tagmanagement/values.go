@@ -161,7 +161,8 @@ func parseScalar(dt tagservice.DataType, s string) (stored, error) {
 
 // loadType liest einen Tag-Typ.
 func (m *Module) loadType(ctx context.Context, code string) (*tagservice.TagType, error) {
-	res, err := m.db.Query(ctx, `SELECT code, name, translation_key, data_type, value_mode, status, ref_object FROM tag__tag_types WHERE code = ?`, code)
+	res, err := m.db.Query(ctx, `SELECT code, name, translation_key, data_type, value_mode, status, ref_object, pattern, pattern_hint, protected
+		FROM tag__tag_types WHERE code = ?`, code)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +171,8 @@ func (m *Module) loadType(ctx context.Context, code string) (*tagservice.TagType
 	}
 	r := res.Rows[0]
 	return &tagservice.TagType{Code: crud.Str(r[0]), Name: crud.Str(r[1]), TranslationKey: crud.Str(r[2]),
-		DataType: tagservice.DataType(crud.Str(r[3])), ValueMode: tagservice.ValueMode(crud.Str(r[4])), Status: crud.Str(r[5]), RefObject: crud.Str(r[6])}, nil
+		DataType: tagservice.DataType(crud.Str(r[3])), ValueMode: tagservice.ValueMode(crud.Str(r[4])), Status: crud.Str(r[5]), RefObject: crud.Str(r[6]),
+		Pattern: crud.Str(r[7]), PatternHint: crud.Str(r[8]), Protected: crud.AsBool(r[9])}, nil
 }
 
 // checkCompanyCode: "*" oder ein Buchungskreis aus iam (über den Dispatcher).

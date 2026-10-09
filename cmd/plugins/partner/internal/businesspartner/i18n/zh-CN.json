@@ -7,6 +7,7 @@
   "businesspartner.BusinessPartner.fields.letter_salutation": "信函称呼",
   "businesspartner.BusinessPartner.fields.name1": "名称 1（公司 / 姓）",
   "businesspartner.BusinessPartner.fields.name2": "名称 2（名 / 补充）",
+  "businesspartner.BusinessPartner.fields.roles": "角色（今日）",
   "businesspartner.BusinessPartner.fields.salutation_code": "称呼（空 = 按类型和性别建议）",
   "businesspartner.BusinessPartner.fields.search_term": "简称（匹配码；空 = 由名称建议）",
   "businesspartner.BusinessPartner.fields.type": "类型",

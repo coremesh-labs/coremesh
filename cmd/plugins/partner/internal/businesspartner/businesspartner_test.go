@@ -883,7 +883,7 @@ func TestFilterByRole(t *testing.T) {
 func TestPersonSalutation(t *testing.T) {
 	e := setup(t)
 	p := e.must("BusinessPartner", "create", data("type", "PERSON", "name1", "Muster", "name2", "Erika", "gender", "FEMALE"))
-	if p["salutation_code"] != "FRAU" || p["letter_salutation"] != "Sehr geehrte Frau Muster" {
+	if p["salutation_code"] != "FRAU" || p["letter_salutation"] != "Sehr geehrte Frau Muster" || p["roles"] != "" {
 		t.Fatalf("Person: %v", p)
 	}
 	o := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Stadt Musterhausen", "gender", "MALE"))

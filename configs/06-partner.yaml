@@ -1,7 +1,7 @@
 # Fachmodul Geschäftspartner (externes Plugin, eigenes Go-Modul unter cmd/plugins/partner).
 plugins:
   partner:
-    version: 0.11.0
+    version: 0.11.1
     databases:
       main: { access: write }        # Tabellen partner__* via DBSchema.Init (+ Seeds)
     settings:
