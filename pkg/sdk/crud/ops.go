@@ -314,6 +314,7 @@ func (e *Entity) Insert(ctx context.Context, rec Record) error {
 
 // Create legt einen Datensatz an ({"data": {...}}), in einer Transaktion.
 func (e *Entity) Create(ctx context.Context, payload any) (sdk.Response, error) {
+	ctx = withWarnings(ctx)
 	rec, err := e.Input(payload)
 	if err != nil {
 		return sdk.Response{}, err
@@ -348,12 +349,16 @@ func (e *Entity) respond(ctx context.Context, key Record) (sdk.Response, error) 
 		return sdk.Response{}, err
 	}
 	ac.filter(saved)
+	if w := Warnings(ctx); len(w) > 0 {
+		saved[WarningsField] = w
+	}
 	return sdk.Response{Payload: saved}, nil
 }
 
 // Update ändert einen Datensatz ({"id", "data"}) – genau eine Zeitscheibe.
 // Schlüssel und Immutable-Felder sind nach dem Anlegen fest.
 func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) {
+	ctx = withWarnings(ctx)
 	key, err := e.ParseID(idOf(payload))
 	if err != nil {
 		return sdk.Response{}, err
