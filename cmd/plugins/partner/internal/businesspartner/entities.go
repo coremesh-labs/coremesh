@@ -183,7 +183,7 @@ func (m *Module) businessPartner() *entity {
 		),
 		Prepare:   m.preparePartner,
 		FormState: m.partnerFormState,
-		Decorate: m.decoratePerson,
+		Decorate:  m.decoratePerson,
 		Validate: func(ctx context.Context, rec, old record) error {
 			if err := m.checkShortName(ctx, rec, old); err != nil {
 				return err
