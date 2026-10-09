@@ -20,8 +20,11 @@ type userRow struct {
 	TenantID    string
 	Active      bool
 	Locale      string // "" = automatisch (Sprachaushandlung im Frontend)
-	CreatedAt   string
-	Roles       []string // Rollennamen
+	// CompanyCodes schränkt alle Rollen des Benutzers auf diese Buchungskreise
+	// ein; [*] = keine Einschränkung.
+	CompanyCodes []string
+	CreatedAt    string
+	Roles        []string // Rollennamen
 }
 
 type roleRow struct {
@@ -117,10 +120,20 @@ func (p *Plugin) countUsers(ctx context.Context) (int, error) {
 
 // --- Benutzer ------------------------------------------------------------------
 
-const userCols = `id, username, display_name, tenant_id, active, created_at, locale`
+const userCols = `id, username, display_name, tenant_id, active, created_at, locale, company_codes`
 
 func scanUser(r []any) userRow {
-	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5]), Locale: s(r[6])}
+	ccs, _ := parseCompanyCodes(s(r[7]))
+	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5]), Locale: s(r[6]),
+		CompanyCodes: ccs}
+}
+
+// userCompanyCodes: Spaltenwert der Einschränkung ("" = keine).
+func userCompanyCodes(ccs []string) any {
+	if len(ccs) == 0 || slices.Contains(ccs, AllCompanyCodes) {
+		return nil
+	}
+	return strings.Join(ccs, ",")
 }
 
 func (p *Plugin) listUsers(ctx context.Context) ([]userRow, error) {
@@ -198,8 +211,8 @@ func (p *Plugin) roleNamesByUser(ctx context.Context, q database.Querier, userID
 
 func (p *Plugin) insertUser(ctx context.Context, tx *sql.Tx, u userRow, hash string) error {
 	now := ts(time.Now())
-	_, err := tx.ExecContext(ctx, p.q(`INSERT INTO iam__users (id, username, password_hash, display_name, tenant_id, active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), u.ID, u.Username, hash, u.DisplayName, u.TenantID, boolInt(u.Active), now, now)
+	_, err := tx.ExecContext(ctx, p.q(`INSERT INTO iam__users (id, username, password_hash, display_name, tenant_id, active, created_at, updated_at, company_codes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`), u.ID, u.Username, hash, u.DisplayName, u.TenantID, boolInt(u.Active), now, now, userCompanyCodes(u.CompanyCodes))
 	if err != nil && isUnique(err) {
 		return fmt.Errorf("%w: Benutzername %q ist vergeben", sdk.ErrInvalidArgument, u.Username)
 	}
@@ -207,8 +220,8 @@ func (p *Plugin) insertUser(ctx context.Context, tx *sql.Tx, u userRow, hash str
 }
 
 func (p *Plugin) updateUser(ctx context.Context, tx *sql.Tx, u userRow, hash string) error {
-	query := `UPDATE iam__users SET username = ?, display_name = ?, tenant_id = ?, active = ?, updated_at = ?`
-	args := []any{u.Username, u.DisplayName, u.TenantID, boolInt(u.Active), ts(time.Now())}
+	query := `UPDATE iam__users SET username = ?, display_name = ?, tenant_id = ?, active = ?, updated_at = ?, company_codes = ?`
+	args := []any{u.Username, u.DisplayName, u.TenantID, boolInt(u.Active), ts(time.Now()), userCompanyCodes(u.CompanyCodes)}
 	if hash != "" {
 		query += `, password_hash = ?`
 		args = append(args, hash)
@@ -253,9 +266,46 @@ func (p *Plugin) setUserRoles(ctx context.Context, tx *sql.Tx, userID string, na
 
 // userGrants: aktive Berechtigungen aller Rollen eines aktiven Benutzers.
 func (p *Plugin) userGrants(ctx context.Context, q database.Querier, userID string) ([]grant, error) {
-	return p.queryGrants(ctx, q, `JOIN iam__user_roles ur ON ur.role_id = ra.role_id
+	gs, err := p.queryGrants(ctx, q, `JOIN iam__user_roles ur ON ur.role_id = ra.role_id
 		JOIN iam__users u ON u.id = ur.user_id
 		WHERE ur.user_id = ? AND u.active = 1 AND ra.active = 1`, userID)
+	if err != nil || len(gs) == 0 {
+		return gs, err
+	}
+	res, err := database.Query(ctx, q, p.q(`SELECT company_codes FROM iam__users WHERE id = ?`), userID)
+	if err != nil || len(res.Rows) == 0 {
+		return gs, err
+	}
+	ccs, _ := parseCompanyCodes(s(res.Rows[0][0]))
+	return restrictGrants(gs, ccs), nil
+}
+
+// restrictGrants schneidet die Buchungskreise jeder Berechtigung mit denen des
+// Benutzers: „alle“ wird zu seinen Buchungskreisen, sonst bleibt die
+// Schnittmenge; ohne Schnittmenge entfällt die Berechtigung. [*] = unverändert.
+func restrictGrants(gs []grant, user []string) []grant {
+	if slices.Contains(user, AllCompanyCodes) {
+		return gs
+	}
+	out := make([]grant, 0, len(gs))
+	for _, g := range gs {
+		var ccs []string
+		if g.allCompanies() {
+			ccs = slices.Clone(user)
+		} else {
+			for _, cc := range g.CompanyCodes {
+				if slices.Contains(user, cc) {
+					ccs = append(ccs, cc)
+				}
+			}
+		}
+		if len(ccs) == 0 {
+			continue
+		}
+		g.CompanyCodes = ccs
+		out = append(out, g)
+	}
+	return out
 }
 
 // --- Rollen --------------------------------------------------------------------

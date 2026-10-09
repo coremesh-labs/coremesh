@@ -238,3 +238,61 @@ func TestUpgradeFrom010(t *testing.T) {
 		t.Fatalf("übernommen: %v", got)
 	}
 }
+
+// TestUserCompanyCodes: Die Buchungskreise am Benutzer schneiden jede Rolle –
+// eine Rolle für alle Buchungskreise genügt, der Sachbearbeiter sieht nur seinen.
+func TestUserCompanyCodes(t *testing.T) {
+	p, adminID := setup(t)
+	ctx := as(adminID)
+	for _, cc := range []string{"1000", "2000"} {
+		if _, err := call(t, p, ctx, "CompanyCode", "create", map[string]any{"data": map[string]any{"code": cc, "description": "BK " + cc}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := call(t, p, ctx, "Role", "create", map[string]any{"data": map[string]any{
+		"name": "Sachbearbeitung", "permissions": "Contract.*\nPartner.update@1000\nCompanyCode.list"}}); err != nil {
+		t.Fatal(err)
+	}
+	u, err := call(t, p, ctx, "User", "create", map[string]any{"data": map[string]any{
+		"username": "sb2000", "password": "sb2000-passwort", "roles": "Sachbearbeitung", "company_codes": "2000"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u["company_codes"] != "2000" {
+		t.Fatalf("gespeichert: %v", u)
+	}
+	asSB := as(u["id"].(string))
+	check := func(object, action, cc string) bool {
+		m, err := call(t, p, asSB, "Account", "Check", map[string]any{"object": object, "action": action, "company_code": cc})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m["allowed"].(bool)
+	}
+	if !check("Contract", "update", "2000") || check("Contract", "update", "1000") {
+		t.Fatal("Contract.* (alle) wird auf 2000 eingeschränkt")
+	}
+	if check("Partner", "update", "1000") || check("Partner", "update", "2000") {
+		t.Fatal("Partner.update@1000 entfällt für einen Benutzer in 2000")
+	}
+	list, err := call(t, p, asSB, "CompanyCode", "list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if items := list["items"].([]any); len(items) != 1 || items[0].(map[string]any)["code"] != "2000" {
+		t.Fatalf("Auswahl der Buchungskreise: %v", items)
+	}
+	if _, err := call(t, p, ctx, "User", "update", map[string]any{"id": u["id"], "data": map[string]any{
+		"username": "sb2000", "roles": "Sachbearbeitung", "company_codes": "9999"}}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Fatalf("unbekannter Buchungskreis: %v", err)
+	}
+	// leer = keine Einschränkung
+	if _, err := call(t, p, ctx, "User", "update", map[string]any{"id": u["id"], "data": map[string]any{
+		"username": "sb2000", "roles": "Sachbearbeitung", "company_codes": ""}}); err != nil {
+		t.Fatal(err)
+	}
+	p.invalidate()
+	if !check("Contract", "update", "1000") {
+		t.Fatal("ohne Einschränkung gelten alle Buchungskreise der Rolle")
+	}
+}
