@@ -110,6 +110,7 @@
   "core.tags.effective_date": "Effective date",
   "core.tags.empty": "No tag sets are assigned to this object type on the effective date.",
   "core.tags.global": "All company codes (global)",
+  "core.tags.protected": "protected – no permission to view the value",
   "core.tags.save": "Save tags",
   "core.tags.saved": "Tags saved.",
   "core.tags.scope": "CC %s",

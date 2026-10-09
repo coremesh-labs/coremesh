@@ -42,6 +42,20 @@ table "tag__tag_types" {
     type    = text
     default = "ACTIVE"
   }
+  # seit 0.4.0: Prüfmuster (regulärer Ausdruck, ganzer Wert) mit Hinweis; geschützt =
+  # Werte nur mit TagType.readValue/changeValue (einschränkbar nach Tag-Code)
+  column "pattern" {
+    type = text
+    null = true
+  }
+  column "pattern_hint" {
+    type = text
+    null = true
+  }
+  column "protected" {
+    type    = boolean
+    default = false
+  }
   primary_key { columns = [column.code] }
 }
 
@@ -146,6 +160,15 @@ table "tag__tag_set_assignments" {
     null = true
   }
   column "condition_values" {
+    type = text
+    null = true
+  }
+  # seit 0.4.0: zweite Bedingung (UND)
+  column "condition_field_2" {
+    type = text
+    null = true
+  }
+  column "condition_values_2" {
     type = text
     null = true
   }

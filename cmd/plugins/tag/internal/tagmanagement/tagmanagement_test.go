@@ -89,7 +89,8 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 		return sdk.Response{}, fmt.Errorf("%w: Partner %v", sdk.ErrNotFound, p["id"])
 	case "Contract.get": // Verträge mit Vertragsart (Bedingungen von Tag Sets)
 		if ct, ok := map[string]string{"c1": "RENT", "c2": "LOAN"}[fmt.Sprint(p["id"])]; ok {
-			return sdk.Response{Payload: map[string]any{"_id": p["id"], "id": p["id"], "contract_type": ct, "active": true}}, nil
+			roles := map[string]string{"c1": "TENANT,DEBITOR", "c2": "CREDITOR"}[fmt.Sprint(p["id"])]
+			return sdk.Response{Payload: map[string]any{"_id": p["id"], "id": p["id"], "contract_type": ct, "active": true, "roles": roles}}, nil
 		}
 		return sdk.Response{}, fmt.Errorf("%w: Vertrag %v", sdk.ErrNotFound, p["id"])
 	case "RentalObject.get": // Ziel von Verweis-Tags
@@ -107,6 +108,18 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 			return sdk.Response{Payload: map[string]any{"code": id}}, nil
 		}
 		return sdk.Response{}, sdk.ErrNotFound
+	case "Account.Check": // geschützte Tags: Recht je Tag-Code (h.granted[action] enthält Codes oder "*")
+		attrs, _ := p["attrs"].(map[string]string)
+		if attrs == nil {
+			if m, ok := p["attrs"].(map[string]any); ok {
+				attrs = map[string]string{}
+				for k, v := range m {
+					attrs[k] = fmt.Sprint(v)
+				}
+			}
+		}
+		g := h.granted[fmt.Sprint(p["object"])+"."+fmt.Sprint(p["action"])]
+		return sdk.Response{Payload: map[string]any{"allowed": slices.Contains(g, "*") || slices.Contains(g, attrs["code"])}}, nil
 	case "Account.Granted":
 		g := h.granted[fmt.Sprint(p["action"])]
 		if slices.Contains(g, "*") {
