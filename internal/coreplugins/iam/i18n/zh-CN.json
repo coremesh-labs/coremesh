@@ -7,6 +7,7 @@
   "admin.User.fields.username": "用户名",
   "admin.User.fields.display_name": "姓名",
   "admin.User.fields.tenant_id": "租户",
+  "admin.User.fields.company_codes": "公司代码（逗号分隔，空 = 角色的全部公司代码）",
   "admin.User.fields.roles": "角色（每行一个）",
   "admin.User.fields.active": "启用",
   "admin.User.fields.password": "密码（编辑时留空表示不变）",

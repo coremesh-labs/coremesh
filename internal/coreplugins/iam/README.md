@@ -102,6 +102,16 @@ metamodel.ObjectDefinition{
 Der Buchungskreis ist immer eine eigene Dimension (`company_code`) und kein
 Berechtigungsfeld.
 
+### Buchungskreise am Benutzer (seit 0.8.0)
+
+Rollen beschreiben **was** jemand darf, der Benutzer **wo**: Das Feld „Buchungskreise“
+am Benutzer (`company_codes`, kommagetrennt; leer = keine Einschränkung) schneidet jede
+Berechtigung seiner Rollen. `*` (alle) wird zu den Buchungskreisen des Benutzers, eine Liste
+zur Schnittmenge; ohne Schnittmenge entfällt die Berechtigung. So genügt **eine** Rolle
+„Sachbearbeitung“ für alle Buchungskreise – der Sachbearbeiter in 2000 bekommt sie mit
+`company_codes = 2000`. `CompanyCode.list` zeigt einem eingeschränkten Benutzer nur seine
+Buchungskreise (Auswahllisten).
+
 ### Was wird wann geprüft?
 
 | Situation | Prüfung |

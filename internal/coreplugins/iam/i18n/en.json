@@ -7,6 +7,7 @@
   "admin.User.fields.username": "User name",
   "admin.User.fields.display_name": "Name",
   "admin.User.fields.tenant_id": "Tenant",
+  "admin.User.fields.company_codes": "Company codes (comma-separated, empty = all of the roles)",
   "admin.User.fields.roles": "Roles (one per line)",
   "admin.User.fields.active": "Active",
   "admin.User.fields.password": "Password (leave empty when editing = unchanged)",
