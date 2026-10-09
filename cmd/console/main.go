@@ -12,6 +12,17 @@
 //	console --object AssetsModule --action ExportBundle --param theme=dark --target-dir /var/www/coremesh/static
 //	console --logout
 //
+// Verben (verbs.go):
+//
+//	console list Contract*                       Objects
+//	console list Contract.*                      Actions eines Objects
+//	console list hooks ledger.*                  Hooks; ebenso events, commands
+//	console details Contract                     Felder und Actions
+//	console details Contract.activate            eine Action
+//	console details hook contract.activate       Hook mit Abos
+//	console handle CompanyCode.get --id=2000     Action aufrufen (Text bleibt Text)
+//	console read JournalEntryItem.list --company_code_id=2000 --format jsonl
+//
 // Konsolenbefehle der Module (ModuleDefinition.Commands), aufgelöst vom Console-Plugin:
 //
 //	console ledger:help
@@ -75,7 +86,9 @@ func (p params) Set(s string) error {
 }
 
 type options struct {
-	command                   string // <modul>:<befehl>
+	command                   string   // <modul>:<befehl>
+	verb                      string   // handle, read, list, details (verbs.go)
+	positional                []string // Ziel und Muster hinter dem Verb
 	addr, tlsCA, user         string
 	object, action, targetDir string
 	format, out               string
@@ -100,7 +113,15 @@ func main() {
 	flag.BoolVar(&o.logout, "logout", false, "abmelden und gespeichertes Token löschen")
 	flag.DurationVar(&o.timeout, "timeout", 2*time.Minute, "Zeitlimit des Aufrufs")
 	args := os.Args[1:]
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") && strings.Contains(args[0], ":") {
+	flag.Usage = usage
+	switch {
+	case len(args) > 0 && isVerb(args[0]):
+		o.verb = strings.ToLower(args[0])
+		o.positional, args = verbArgs(args[1:], o.params)
+	case len(args) > 0 && (args[0] == "help" || args[0] == "--help" || args[0] == "-h"):
+		usage()
+		return
+	case len(args) > 0 && !strings.HasPrefix(args[0], "-") && strings.Contains(args[0], ":"):
 		o.command, args = args[0], commandArgs(args[1:], o.params)
 	}
 	if err := flag.CommandLine.Parse(args); err != nil {
@@ -132,9 +153,9 @@ func run(o options) error {
 		fmt.Fprintln(os.Stderr, "abgemeldet")
 		return nil
 	}
-	if o.command == "" && (o.object == "" || (o.action == "" && !o.sample)) {
+	if o.verb == "" && o.command == "" && (o.object == "" || (o.action == "" && !o.sample)) {
 		flag.Usage()
-		return errors.New("--object und --action (oder --sample) sind Pflicht")
+		return errors.New("Verb (handle, read, list, details), <modul>:<befehl> oder --object und --action angeben")
 	}
 
 	// Aufruf; bei abgelaufenem/fehlendem Token einmal neu anmelden.
@@ -151,6 +172,9 @@ func run(o options) error {
 }
 
 func call(ctx context.Context, c consolev1.ConsoleServiceClient, o options) error {
+	if o.verb != "" {
+		return runVerb(ctx, c, o)
+	}
 	if o.command != "" {
 		return runCommand(ctx, c, o)
 	}
@@ -300,6 +324,25 @@ func describe(err error) string {
 		prefix = st.Code().String()
 	}
 	return prefix + ": " + st.Message()
+}
+
+func usage() {
+	fmt.Fprint(os.Stderr, `Aufruf:
+  console handle  <Object>.<Action> [--name=wert …]   Action aufrufen
+  console read    <Object>.<Action> [--name=wert …]   Datenstrom (--format csv|jsonl, --out datei)
+  console list    [<ObjectMuster>]                    Objects
+  console list    <Object>.<ActionMuster>             Actions eines Objects
+  console list    hooks|events|commands [<Muster>]    Hooks, Event-Abonnements, Konsolenbefehle
+  console details <Object>[.<Action>]                 Felder, Actions, Parameter
+  console details hook <Name>                         Hook mit Phasen, Daten und Abos
+  console details event <Object>[.<Action>]           Event-Abonnements
+  console <modul>:<befehl> [--name=wert …]            Konsolenbefehl eines Moduls (console list commands)
+  console --object O --action A [--param k=v …]       wie handle (bisherige Form)
+Muster: * und ? (ohne Platzhalter: Teil des Namens). --format json: list/details als JSON.
+
+Optionen:
+`)
+	flag.PrintDefaults()
 }
 
 func env(name, def string) string {
