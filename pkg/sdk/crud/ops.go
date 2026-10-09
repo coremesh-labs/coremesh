@@ -104,7 +104,7 @@ func (e *Entity) listWhere(ctx context.Context, query map[string]any) (where []s
 	if q := Str(query["q"]); q != "" && len(e.Search) > 0 {
 		var ors []string
 		for _, c := range e.Search {
-			ors, args = append(ors, "LOWER("+c+") LIKE ?"), append(args, "%"+strings.ToLower(q)+"%")
+			ors, args = append(ors, foldSQL(c)+" LIKE ?"), append(args, "%"+foldText(q)+"%")
 		}
 		where = append(where, "("+strings.Join(ors, " OR ")+")")
 	}
@@ -444,4 +444,26 @@ func (e *Entity) filterArg(field string, v any) any {
 		}
 	}
 	return Str(v)
+}
+
+// Suche ohne Rücksicht auf deutsche Schreibweisen: „Schlossallee“ findet „Schloßallee“,
+// „Mueller“ findet „Müller“ und umgekehrt. Spalte und Suchbegriff werden gleich
+// gefaltet (klein, ß → ss, ä → ae, ö → oe, ü → ue); SQLites LOWER kennt keine
+// Umlaute, daher auch die Großbuchstaben.
+var foldPairs = [][2]string{{"ß", "ss"}, {"ẞ", "ss"}, {"Ä", "ae"}, {"Ö", "oe"}, {"Ü", "ue"}, {"ä", "ae"}, {"ö", "oe"}, {"ü", "ue"}}
+
+func foldSQL(col string) string {
+	expr := col
+	for _, p := range foldPairs {
+		expr = "REPLACE(" + expr + ", '" + p[0] + "', '" + p[1] + "')"
+	}
+	return "LOWER(" + expr + ")"
+}
+
+func foldText(s string) string {
+	s = strings.ToLower(s)
+	for _, p := range foldPairs {
+		s = strings.ReplaceAll(s, p[0], p[1])
+	}
+	return s
 }
