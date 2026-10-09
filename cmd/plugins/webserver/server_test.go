@@ -465,3 +465,14 @@ func TestActionOnlyField(t *testing.T) {
 		t.Fatalf("Payload: %v", p)
 	}
 }
+
+// TestSavedToast: Warnungen der Prüfungen machen aus der Erfolgsmeldung eine Warnung.
+func TestSavedToast(t *testing.T) {
+	if got := savedToast(map[string]any{"id": "1"}, "Gespeichert"); got.Level != "success" {
+		t.Fatalf("ohne Warnung: %+v", got)
+	}
+	got := savedToast(map[string]any{"_warnings": []any{"Fläche zu groß", "MEA fehlt"}}, "Gespeichert")
+	if got.Level != "warning" || got.Message != "Gespeichert – Fläche zu groß; MEA fehlt" {
+		t.Fatalf("mit Warnung: %+v", got)
+	}
+}

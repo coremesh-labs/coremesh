@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -336,8 +337,31 @@ func refreshParam(r *http.Request) string {
 // Dialog wird geleert (leerer Haupt-Swap in #modal), ein Toast erscheint, und
 // das Ereignis coremesh-changed lädt die eingebetteten Abschnitte neu.
 func (s *server) refreshed(w http.ResponseWriter, r *http.Request, msg string) {
+	s.refreshedToast(w, r, &toast{Level: "success", Message: msg})
+}
+
+func (s *server) refreshedToast(w http.ResponseWriter, r *http.Request, t *toast) {
 	w.Header().Set("HX-Trigger", "coremesh-changed")
-	s.render(w, r, http.StatusOK, "toast", &toast{Level: "success", Message: msg}, "", "")
+	s.render(w, r, http.StatusOK, "toast", t, "", "")
+}
+
+// savedToast: Erfolgsmeldung nach dem Speichern – mit Warnungen der Prüfungen
+// (crud "_warnings") als Warnung, die stehen bleibt.
+func savedToast(payload any, msg string) *toast {
+	m, _ := payload.(map[string]any)
+	var ws []string
+	switch v := m[crud.WarningsField].(type) {
+	case []string:
+		ws = v
+	case []any:
+		for _, x := range v {
+			ws = append(ws, fmt.Sprint(x))
+		}
+	}
+	if len(ws) == 0 {
+		return &toast{Level: "success", Message: msg}
+	}
+	return &toast{Level: "warning", Message: msg + " – " + strings.Join(ws, "; ")}
 }
 
 // POST /m/{module}/{object}
@@ -375,10 +399,10 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if refreshParam(r) == "refresh" {
-		s.refreshed(w, r, s.T(r, "core.toast.created", oc.Def.Title))
+		s.refreshedToast(w, r, savedToast(resp.Payload, s.T(r, "core.toast.created", oc.Def.Title)))
 		return
 	}
-	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: &toast{Level: "success", Message: s.T(r, "core.toast.created", oc.Def.Title)}}
+	v := view{objectCtx: oc, Record: asRecord(resp.Payload), Toast: savedToast(resp.Payload, s.T(r, "core.toast.created", oc.Def.Title))}
 	s.render(w, r, http.StatusOK, "created", v, "", "")
 }
 
@@ -517,14 +541,14 @@ func (s *server) update(w http.ResponseWriter, r *http.Request) {
 	}
 	viewParam := r.PostForm.Get("_view")
 	if viewParam == "refresh" {
-		s.refreshed(w, r, s.T(r, "core.toast.saved", oc.Def.Title))
+		s.refreshedToast(w, r, savedToast(resp.Payload, s.T(r, "core.toast.saved", oc.Def.Title)))
 		return
 	}
 	if viewParam != "row" {
 		viewParam = "detail"
 	}
 	oc = oc.forRow(rec, viewParam)
-	v := view{objectCtx: oc, Record: rec, ViewParam: viewParam, Toast: &toast{Level: "success", Message: s.T(r, "core.toast.saved", oc.Def.Title)}}
+	v := view{objectCtx: oc, Record: rec, ViewParam: viewParam, Toast: savedToast(resp.Payload, s.T(r, "core.toast.saved", oc.Def.Title))}
 	s.render(w, r, http.StatusOK, "updated", v, "", "")
 }
 
