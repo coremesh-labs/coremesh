@@ -294,11 +294,14 @@ func (e *Entity) Insert(ctx context.Context, rec Record) error {
 	if _, err := e.Load(ctx, rec); err == nil {
 		return fmt.Errorf("%w: %s %s gibt es bereits", sdk.ErrAlreadyExists, e.Title, e.RecordID(rec))
 	}
-	cols := e.Columns()
-	marks := make([]string, len(cols))
-	args := make([]any, len(cols))
-	for i, c := range cols {
-		marks[i], args[i] = "?", rec[c]
+	// Felder ohne Wert (nicht im Datensatz) bleiben weg – so greift der
+	// Standardwert der Spalte (z. B. sort_order default 0) statt NULL.
+	var cols, marks []string
+	var args []any
+	for _, c := range e.Columns() {
+		if v, ok := rec[c]; ok && v != nil {
+			cols, marks, args = append(cols, c), append(marks, "?"), append(args, v)
+		}
 	}
 	if _, err := e.DB().Exec(ctx, "INSERT INTO "+e.Table+" ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(marks, ", ")+")", args...); err != nil {
 		return err
