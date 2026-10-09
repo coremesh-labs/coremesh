@@ -293,7 +293,7 @@ func (v view) Row(r record) view {
 }
 
 type toast struct {
-	Level   string // success | error
+	Level   string // success | warning | error
 	Message string
 }
 
