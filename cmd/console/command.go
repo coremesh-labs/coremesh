@@ -151,6 +151,16 @@ func runCommand(ctx context.Context, c consolev1.ConsoleServiceClient, o options
 	if resp.Message != "" {
 		fmt.Fprintln(os.Stderr, resp.Message)
 	}
+	// Befehle mit Dateiausgabe (z. B. contract:export-plans) liefern {file_content, message}:
+	// der Inhalt geht unverändert in die Datei bzw. auf die Standardausgabe.
+	if pl, ok := resp.Payload.AsInterface().(map[string]any); ok {
+		if content, ok := pl["file_content"].(string); ok {
+			if msg, _ := pl["message"].(string); msg != "" {
+				fmt.Fprintln(os.Stderr, msg)
+			}
+			return output(o.out, []byte(content), "Datei")
+		}
+	}
 	body, err := json.MarshalIndent(resp.Payload.AsInterface(), "", "  ")
 	if err != nil {
 		return err
