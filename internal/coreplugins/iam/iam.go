@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.7.0"
+	Version = "0.8.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -291,7 +292,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	}
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
-		"roles": roles, "permissions": ps, "locale": u.Locale,
+		"roles": roles, "permissions": ps, "locale": u.Locale, "company_codes": userCompanyCodesText(u.CompanyCodes),
 	}}, nil
 }
 
@@ -331,10 +332,19 @@ func (p *Plugin) hashPassword(pw string) (string, error) {
 
 // --- User (Verwaltung) -----------------------------------------------------------
 
+// userCompanyCodesText: Anzeige der Einschränkung ("" = keine).
+func userCompanyCodesText(ccs []string) string {
+	if v, ok := userCompanyCodes(ccs).(string); ok {
+		return v
+	}
+	return ""
+}
+
 func userRecord(u userRow) map[string]any {
 	return map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
-		"roles": strings.Join(u.Roles, "\n"), "active": u.Active, "created_at": u.CreatedAt,
+		"company_codes": userCompanyCodesText(u.CompanyCodes),
+		"roles":         strings.Join(u.Roles, "\n"), "active": u.Active, "created_at": u.CreatedAt,
 	}
 }
 
@@ -373,12 +383,13 @@ func (p *Plugin) userSave(ctx context.Context, payload any, create bool) (sdk.Re
 	var in struct {
 		ID   string `json:"id"`
 		Data struct {
-			Username    string `json:"username"`
-			DisplayName string `json:"display_name"`
-			TenantID    string `json:"tenant_id"`
-			Roles       string `json:"roles"`
-			Active      *bool  `json:"active"`
-			Password    string `json:"password"`
+			Username     string `json:"username"`
+			DisplayName  string `json:"display_name"`
+			TenantID     string `json:"tenant_id"`
+			CompanyCodes string `json:"company_codes"`
+			Roles        string `json:"roles"`
+			Active       *bool  `json:"active"`
+			Password     string `json:"password"`
 		} `json:"data"`
 	}
 	if err := sdk.Decode(payload, &in); err != nil {
@@ -390,6 +401,14 @@ func (p *Plugin) userSave(ctx context.Context, payload any, create bool) (sdk.Re
 		DisplayName: strings.TrimSpace(d.DisplayName), TenantID: strings.TrimSpace(d.TenantID),
 		Active: d.Active == nil || *d.Active, Roles: lines(d.Roles),
 	}
+	ccs, err := parseCompanyCodes(d.CompanyCodes)
+	if err != nil {
+		return sdk.Response{}, fmt.Errorf("%w: Buchungskreise: %v", sdk.ErrInvalidArgument, err)
+	}
+	if err := p.checkCompanyCodes(ctx, p.pool(), ccs); err != nil {
+		return sdk.Response{}, err
+	}
+	u.CompanyCodes = ccs
 	if !usernameRe.MatchString(u.Username) {
 		return sdk.Response{}, fmt.Errorf("%w: Benutzername: 2–64 Zeichen aus a–z, 0–9, . _ @ -", sdk.ErrInvalidArgument)
 	}
@@ -412,7 +431,7 @@ func (p *Plugin) userSave(ctx context.Context, payload any, create bool) (sdk.Re
 	if create {
 		u.ID = newID()
 	}
-	err := p.inTx(ctx, func(tx *sql.Tx) error {
+	err = p.inTx(ctx, func(tx *sql.Tx) error {
 		var err error
 		if create {
 			err = p.insertUser(ctx, tx, u, hash)
@@ -703,14 +722,24 @@ func ccRecord(c companyCode) map[string]any {
 	return map[string]any{"id": c.ID, "code": c.ID, "description": c.Description}
 }
 
+// ccList: alle Buchungskreise – für einen eingeschränkten Benutzer nur seine
+// (Auswahllisten zeigen so nur, was er bebuchen darf).
 func (p *Plugin) ccList(ctx context.Context) (sdk.Response, error) {
 	ccs, err := p.listCompanyCodes(ctx)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	items := make([]any, len(ccs))
-	for i, c := range ccs {
-		items[i] = ccRecord(c)
+	allowed := []string{AllCompanyCodes}
+	if id := sdk.CallFromContext(ctx).UserID; id != "" {
+		if u, err := p.getUser(ctx, p.pool(), id); err == nil {
+			allowed = u.CompanyCodes
+		}
+	}
+	items := []any{}
+	for _, c := range ccs {
+		if slices.Contains(allowed, AllCompanyCodes) || slices.Contains(allowed, c.ID) {
+			items = append(items, ccRecord(c))
+		}
 	}
 	return sdk.Response{Payload: map[string]any{"items": items}}, nil
 }

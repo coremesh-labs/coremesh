@@ -40,6 +40,12 @@ table "iam__users" {
     type = text
     null = true
   }
+  # Buchungskreise des Benutzers (kommagetrennt); leer = alle seiner Rollen. Seit 0.8.0:
+  # schneidet jede Rollenberechtigung – Rollen bleiben buchungskreisneutral.
+  column "company_codes" {
+    type = text
+    null = true
+  }
   column "created_at" {
     type = text
   }
@@ -351,6 +357,7 @@ var (
 			{Key: "username", Label: "Benutzername", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "display_name", Label: "Name", Type: metamodel.TypeText, Listable: true, Editable: true},
 			{Key: "tenant_id", Label: "Mandant", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "company_codes", Label: "Buchungskreise (kommagetrennt, leer = alle der Rollen)", Type: metamodel.TypeText, Listable: true, Editable: true},
 			{Key: "roles", Label: "Rollen (eine pro Zeile)", Type: metamodel.TypeTextarea, Listable: true, Editable: true},
 			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
 			{Key: "password", Label: "Passwort (bei Bearbeitung leer = unverändert)", Type: metamodel.TypePassword, Editable: true},
@@ -462,7 +469,7 @@ var (
 		Actions: append(crud("Feld"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
 			Label: "Entfernen", Confirm: "Feld aus der Regel entfernen?"}),
 	}
-	displayModes   = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"},
+	displayModes = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"},
 		{Value: modeColumn, Label: "Spalte ausblenden"}, {Value: modeSection, Label: "Abschnitt ausblenden"}}
 	companyCodeDef = metamodel.ObjectDefinition{
 		Name: "CompanyCode", Title: "Buchungskreise", Icon: "icon-building",
