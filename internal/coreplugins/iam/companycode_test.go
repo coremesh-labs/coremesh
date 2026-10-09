@@ -296,3 +296,19 @@ func TestUserCompanyCodes(t *testing.T) {
 		t.Fatal("ohne Einschränkung gelten alle Buchungskreise der Rolle")
 	}
 }
+
+// TestKeyDateProfile: Stichtag im eigenen Profil setzen, prüfen und löschen.
+func TestKeyDateProfile(t *testing.T) {
+	p, adminID := setup(t)
+	ctx := as(adminID)
+	me, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"key_date": "2026-01-01"})
+	if err != nil || me["key_date"] != "2026-01-01" {
+		t.Fatalf("gesetzt: %v %v", me, err)
+	}
+	if _, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"key_date": "01.01.2026"}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Fatalf("Format: %v", err)
+	}
+	if me, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"key_date": ""}); err != nil || me["key_date"] != "" {
+		t.Fatalf("gelöscht: %v %v", me, err)
+	}
+}

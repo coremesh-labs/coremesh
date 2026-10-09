@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,19 @@ func Invalid(format string, args ...any) error {
 
 // Today ist das heutige Datum (JJJJ-MM-TT).
 func Today() string { return time.Now().Format(time.DateOnly) }
+
+// KeyDate ist der Stichtag der Anfrage: das Arbeitsdatum des Benutzers
+// (Metadaten sdk.MetaKeyDate), sonst heute. Vorbelegungen („Gültig ab“,
+// „Buchen bis“) und Prüfungen zum aktuellen Tag nehmen ihn – so lässt sich ein
+// Zeitraum nachträglich erfassen.
+func KeyDate(ctx context.Context) string {
+	if d := sdk.CallFromContext(ctx).Metadata[sdk.MetaKeyDate]; d != "" {
+		if s, err := ParseDate(d); err == nil {
+			return s
+		}
+	}
+	return Today()
+}
 
 // ParseDate akzeptiert JJJJ-MM-TT, auch mit Zeitanteil (RFC 3339) oder als
 // time.Time – so liefern SQL-Treiber DATE-Spalten.

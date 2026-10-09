@@ -48,10 +48,10 @@ type schemaIndex struct {
 	rules  []tagservice.Rule
 }
 
-// effective: Stichtag (Standard heute).
-func effective(date string) (string, error) {
+// effective: Stichtag (Standard: Stichtag des Benutzers, sonst heute).
+func effective(ctx context.Context, date string) (string, error) {
 	if strings.TrimSpace(date) == "" {
-		return crud.Today(), nil
+		return crud.KeyDate(ctx), nil
 	}
 	return crud.ParseDate(date)
 }
@@ -420,7 +420,7 @@ func (m *Module) schemaAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	at, err := effective(in.EffectiveDate)
+	at, err := effective(ctx, in.EffectiveDate)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -472,7 +472,7 @@ func (m *Module) getAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	at, err := effective(in.EffectiveDate)
+	at, err := effective(ctx, in.EffectiveDate)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -519,7 +519,7 @@ type plan struct {
 // prepare prüft einen SetRequest vollständig: Datentypen, Auswahlwerte am
 // Stichtag, veraltete Tags, Regeln auf dem Gesamtstand.
 func (m *Module) prepare(ctx context.Context, in tagservice.SetRequest, attrs map[string]string) (*plan, []tagservice.Violation, error) {
-	at, err := effective(in.ValidFrom)
+	at, err := effective(ctx, in.ValidFrom)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -783,7 +783,7 @@ func (m *Module) findAction(ctx context.Context, req sdk.Request) (sdk.Response,
 	if err := sdk.Decode(req.Payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
-	at, err := effective(in.EffectiveDate)
+	at, err := effective(ctx, in.EffectiveDate)
 	if err != nil {
 		return sdk.Response{}, err
 	}

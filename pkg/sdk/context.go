@@ -88,3 +88,9 @@ func (unavailableHost) BeginTx(context.Context, string, sql.TxOptions) (string, 
 }
 func (unavailableHost) CommitTx(context.Context, string) error   { return errNoHost }
 func (unavailableHost) RollbackTx(context.Context, string) error { return errNoHost }
+
+// MetaKeyDate: Metadaten-Schlüssel des Stichtags (JJJJ-MM-TT) – das Arbeitsdatum
+// des Benutzers, z. B. 2026-01-01 beim Nachbuchen eines Jahres. Vorbelegungen
+// und Prüfungen „zum heutigen Tag“ nehmen ihn statt des Systemdatums
+// (crud.KeyDate). Leer = heute.
+const MetaKeyDate = "key_date"

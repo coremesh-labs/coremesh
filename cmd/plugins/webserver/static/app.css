@@ -131,6 +131,10 @@ tr.pick:hover, tr.pick:focus { background: var(--bg); outline: none; }
 dialog.end-dialog input[type=date] { max-width: 14rem; }
 
 /* --- Sprachwähler --- */
+.key-date { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+.key-date input { font: inherit; font-size: .85rem; padding: .1rem .3rem; border: 1px solid var(--border); border-radius: 4px; }
+.key-date.active { color: #b45309; font-weight: 600; }
+.key-date.active input { border-color: #b45309; }
 .locale-switch select { font: inherit; font-size: .85rem; padding: .15rem .3rem; border: 1px solid var(--border);
                         border-radius: var(--radius); background: var(--surface); color: var(--muted); }
 .login-box .locale-switch { margin-top: 1rem; text-align: right; }

@@ -1,6 +1,10 @@
 package businesspartner
 
-import "github.com/coremesh-labs/coremesh/pkg/sdk/crud"
+import (
+	"context"
+
+	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
+)
 
 // Die Entities nutzen die generische CRUD-Engine des SDK (pkg/sdk/crud).
 // Kurznamen für den Fachcode dieses Pakets:
@@ -14,5 +18,6 @@ type (
 func str(v any) string                         { return crud.Str(v) }
 func asBool(v any) bool                        { return crud.AsBool(v) }
 func today() string                            { return crud.Today() }
+func keyDate(ctx context.Context) string       { return crud.KeyDate(ctx) } // Stichtag des Benutzers, sonst heute
 func parseDate(v any) (string, error)          { return crud.ParseDate(v) }
 func invalid(format string, args ...any) error { return crud.Invalid(format, args...) }
