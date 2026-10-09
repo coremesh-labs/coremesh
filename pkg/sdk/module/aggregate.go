@@ -121,9 +121,10 @@ func (a *aggregate) load(ctx context.Context, id string) (map[string]any, error)
 	if err != nil {
 		return nil, err
 	}
+	master, _ := rec.(map[string]any)
 	rels := map[string]any{}
 	for _, rr := range a.rels {
-		items, err := a.children(ctx, rr, id)
+		items, err := a.children(ctx, rr, a.link(rr, id, master))
 		if err != nil {
 			return nil, fmt.Errorf("Relation %s: %w", rr.key, err)
 		}
@@ -132,8 +133,32 @@ func (a *aggregate) load(ctx context.Context, id string) (map[string]any, error)
 	return map[string]any{"record": rec, "relations": rels}, nil
 }
 
-func (a *aggregate) children(ctx context.Context, rr relationRoute, id string) ([]any, error) {
-	p, err := a.call(ctx, rr.child, metamodel.KindList, map[string]any{"query": map[string]any{rr.rel.ForeignKey: id}})
+// link: Felder des Unter-Objects, die es mit dem Master verbinden – nach
+// Relation.Match aus dem Datensatz des Masters (zusammengesetzter Schlüssel,
+// z. B. company_code + contract_id), sonst ForeignKey = id des Masters.
+func (a *aggregate) link(rr relationRoute, masterID string, master map[string]any) map[string]any {
+	if len(rr.rel.Match) == 0 || master == nil {
+		return map[string]any{rr.rel.ForeignKey: masterID}
+	}
+	out := map[string]any{}
+	for child, field := range rr.rel.Match {
+		out[child] = master[field]
+	}
+	return out
+}
+
+// masterRecord: Datensatz des Masters (für Relation.Match).
+func (a *aggregate) masterRecord(ctx context.Context, id string) (map[string]any, error) {
+	p, err := a.call(ctx, a.master, metamodel.KindItem, map[string]any{"id": id})
+	if err != nil {
+		return nil, err
+	}
+	rec, _ := p.(map[string]any)
+	return rec, nil
+}
+
+func (a *aggregate) children(ctx context.Context, rr relationRoute, link map[string]any) ([]any, error) {
+	p, err := a.call(ctx, rr.child, metamodel.KindList, map[string]any{"query": link})
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +241,19 @@ func (a *aggregate) save(ctx context.Context, req sdk.Request) (sdk.Response, er
 }
 
 func (a *aggregate) apply(ctx context.Context, rr relationRoute, masterID string, ops relationOps) error {
-	fk := rr.rel.ForeignKey
+	var master map[string]any
+	if len(rr.rel.Match) > 0 {
+		var err error
+		if master, err = a.masterRecord(ctx, masterID); err != nil {
+			return err
+		}
+	}
+	link := a.link(rr, masterID, master)
 	if len(ops.Delete) > 0 {
 		return fmt.Errorf("%w: delete gibt es nicht – %s endet über %s", sdk.ErrInvalidArgument, rr.child.name, endHint(rr.child))
 	}
 	for i, e := range ops.Expire {
-		if err := a.owned(ctx, rr, masterID, e.ID); err != nil {
+		if err := a.owned(ctx, rr, link, e.ID); err != nil {
 			return fmt.Errorf("expire[%d]: %w", i, err)
 		}
 		if _, err := a.call(ctx, rr.child, metamodel.KindExpire, map[string]any{"id": e.ID, "valid_to": e.ValidTo}); err != nil {
@@ -229,7 +261,7 @@ func (a *aggregate) apply(ctx context.Context, rr relationRoute, masterID string
 		}
 	}
 	for i, childID := range ops.Deactivate {
-		if err := a.owned(ctx, rr, masterID, childID); err != nil {
+		if err := a.owned(ctx, rr, link, childID); err != nil {
 			return fmt.Errorf("deactivate[%d]: %w", i, err)
 		}
 		if _, err := a.call(ctx, rr.child, metamodel.KindDeactivate, map[string]any{"id": childID}); err != nil {
@@ -237,18 +269,22 @@ func (a *aggregate) apply(ctx context.Context, rr relationRoute, masterID string
 		}
 	}
 	for i, u := range ops.Update {
-		if err := a.owned(ctx, rr, masterID, u.ID); err != nil {
+		if err := a.owned(ctx, rr, link, u.ID); err != nil {
 			return fmt.Errorf("update[%d]: %w", i, err)
 		}
 		data := clone(u.Data)
-		data[fk] = masterID // Zuordnung zum Master bleibt
+		for k, v := range link {
+			data[k] = v // Zuordnung zum Master bleibt
+		}
 		if _, err := a.call(ctx, rr.child, metamodel.KindUpdate, map[string]any{"id": u.ID, "data": data}); err != nil {
 			return fmt.Errorf("update[%d]: %w", i, err)
 		}
 	}
 	for i, c := range ops.Create {
 		data := clone(c)
-		data[fk] = masterID
+		for k, v := range link {
+			data[k] = v
+		}
 		if _, err := a.call(ctx, rr.child, metamodel.KindCreate, map[string]any{"data": data}); err != nil {
 			return fmt.Errorf("create[%d]: %w", i, err)
 		}
@@ -258,14 +294,16 @@ func (a *aggregate) apply(ctx context.Context, rr relationRoute, masterID string
 
 // owned stellt sicher, dass ein Unter-Object zum Master gehört – über ein
 // Aggregat lassen sich keine Datensätze anderer Master ändern.
-func (a *aggregate) owned(ctx context.Context, rr relationRoute, masterID, childID string) error {
+func (a *aggregate) owned(ctx context.Context, rr relationRoute, link map[string]any, childID string) error {
 	p, err := a.call(ctx, rr.child, metamodel.KindItem, map[string]any{"id": childID})
 	if err != nil {
 		return err
 	}
 	rec, _ := p.(map[string]any)
-	if fmt.Sprint(rec[rr.rel.ForeignKey]) != masterID {
-		return fmt.Errorf("%w: %s %s gehört nicht zu %s %s", sdk.ErrInvalidArgument, rr.child.name, childID, a.master.name, masterID)
+	for k, v := range link {
+		if fmt.Sprint(rec[k]) != fmt.Sprint(v) {
+			return fmt.Errorf("%w: %s %s gehört nicht zu %s", sdk.ErrInvalidArgument, rr.child.name, childID, a.master.name)
+		}
 	}
 	return nil
 }
