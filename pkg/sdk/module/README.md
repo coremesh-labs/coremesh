@@ -123,6 +123,15 @@ Masken: `Field.Group`, `Field.Trigger`, `Field.ShowIf`/`RequiredIf` und der Hook
 `Entity.FormState` (meldet die Action `formState` an); `Entity.Filters` und `Search`
 erscheinen als Filterleiste der Übersicht. Siehe WebServer-README, Abschnitt „Dynamische Masken“.
 
+## Einstellbare Prüfungen (Fehler, Warnung, keine)
+
+Fachliche Prüfungen in `Validate`, `CheckRecord` oder `Prepare` melden ihren Befund über
+`crud.Report(ctx, stufe, "…", args…)`. Die Stufe (`crud.SeverityError`, `SeverityWarning`,
+`SeverityNone`) liest das Modul aus seiner Einstellung, z. B. einem Katalogfeld mit den
+Auswahlwerten `crud.SeverityOptions`. Bei einer Warnung wird gespeichert; die Antwort von
+`create`/`update` trägt die Texte in `_warnings` – der WebServer zeigt sie als gelbe
+Meldung, die Konsole in der Antwort. So bleiben Prüfungen konfigurierbar statt fest verdrahtet.
+
 ## SystemEvents
 
 Änderungen an Bewegungsdaten meldet ein Modul an den Event-Dispatcher (Core-Plugin `event`,
