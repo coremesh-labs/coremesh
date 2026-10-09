@@ -7,6 +7,7 @@
   "admin.User.fields.username": "Benutzername",
   "admin.User.fields.display_name": "Name",
   "admin.User.fields.tenant_id": "Mandant",
+  "admin.User.fields.company_codes": "Buchungskreise (kommagetrennt, leer = alle der Rollen)",
   "admin.User.fields.roles": "Rollen (eine pro Zeile)",
   "admin.User.fields.active": "Aktiv",
   "admin.User.fields.password": "Passwort (bei Bearbeitung leer = unverändert)",
