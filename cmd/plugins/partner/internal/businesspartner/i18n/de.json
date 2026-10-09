@@ -7,6 +7,7 @@
   "businesspartner.BusinessPartner.fields.letter_salutation": "Briefanrede",
   "businesspartner.BusinessPartner.fields.name1": "Name 1 (Firma / Nachname)",
   "businesspartner.BusinessPartner.fields.name2": "Name 2 (Vorname / Zusatz)",
+  "businesspartner.BusinessPartner.fields.roles": "Rollen (heute)",
   "businesspartner.BusinessPartner.fields.salutation_code": "Anrede (leer = Vorschlag nach Art und Geschlecht)",
   "businesspartner.BusinessPartner.fields.search_term": "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)",
   "businesspartner.BusinessPartner.fields.type": "Art",

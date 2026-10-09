@@ -48,13 +48,15 @@
 
 {{/* Ein Eingabefeld je Datentyp. Daten: tagFieldCtx {Ed, F}. */}}
 {{define "tag-field"}}
-{{$f := .F}}{{$ro := or .Ed.ReadOnly $f.Deprecated}}
+{{$f := .F}}{{$ro := or .Ed.ReadOnly $f.Deprecated $f.Hidden}}
 <label class="field{{if $f.Error}} invalid{{end}}">
   <span>{{$f.Name}}{{if $f.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}
     {{if not $f.Global}}<small class="badge">{{t "core.tags.scope" $f.Scope}}</small>{{end}}
     {{if $f.Deprecated}}<small class="badge inactive">{{t "core.tags.deprecated"}}</small>{{end}}
     {{with $f.Since}}<small class="muted">{{t "core.tags.since" .}}</small>{{end}}</span>
-  {{if $f.Options}}
+  {{if $f.Hidden}}
+  <input type="text" value="{{t "core.tags.protected"}}" disabled>
+  {{else if $f.Options}}
   <select name="v.{{$f.Code}}" {{if $ro}}disabled{{end}}
           hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
     <option value="">{{t "core.tags.choose"}}</option>
@@ -78,7 +80,7 @@
   </span>
   {{else}}
   <input name="v.{{$f.Code}}" value="{{$f.Value}}" {{if $ro}}disabled{{end}}
-         {{if eq $f.DataType "INTEGER"}}type="number" step="1"{{else if eq $f.DataType "DATE"}}type="date"{{else if eq $f.DataType "TIMESTAMP"}}type="datetime-local"{{else}}type="text" maxlength="1000"{{end}}
+         {{if eq $f.DataType "INTEGER"}}type="number" step="1"{{else if eq $f.DataType "DATE"}}type="date"{{else if eq $f.DataType "TIMESTAMP"}}type="datetime-local"{{else}}type="text" maxlength="1000"{{with $f.Pattern}} pattern="{{.}}"{{end}}{{with $f.Hint}} title="{{.}}" placeholder="{{.}}"{{end}}{{end}}
          hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
   {{if eq $f.DataType "TIMESTAMP"}}<small class="muted">UTC</small>{{end}}
   {{end}}

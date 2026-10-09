@@ -15,6 +15,7 @@ var testDefs = map[string]metamodel.ObjectDefinition{
 		{Key: "contract_type", Label: "Vertragsart", Type: metamodel.TypeSelect, Options: []metamodel.Option{
 			{Value: "RENT", Label: "Mietvertrag"}, {Value: "INSURANCE", Label: "Versicherungsvertrag"}, {Value: "LOAN", Label: "Darlehensvertrag"}}},
 		{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean},
+		{Key: "roles", Label: "Rollen (heute)", Type: metamodel.TypeText},
 	}},
 	"RentalObject": {Name: "RentalObject", Title: "Mietobjekte", TitleField: "name", Fields: []metamodel.FieldDefinition{
 		{Key: "id", Label: "ID", Type: metamodel.TypeText}, {Key: "name", Label: "Bezeichnung", Type: metamodel.TypeText}}},

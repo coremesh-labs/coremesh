@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -74,8 +75,8 @@ func (m *Module) loadSchema(ctx context.Context, entityType, cc, at, locale stri
 	scopes := companyScopes(cc)
 	args := append([]any{entityType}, scopes...)
 	args = append(args, at, at)
-	res, err := m.db.Query(ctx, `SELECT a.company_code, s.code, s.name, s.translation_key, a.condition_field, a.condition_values
-		FROM tag__tag_set_assignments a JOIN tag__tag_sets s ON s.code = a.tag_set_code AND s.valid_from <= ? AND s.valid_to >= ?
+	res, err := m.db.Query(ctx, `SELECT a.company_code, s.code, s.name, s.translation_key, a.condition_field, a.condition_values,
+		a.condition_field_2, a.condition_values_2 FROM tag__tag_set_assignments a JOIN tag__tag_sets s ON s.code = a.tag_set_code AND s.valid_from <= ? AND s.valid_to >= ?
 		WHERE a.entity_type = ? AND a.company_code IN (`+inClause(len(scopes))+`) AND a.valid_from <= ? AND a.valid_to >= ?
 		ORDER BY CASE WHEN a.company_code = '*' THEN 0 ELSE 1 END, s.code`, append([]any{at, at}, args...)...)
 	if err != nil {
@@ -90,7 +91,10 @@ func (m *Module) loadSchema(ctx context.Context, entityType, cc, at, locale stri
 			Items: []tagservice.SetItem{}, Rules: []tagservice.Rule{}}
 		if field := crud.Str(r[4]); field != "" {
 			set.Condition = &tagservice.SetCondition{Field: field, Values: splitValues(crud.Str(r[5]))}
-			if attrs != nil && !slices.Contains(set.Condition.Values, attrs[field]) {
+			if f2 := crud.Str(r[6]); f2 != "" {
+				set.Condition.And = &tagservice.SetCondition{Field: f2, Values: splitValues(crud.Str(r[7]))}
+			}
+			if attrs != nil && !set.Condition.Matches(attrs) {
 				continue // Bedingung nicht erfüllt, z. B. Darlehens- statt Mietvertrag
 			}
 		}
@@ -431,7 +435,36 @@ func (m *Module) schemaAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	if err != nil {
 		return sdk.Response{}, err
 	}
+	m.hideProtected(ctx, idx, in.CompanyCode)
 	return sdk.Response{Payload: idx.schema}, nil
+}
+
+// tagAllowed: Recht auf Werte eines geschützten Tags (TagType.readValue/changeValue,
+// einschränkbar nach code) im Buchungskreis.
+func (m *Module) tagAllowed(ctx context.Context, action, cc, code string) bool {
+	if cc == "" {
+		cc = tagservice.AllCompanyCodes
+	}
+	ok, err := sdk.Authorize(ctx, "TagType", action, sdk.Attrs{sdk.AttrCompanyCode: cc, "code": code})
+	return err == nil && ok
+}
+
+// hideProtected markiert geschützte Tags ohne Leserecht als verborgen; liefert sie.
+func (m *Module) hideProtected(ctx context.Context, idx *schemaIndex, cc string) map[string]bool {
+	hidden := map[string]bool{}
+	for code, info := range idx.tags {
+		if info.item.Tag.Protected && !m.tagAllowed(ctx, actionReadValue, cc, code) {
+			hidden[code] = true
+		}
+	}
+	for i := range idx.schema.Sets {
+		for j := range idx.schema.Sets[i].Items {
+			if it := &idx.schema.Sets[i].Items[j]; hidden[it.Tag.Code] {
+				it.Tag.Hidden = true
+			}
+		}
+	}
+	return hidden
 }
 
 func (m *Module) getAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
@@ -460,9 +493,13 @@ func (m *Module) entityTags(ctx context.Context, entityType, entityID, cc, at, l
 	if err != nil {
 		return tagservice.EntityTags{}, err
 	}
+	hidden := m.hideProtected(ctx, idx, cc)
 	values := map[string]tagservice.Value{}
 	out := tagservice.EntityTags{Schema: idx.schema, EntityID: entityID, Values: []tagservice.Assignment{}}
 	for _, code := range slices.Sorted(maps.Keys(cur)) {
+		if hidden[code] {
+			continue // geschützt: Wert ohne Recht nicht sichtbar
+		}
 		out.Values = append(out.Values, cur[code])
 		values[code] = cur[code].Value
 	}
@@ -530,6 +567,17 @@ func (m *Module) prepare(ctx context.Context, in tagservice.SetRequest, attrs ma
 			if _, err := m.fetch(ctx, t.RefObject, *s.Ref); err != nil {
 				violations = append(violations, tagservice.Violation{Tag: code, Code: "reference",
 					Message: fmt.Sprintf("%s: %s %q nicht gefunden oder nicht lesbar", idx.label(code), t.RefObject, *s.Ref)})
+				continue
+			}
+		}
+		if t.Pattern != "" && s.String != nil {
+			if re, err := regexp.Compile(`^(?:` + t.Pattern + `)$`); err == nil && !re.MatchString(*s.String) {
+				hint := t.PatternHint
+				if hint == "" {
+					hint = "Muster " + t.Pattern
+				}
+				violations = append(violations, tagservice.Violation{Tag: code, Code: "pattern",
+					Message: fmt.Sprintf("%s: %q passt nicht (%s)", idx.label(code), *s.String, hint)})
 				continue
 			}
 		}
@@ -607,6 +655,10 @@ func (m *Module) setAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	for code := range p.changes {
 		if err := m.checkWrite(ctx, in.EntityType, p.idx.tags[code].item.Scope); err != nil {
 			return sdk.Response{}, err
+		}
+		if p.idx.tags[code].item.Tag.Protected && !m.tagAllowed(ctx, actionChangeValue, in.CompanyCode, code) {
+			return sdk.Response{}, fmt.Errorf("%w: Tag %s ist geschützt – Recht „Werte geschützter Tags ändern“ (TagType.changeValue) fehlt",
+				sdk.ErrPermissionDenied, code)
 		}
 	}
 	err = m.db.InTx(ctx, nil, func(ctx context.Context) error {

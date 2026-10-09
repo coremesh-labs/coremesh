@@ -186,6 +186,16 @@ Objekt in verschiedenen Buchungskreisen verschiedene Tags haben.
     Buchungskreises.
   - Lesen setzt voraus, dass `<entity_type>.get` für das Objekt erlaubt ist.
 
+### Prüfmuster und geschützte Tags (seit 0.4.0)
+
+- **Prüfmuster** (`TagType.pattern`, nur Datentyp Text): regulärer Ausdruck für den ganzen Wert,
+  z. B. Steuer-ID `[1-9]\d{10}`; `pattern_hint` ist der Hinweis bei einem falschen Wert (Verstoß
+  `pattern`). Die Webseite setzt das Muster auch am Eingabefeld.
+- **Geschützt** (`TagType.protected`): Werte sieht nur, wer `TagType.readValue` hat, ändern nur
+  mit `TagType.changeValue` – beide in Rollen einschränkbar nach `code` (z. B. nur `STEUER_ID`).
+  Ohne Leserecht fehlt der Wert in `Tags.get`; das Schema markiert den Tag `hidden`, die Webseite
+  zeigt „geschützt“ und lässt den Wert beim Speichern unverändert.
+
 ### Bedingung: nur für Datensätze mit bestimmten Feldwerten
 
 Objekttyp und Buchungskreis reichen nicht immer. Ein Mietvertrag braucht andere Tags als ein
@@ -209,6 +219,10 @@ Zuordnung zusätzlich ein **Feld des Objects** und **einen oder mehrere Werte** 
 - `Tags.schema` **ohne** Datensatz:
   - mit `attributes` (z. B. `{"contract_type": "RENT"}`, etwa für eine Neuanlage) → gefiltert,
   - ohne `attributes` → alle Sets; die Bedingung steht in `TagSet.condition`.
+- **Zweite Bedingung** (seit 0.4.0, `condition_field_2`/`condition_values_2`): beide müssen
+  gelten (UND), z. B. Geschäftspartner `type = PERSON` **und** `roles` enthält `TENANT`.
+- **Felder mit mehreren Werten** (kommagetrennt, z. B. `roles` = `TENANT,DEBITOR` – die heutigen
+  Rollen eines Geschäftspartners): Die Bedingung gilt, wenn einer der Werte passt.
 - Ändert sich der Feldwert (Vertragsart wechselt), erscheinen die Tags des anderen Sets. Werte des
   alten Sets bleiben gespeichert und in `Tags.history` sichtbar, sie sind nur nicht mehr
   zugewiesen.
