@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -600,6 +601,7 @@ func (s *server) actionForm(w http.ResponseWriter, r *http.Request) {
 	}
 	v := s.actionView(r, oc, act, r.URL.Query().Get("id"), nil, nil)
 	if r.URL.Query().Get("inline") != "" {
+		v.InlineButtons = oc.inlineButtons(act.Name)
 		s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 		return
 	}
@@ -760,7 +762,9 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	inline := r.PostForm.Get("_inline") != ""
 	if len(errs) > 0 {
 		if inline {
-			s.render(w, r, http.StatusOK, "action-inline", s.actionView(r, oc, act, id, raw, errs), "", "")
+			v := s.actionView(r, oc, act, id, raw, errs)
+			v.InlineButtons = oc.inlineButtons(act.Name)
+			s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 			return
 		}
 		s.formAgain(w, r, s.actionView(r, oc, act, id, raw, errs), "")
@@ -777,8 +781,22 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 				s.fail(w, r, err)
 				return
 			}
-			v := s.actionView(r, oc, act, id, raw, nil)
+			// Fehler eines Knopfs (z. B. „Zurück“): Formular der Abschnitts-Aktion mit Meldung.
+			target := act
+			for _, sec := range oc.Def.Sections {
+				if slices.Contains(sec.Buttons, act.Name) {
+					if a := oc.custom(sec.Action); a != nil {
+						target = a
+					}
+				}
+			}
+			var values map[string]string
+			if target == act {
+				values = raw // Eingaben behalten
+			}
+			v := s.actionView(r, oc, target, id, values, nil)
 			v.FormError = err.Error()
+			v.InlineButtons = oc.inlineButtons(target.Name)
 			s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 			return
 		}

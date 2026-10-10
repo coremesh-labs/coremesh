@@ -140,6 +140,17 @@ func (d ObjectDefinition) Validate() error {
 				add("%s: action %q ist keine eigene Aktion des Datensatzes (Record)", where, s.Action)
 			}
 		}
+		for _, b := range s.Buttons {
+			ok := false
+			for _, a := range d.Actions {
+				if a.Name == b && a.Kind == KindCustom && a.Record {
+					ok = true
+				}
+			}
+			if !ok || s.Action == "" {
+				add("%s: button %q braucht eine eigene Aktion des Datensatzes und einen Aktionsabschnitt", where, b)
+			}
+		}
 		for _, k := range s.Fields {
 			switch {
 			case !keys[k]:
