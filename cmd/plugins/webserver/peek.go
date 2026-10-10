@@ -76,7 +76,9 @@ func (s *server) peekByValue(r *http.Request, oc objectCtx, value string) record
 	if vf == "" || err != nil {
 		return nil
 	}
-	query := map[string]any{vf: value, "limit": 2}
+	// Wertfeld als Filter und als Suchbegriff – nicht jedes Object filtert nach ihm;
+	// gezählt werden nur Treffer mit genau diesem Wert.
+	query := map[string]any{vf: value, "q": value, "limit": 50}
 	for k, v := range r.URL.Query() {
 		if t, ok := strings.CutPrefix(k, "f."); ok && len(v) > 0 && v[0] != "" {
 			query[t] = v[0]
@@ -89,10 +91,19 @@ func (s *server) peekByValue(r *http.Request, oc objectCtx, value string) record
 	var out struct {
 		Items []record `json:"items"`
 	}
-	if sdk.Decode(resp.Payload, &out) != nil || len(out.Items) != 1 || scalar(out.Items[0][vf]) != value {
+	if sdk.Decode(resp.Payload, &out) != nil {
 		return nil
 	}
-	return out.Items[0]
+	var hit record
+	for _, it := range out.Items {
+		if scalar(it[vf]) == value {
+			if hit != nil {
+				return nil // mehrdeutig
+			}
+			hit = it
+		}
+	}
+	return hit
 }
 
 // targetDef holt Metamodell und fachliches Modul eines beliebigen Objects –
