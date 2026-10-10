@@ -752,7 +752,9 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PostForm.Get("_id")
 	// Aktion ohne Formular (Confirm ohne Fields): nur bestätigt, keine Eingaben.
-	direct := act.Confirm != "" && len(act.Fields) == 0
+	// Ohne Formular: bestätigte Aktion ohne Felder oder Knopf im Aktionsabschnitt
+	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“.
+	direct := len(act.Fields) == 0 && (act.Confirm != "" || r.PostForm.Get("_button") != "")
 	data, raw, errs := map[string]any{}, map[string]string{}, map[string]string{}
 	if !direct {
 		def := actionDef(oc.ActionDef, act.Fields)
