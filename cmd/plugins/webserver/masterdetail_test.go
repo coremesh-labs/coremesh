@@ -234,7 +234,7 @@ func TestRelationSection(t *testing.T) {
 	}
 	mustContain(t, b,
 		"<th>Art</th><th>Adresse</th><th>Wert</th>",                               // Columns der Relation, ohne Fremdschlüssel
-		"<td>E-Mail&#8288;<span class=\"peek\" hx-get=\"/peek/ContactKind/MAIL\"", // Label statt Code, mit Kopfdaten-Vorschau
+		"<td>E-Mail&#8288;<span class=\"peek\" hx-get=\"/peek/ContactKind/MAIL?vf=", // Label statt Code, mit Kopfdaten-Vorschau
 		`hx-get="/m/crm/Address/a1/edit?view=refresh"`,                            // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -45,11 +46,53 @@ func peekURL(object, id string) string {
 }
 
 // peekFor: Vorschau für ein Feld eines Datensatzes – nur bei Verweisen (Lookup).
+// Ist der Feldwert nicht die id des Ziels (zusammengesetzter Schlüssel, z. B.
+// Vertrag = Buchungskreis|Vertragsnummer), hilft die Anfrage weiter: vf ist das
+// Wertfeld des Ziels, f.<Feld> die Filter des Verweises aus dem Datensatz.
 func peekFor(rec record, f metamodel.FieldDefinition) string {
 	if f.Lookup == nil {
 		return ""
 	}
-	return peekURL(f.Lookup.Object, scalar(rec[f.Key]))
+	u := peekURL(f.Lookup.Object, scalar(rec[f.Key]))
+	if u == "" || f.Lookup.ValueField == "" {
+		return u
+	}
+	q := url.Values{"vf": {f.Lookup.ValueField}}
+	for target, src := range f.Lookup.Filters {
+		if strings.HasPrefix(src, "=") { // fester Wert
+			q.Set("f."+target, strings.TrimPrefix(src, "="))
+		} else if v := scalar(rec[src]); v != "" {
+			q.Set("f."+target, v)
+		}
+	}
+	return u + "?" + q.Encode()
+}
+
+// peekByValue: Datensatz über das Wertfeld des Verweises und seine Filter –
+// genau ein Treffer, sonst nil.
+func (s *server) peekByValue(r *http.Request, oc objectCtx, value string) record {
+	vf := r.URL.Query().Get("vf")
+	act, err := need(oc, metamodel.KindList)
+	if vf == "" || err != nil {
+		return nil
+	}
+	query := map[string]any{vf: value, "limit": 2}
+	for k, v := range r.URL.Query() {
+		if t, ok := strings.CutPrefix(k, "f."); ok && len(v) > 0 && v[0] != "" {
+			query[t] = v[0]
+		}
+	}
+	resp, err := s.call(r, oc.Object, act.Name, map[string]any{"query": query})
+	if err != nil {
+		return nil
+	}
+	var out struct {
+		Items []record `json:"items"`
+	}
+	if sdk.Decode(resp.Payload, &out) != nil || len(out.Items) != 1 || scalar(out.Items[0][vf]) != value {
+		return nil
+	}
+	return out.Items[0]
 }
 
 // targetDef holt Metamodell und fachliches Modul eines beliebigen Objects –
@@ -139,6 +182,11 @@ func (s *server) peek(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		pv.Title = oc.Def.Title
 		pv.Record, err = s.fetchRecord(r, oc, id)
+		if err != nil && errStatus(err) != http.StatusForbidden {
+			if rec := s.peekByValue(r, oc, id); rec != nil {
+				pv.Record, err = rec, nil
+			}
+		}
 	}
 	if err != nil {
 		switch errStatus(err) {
