@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -126,5 +128,42 @@ func TestActionFormState(t *testing.T) {
 	w := do(s, "GET", "/new/Customer", nil, false)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Customer/new" {
 		t.Fatalf("/new: %d %q", w.Code, w.Header().Get("Location"))
+	}
+}
+
+// TestActionSection: Abschnitt mit eingebettetem Aktionsformular – lädt das
+// Formular inline, Absenden ersetzt den Abschnitt (Fehler) bzw. lädt die
+// Detailansicht neu (HX-Location); ausgeblendet per _hidden_sections.
+func TestActionSection(t *testing.T) {
+	withDef(t, "Customer", func(d *metamodel.ObjectDefinition) {
+		d.Fields = append(slices.Clone(d.Fields), metamodel.FieldDefinition{Key: "answer", Label: "Antwort", Type: metamodel.TypeText, Editable: true, ActionOnly: true})
+		d.Actions = append(slices.Clone(d.Actions), metamodel.ActionConfig{Name: "step", Kind: metamodel.KindCustom, Label: "Weiter …", Record: true, Fields: []string{"answer"}})
+		d.Sections = append([]metamodel.SectionDefinition{{Key: "entscheidung", Title: "Entscheidung", Action: "step"}}, d.Sections...)
+	})
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustContain(t, b, `class="action-section" hx-get="/action/crm/Customer/step?inline=1&amp;id=c1"`)
+	b = do(s, "GET", "/action/crm/Customer/step?inline=1&id=c1", nil, true).Body.String()
+	mustContain(t, b, `hx-post="/action/crm/Customer/step" hx-target="closest .action-section"`, `name="_inline" value="1"`, `name="answer"`,
+		`<button type="submit" class="btn primary">Weiter</button>`)
+	if strings.Contains(b, "<dialog") {
+		t.Fatal("eingebettet, kein Dialog")
+	}
+	w := do(s, "POST", "/action/crm/Customer/step", url.Values{"_inline": {"1"}, "_id": {"c1"}, "answer": {"ja"}}, true)
+	if loc := w.Header().Get("HX-Location"); loc != `{"path":"/m/crm/Customer/c1","target":"#main-content"}` {
+		t.Fatalf("HX-Location: %q", loc)
+	}
+	if d := h.find("step").Payload.(map[string]any); d["id"] != "c1" || d["data"].(map[string]any)["answer"] != "ja" {
+		t.Fatalf("Payload: %v", d)
+	}
+	h.mu.Lock()
+	h.fail["Customer.step"] = fmt.Errorf("%w: Wert passt nicht", sdk.ErrInvalidArgument)
+	h.mu.Unlock()
+	b = do(s, "POST", "/action/crm/Customer/step", url.Values{"_inline": {"1"}, "_id": {"c1"}, "answer": {"x"}}, true).Body.String()
+	mustContain(t, b, "Wert passt nicht", `value="x"`, `class="action-inline"`)
+	customerMarkers.Store(map[string]any{"_hidden_sections": []any{"entscheidung"}})
+	t.Cleanup(func() { customerMarkers.Store(map[string]any{}) })
+	if b = do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String(); strings.Contains(b, "action-section") {
+		t.Fatal("ausgeblendeter Abschnitt")
 	}
 }

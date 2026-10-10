@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/base64"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
@@ -103,6 +103,15 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			Items: []docservice.Document{{ID: "d1", DocType: "AGB", DocTypeName: "AGB", Title: "AGB 2026", DocDate: "2026-01-02",
 				Location: "https://dms.example/1", ValidFrom: "2026-01-01"},
 				{ID: "d2", DocType: "AGB", DocTypeName: "AGB", Title: "Bescheid", Location: "3.0.1:VV:Grundsteuer.pdf", Link: "/file/DmsDocument/d2"}}}}, nil
+	case "Customer.step":
+		h.fakeHost.mu.Lock()
+		err := h.fakeHost.fail["Customer.step"]
+		h.fakeHost.mu.Unlock()
+		h.fakeHost.record(ctx, req)
+		if err != nil {
+			return sdk.Response{}, err
+		}
+		return sdk.Response{Payload: map[string]any{"message": "weiter"}}, nil
 	case "Customer.content":
 		h.fakeHost.record(ctx, req)
 		switch p["id"] {
@@ -257,9 +266,9 @@ func TestRelationSection(t *testing.T) {
 		t.Fatalf("Filter auf den Master: %v", p)
 	}
 	mustContain(t, b,
-		"<th>Art</th><th>Adresse</th><th>Wert</th>",                               // Columns der Relation, ohne Fremdschlüssel
+		"<th>Art</th><th>Adresse</th><th>Wert</th>",                                 // Columns der Relation, ohne Fremdschlüssel
 		"<td>E-Mail&#8288;<span class=\"peek\" hx-get=\"/peek/ContactKind/MAIL?vf=", // Label statt Code, mit Kopfdaten-Vorschau
-		`hx-get="/m/crm/Address/a1/edit?view=refresh"`,                            // verknüpfte Adresse bearbeiten
+		`hx-get="/m/crm/Address/a1/edit?view=refresh"`,                              // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
 		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`, // Typ A: Beenden …

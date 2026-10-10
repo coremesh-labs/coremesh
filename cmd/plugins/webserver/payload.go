@@ -478,3 +478,8 @@ func (v view) HasFile() bool {
 	}
 	return false
 }
+
+// SubmitLabel: Text der Schaltfläche einer eingebetteten Aktion (ohne „…“).
+func (v view) SubmitLabel() string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(v.Action.Label), "…"))
+}

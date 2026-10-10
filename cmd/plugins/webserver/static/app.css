@@ -189,3 +189,5 @@ dialog.modal form footer { position: sticky; bottom: -1.25rem; background: var(-
        border-radius: var(--radius); background: var(--bg); color: var(--text); }
 .list-filters input[type=search] { min-width: 14rem; }
 .form-links { margin: .25rem 0 .75rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+.action-section { border-left: 4px solid var(--accent, #2563eb); padding: .5rem 1rem; background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent); }
+.action-section footer { margin-top: .5rem; }

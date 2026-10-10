@@ -146,6 +146,12 @@ type SectionDefinition struct {
 	// Text) – der WebServer holt ihn über die Action ContentAction des Objects
 	// (GET /file/{object}/{id}, fester Link).
 	Viewer bool `json:"viewer,omitempty"`
+	// Action: Abschnitt mit dem Formular einer eigenen Aktion des Datensatzes
+	// (Name, Record: true), eingebettet statt im Dialog – z. B. der nächste
+	// Schritt eines Workflows. Nach dem Absenden lädt die Detailansicht neu
+	// und zeigt das Formular für den neuen Stand. Ausblenden: Marker
+	// _hidden_sections am Datensatz.
+	Action string `json:"action,omitempty"`
 }
 
 // ContentAction liefert den Inhalt eines Datensatzes als Datei (Payload {id},
