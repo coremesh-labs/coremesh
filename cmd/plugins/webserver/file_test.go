@@ -26,6 +26,9 @@ func TestFileContent(t *testing.T) {
 		cd != `inline; filename="11.1:VV:Vertrag.pdf"` || w.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatalf("Header: %q %q", ct, cd)
 	}
+	if w.Header().Get("X-Frame-Options") != "SAMEORIGIN" || w.Header().Get("Content-Security-Policy") != "frame-ancestors 'self'" {
+		t.Fatalf("Einbetten nicht erlaubt: %v", w.Header())
+	}
 	if p := h.find("content").Payload.(map[string]any); p["id"] != "c1" {
 		t.Fatalf("Payload: %v", p)
 	}

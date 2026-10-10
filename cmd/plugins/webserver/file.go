@@ -62,6 +62,10 @@ func (s *server) fileContent(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Content-Type", typ)
 	h.Set("X-Content-Type-Options", "nosniff")
+	// Der Viewer bettet die Datei ein (iframe): nur aus der eigenen Anwendung,
+	// sonst bleibt es bei DENY (securityHeaders).
+	h.Set("X-Frame-Options", "SAMEORIGIN")
+	h.Set("Content-Security-Policy", "frame-ancestors 'self'")
 	h.Set("Cache-Control", "private, no-store")
 	if name := strings.TrimSpace(c.FileName); name != "" {
 		h.Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": name}))
