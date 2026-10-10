@@ -138,6 +138,17 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		var in metamodel.FormStateRequest
 		_ = sdk.Decode(req.Payload, &in)
 		st := metamodel.FormState{Fields: map[string]metamodel.FieldState{}}
+		if in.Mode == "action" && in.Action == "pick" {
+			no := false
+			opts := []metamodel.Option{{Value: "A", Label: "Alpha"}, {Value: "B", Label: "Beta"}}
+			if in.Values["search"] == "be" {
+				opts = opts[1:]
+			}
+			st.Fields["choice"] = metamodel.FieldState{Options: opts}
+			st.Fields["value"] = metamodel.FieldState{Visible: &no}
+			st.Message = "Welches Objekt?"
+			st.Links = []metamodel.FormLink{{Label: "Vertrag anlegen", URL: "/new/Contract"}, {Label: "böse", URL: "javascript:alert(1)"}}
+		}
 		if in.Mode == "action" && in.Action == "remind" {
 			v := "2026-10-08"
 			st.Fields["value"] = metamodel.FieldState{Value: &v}

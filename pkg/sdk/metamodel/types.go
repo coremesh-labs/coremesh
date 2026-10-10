@@ -341,6 +341,15 @@ type FormStateRequest struct {
 type FormState struct {
 	Fields  map[string]FieldState `json:"fields"`
 	Message string                `json:"message,omitempty"` // Hinweis über dem Formular
+	// Links unter dem Hinweis, im neuen Fenster – z. B. „Vertrag anlegen“
+	// (/new/Contract). Nur Pfade der Anwendung (beginnen mit /).
+	Links []FormLink `json:"links,omitempty"`
+}
+
+// FormLink ist ein Link im Formular.
+type FormLink struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
 }
 
 // FieldState überschreibt die Eigenschaften eines Felds; nil = unverändert.

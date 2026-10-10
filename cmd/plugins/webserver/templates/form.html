@@ -85,6 +85,7 @@
      Daten: view {FormMessage, FormGroups}. */}}
 {{define "form-body"}}<div class="form-body">
 {{with .FormMessage}}<p class="form-hint" role="status">{{.}}</p>{{end}}
+{{with .FormLinks}}<p class="form-links">{{range .}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Label}}</a> {{end}}</p>{{end}}
 {{range .FormGroups}}<fieldset class="form-group">{{with .Title}}<legend>{{.}}</legend>{{end}}
 <div class="form-grid">{{range .Fields}}{{template "field" .}}{{end}}</div></fieldset>
 {{end}}</div>{{end}}

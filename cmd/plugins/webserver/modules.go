@@ -169,6 +169,7 @@ func (s *server) actionRoutes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{object}/{name}", s.actionForm)
 	mux.HandleFunc("POST /{object}/{name}", s.runAction)
+	mux.HandleFunc("POST /{object}/{name}/_form", s.actionRefresh)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, fmt.Errorf("%w: %s", sdk.ErrNotFound, r.URL.Path))
 	})
