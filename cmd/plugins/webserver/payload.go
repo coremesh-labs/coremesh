@@ -145,7 +145,9 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 			}
 			data[f.Key] = v
 		case metamodel.TypeSelect:
-			if !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == v }) {
+			// Ohne feste Werte kommen die Auswahlwerte aus FormState (je nach
+			// Datensatz, z. B. Schritt eines Workflows) – dann prüft das Modul.
+			if len(f.Options) > 0 && !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == v }) {
 				errs[f.Key] = "core.validation.option"
 				continue
 			}

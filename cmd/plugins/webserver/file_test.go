@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"testing"
 
@@ -75,5 +76,21 @@ func TestBinaryUpload(t *testing.T) {
 	got, err := base64.StdEncoding.DecodeString(data["file"].(string))
 	if err != nil || !bytes.Equal(got, content) || data["file_name"] != "scan.pdf" || data["file_type"] != "application/pdf" {
 		t.Fatalf("Daten: %v (%v)", data, err)
+	}
+}
+
+// TestDynamicSelect: Auswahlfeld ohne feste Werte (Werte aus FormState) – der
+// WebServer nimmt den Wert an, das Modul prüft.
+func TestDynamicSelect(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.FormState = "formState"
+		d.Fields = append(d.Fields, metamodel.FieldDefinition{Key: "choice", Label: "Auswahl", Type: metamodel.TypeSelect, Editable: true, ActionOnly: true})
+		d.Actions = append(slices.Clone(d.Actions),
+			metamodel.ActionConfig{Name: "pick", Kind: metamodel.KindCustom, Label: "Wählen …", Fields: []string{"choice"}})
+	})
+	s, h := newMDServer(t)
+	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"choice": {"3.0.1"}}, true)
+	if d := h.find("pick").Payload.(map[string]any)["data"].(map[string]any); d["choice"] != "3.0.1" {
+		t.Fatalf("Daten: %v", d)
 	}
 }
