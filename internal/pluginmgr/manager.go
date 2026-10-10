@@ -62,6 +62,7 @@ func (m *Manager) Start(s Spec) (sdk.Plugin, error) {
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
 		Logger:           m.log.Named(s.Name),
 		StartTimeout:     m.startTimeout,
+		GRPCDialOptions:  adapter.DialOptions(),
 	}
 	if rc, ok := m.reattach[s.Name]; ok {
 		cc.Reattach = rc

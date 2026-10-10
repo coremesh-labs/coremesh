@@ -9,7 +9,7 @@
       <th>{{t "core.docs.valid"}}</th><th>{{t "core.docs.note"}}</th>{{if $.CanEdit}}<th></th>{{end}}</tr></thead>
     <tbody>{{range .Items}}<tr>
       <td>{{.DocDate}}</td><td>{{.DocTypeName}}</td><td>{{.Title}}</td>
-      <td>{{with $.Link .Location}}<a href="{{.}}" target="_blank" rel="noopener">{{.}}</a>{{else}}{{.Location}}{{end}}</td>
+      <td>{{$d := .}}{{with $.Link $d}}<a href="{{.}}" target="_blank" rel="noopener">{{$d.Location}}</a>{{else}}{{$d.Location}}{{end}}</td>
       <td>{{if or .ValidFrom .ValidTo}}{{.ValidFrom}} – {{.ValidTo}}{{end}}</td><td>{{.Note}}</td>
       {{if $.CanEdit}}<td><button type="button" class="btn" hx-post="{{$.URL}}/{{.ID}}/remove" hx-target="closest .doc-list" hx-swap="outerHTML"
         hx-confirm="{{t "core.docs.remove_confirm"}}">{{t "core.docs.remove"}}</button></td>{{end}}

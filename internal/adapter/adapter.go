@@ -72,7 +72,7 @@ func (s *pluginServer) Configure(ctx context.Context, req *pluginv1.ConfigureReq
 	if req.GetHostServiceBrokerId() == 0 {
 		return nil, status.Error(codes.InvalidArgument, "host_service_broker_id fehlt")
 	}
-	conn, err := s.broker.Dial(req.GetHostServiceBrokerId())
+	conn, err := s.broker.DialWithOptions(req.GetHostServiceBrokerId(), DialOptions()...)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "HostService nicht erreichbar: %v", err)
 	}
@@ -135,7 +135,7 @@ func (c *pluginClient) Configure(ctx context.Context, cfg sdk.Config) error {
 
 	id := c.broker.NextId()
 	go c.broker.AcceptAndServe(id, func(opts []grpc.ServerOption) *grpc.Server {
-		s := grpc.NewServer(opts...)
+		s := grpc.NewServer(append(opts, ServerOptions()...)...)
 		pluginv1.RegisterHostServiceServer(s, &hostServer{impl: cfg.Host})
 		return s
 	})

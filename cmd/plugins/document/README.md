@@ -9,8 +9,8 @@ Widerrufsbelehrung, Bestätigung, Angebot, Rechnung, Bescheid, Abrechnung, Schri
   ein Adapter-Plugin dasselbe Object mit denselben Payloads anbietet.
 - **Ziel:** Object und fachlicher Schlüssel des Datensatzes, bei Zeitscheiben ohne Beginndatum.
   Gültig von/bis sagt, für welchen Zeitraum ein Dokument gilt (z. B. AGB-Fassung, Nachtrag ab).
-- **Ablage:** zunächst Dateiname, Ablageort oder Link (Links öffnet die Oberfläche). Das
-  Hochladen und Speichern der Dateien selbst folgt.
+- **Ablage:** Dateiname, Ablageort oder Link (Links öffnet die Oberfläche); ein DMS setzt zusätzlich
+  `link` (fester Link, z. B. `/file/DmsDocument/…`). Dateien selbst legt das DMS-Plugin (coremesh-erp) ab.
 - **Rechte folgen dem Datensatz:** lesen = `<Object>.get` und `<Object>.read` im Buchungskreis
   des Datensatzes; anhängen, ändern, entfernen = `<Object>.update`.
 - **Entfernen** setzt `removed_at`/`removed_by`; der Verweis bleibt zur Nachvollziehbarkeit.

@@ -51,7 +51,7 @@ func Serve(p sdk.Plugin) {
 	goplugin.Serve(&goplugin.ServeConfig{
 		HandshakeConfig: adapter.Handshake,
 		Plugins:         adapter.ServerPlugins(p),
-		GRPCServer:      goplugin.DefaultGRPCServer,
+		GRPCServer:      adapter.GRPCServer,
 	})
 	shutdown(p)
 }
@@ -98,7 +98,7 @@ func serveDebug(ctx context.Context, p sdk.Plugin, ready func(name string, info 
 	go goplugin.Serve(&goplugin.ServeConfig{
 		HandshakeConfig: adapter.Handshake,
 		Plugins:         adapter.ServerPlugins(p),
-		GRPCServer:      goplugin.DefaultGRPCServer,
+		GRPCServer:      adapter.GRPCServer,
 		Logger:          hclog.New(&hclog.LoggerOptions{Name: m.Name, Level: hclog.Info, Output: os.Stderr}),
 		Test: &goplugin.ServeTestConfig{
 			Context:          ctx,

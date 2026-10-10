@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -70,6 +71,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("POST /keydate", s.setKeyDate)
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
 	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
+	s.mux.HandleFunc("GET /file/{object}/{id}", s.fileContent)
 	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}", s.docSectionAttach)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}/{doc}/remove", s.docSectionRemove)
@@ -760,8 +762,21 @@ func readFiles(r *http.Request, d metamodel.ObjectDefinition, data map[string]an
 			errs[f.Key] = "core.validation.file_size"
 			continue
 		}
-		data[f.Key], data[f.Key+"_name"] = fileText(b), filepath.Base(hdr.Filename)
+		data[f.Key+"_name"] = filepath.Base(hdr.Filename)
+		if f.Binary {
+			data[f.Key], data[f.Key+"_type"] = base64.StdEncoding.EncodeToString(b), contentType(hdr.Header.Get("Content-Type"), b)
+			continue
+		}
+		data[f.Key] = fileText(b)
 	}
+}
+
+// contentType: MIME-Typ laut Browser, sonst aus dem Inhalt erkannt.
+func contentType(declared string, b []byte) string {
+	if t := strings.TrimSpace(declared); t != "" && t != "application/octet-stream" {
+		return t
+	}
+	return http.DetectContentType(b)
 }
 
 func fileText(b []byte) string {

@@ -39,6 +39,12 @@
       <div class="tag-section" hx-get="{{.Section.URL}}" hx-trigger="load" hx-swap="innerHTML">
         <p class="muted">{{t "core.app.loading"}}</p>
       </div>
+      {{else if .Section.Viewer}}
+      <div class="doc-viewer">
+        <iframe src="{{.Section.URL}}" title="{{.Section.Title}}" loading="lazy"></iframe>
+        <p class="muted"><a href="{{.Section.URL}}" target="_blank" rel="noopener">{{t "core.viewer.open"}}</a> ·
+          <a href="{{.Section.URL}}?download=1">{{t "core.viewer.download"}}</a></p>
+      </div>
       {{else if .Section.Documents}}
       <div class="doc-section" hx-get="{{.Section.URL}}" hx-trigger="load" hx-swap="innerHTML">
         <p class="muted">{{t "core.app.loading"}}</p>

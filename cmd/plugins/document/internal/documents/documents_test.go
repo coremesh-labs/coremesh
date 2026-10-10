@@ -188,8 +188,9 @@ func TestDocuments(t *testing.T) {
 	attach := func(id string, d docservice.Document) (docservice.Document, error) {
 		return e.svc.Attach(ctx, docservice.AttachRequest{EntityType: "Contract", EntityID: id, Document: d})
 	}
-	v, err := attach("1000|MV-1", docservice.Document{DocType: "contract", Title: "Mietvertrag", DocDate: "2026-01-02", Location: "vertraege/mv-1.pdf"})
-	if err != nil || v.ID == "" || v.DocType != "CONTRACT" || v.DocTypeName != "Vertrag" || v.CreatedBy != "tester" {
+	v, err := attach("1000|MV-1", docservice.Document{DocType: "contract", Title: "Mietvertrag", DocDate: "2026-01-02", Location: "vertraege/mv-1.pdf",
+		Link: "/file/DmsDocument/d1"})
+	if err != nil || v.ID == "" || v.DocType != "CONTRACT" || v.DocTypeName != "Vertrag" || v.CreatedBy != "tester" || v.Link != "/file/DmsDocument/d1" {
 		t.Fatalf("Vertrag: %+v %v", v, err)
 	}
 	if _, err := attach("1000|MV-1", docservice.Document{DocType: "AGB", Title: "AGB 2026", DocDate: "2026-01-02", Location: "agb-2026.pdf",

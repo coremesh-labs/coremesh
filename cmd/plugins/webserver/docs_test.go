@@ -20,7 +20,8 @@ func TestDocumentSection(t *testing.T) {
 	mustContain(t, detail, `class="doc-section" hx-get="/docs/Customer/c1"`)
 
 	b := do(s, "GET", "/docs/Customer/c1", nil, true).Body.String()
-	mustContain(t, b, "AGB 2026", `<a href="https://dms.example/1"`, `hx-post="/docs/Customer/c1/d1/remove"`, `name="location"`)
+	mustContain(t, b, "AGB 2026", `<a href="https://dms.example/1"`, `hx-post="/docs/Customer/c1/d1/remove"`, `name="location"`,
+		`<a href="/file/DmsDocument/d2" target="_blank" rel="noopener">3.0.1:VV:Grundsteuer.pdf</a>`)
 	if req := h.find("list").Payload.(docservice.ListRequest); req.EntityType != "Customer" || req.EntityID != "c1" {
 		t.Fatalf("ListRequest: %+v", req)
 	}

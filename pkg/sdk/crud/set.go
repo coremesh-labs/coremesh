@@ -2,6 +2,8 @@ package crud
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -61,13 +63,18 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 			Read("list", e.ReadList).
 			Handle("get", payloadOnly(e.Get))
 		if !e.ReadOnly {
-			o.Handle("create", payloadOnly(e.Create))
+			if !e.NoCreate {
+				o.Handle("create", payloadOnly(e.Create))
+			}
 			if !e.CreateOnly {
 				o.Handle("update", payloadOnly(e.Update))
 			}
 		}
 		for _, a := range e.Actions {
 			o.Handle(a.Name, e.guardRecord(a))
+		}
+		for _, name := range slices.Sorted(maps.Keys(e.Routes)) {
+			o.Handle(name, e.Routes[name])
 		}
 		if e.FormState != nil {
 			f := e.FormState
@@ -135,7 +142,7 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 		d.Fields = append(d.Fields, metamodel.FieldDefinition{
 			Key: f.Key, Label: f.Label, Type: f.Type, Required: f.Required,
 			Listable: f.Listable, Editable: !f.ReadOnly, Options: f.Options, Lookup: f.lookup(),
-			Group: f.Group, Trigger: f.Trigger, ShowIf: f.ShowIf, RequiredIf: f.RequiredIf, ActionOnly: f.ActionOnly,
+			Group: f.Group, Trigger: f.Trigger, ShowIf: f.ShowIf, RequiredIf: f.RequiredIf, ActionOnly: f.ActionOnly, Binary: f.Binary,
 		})
 	}
 	d.Actions = []metamodel.ActionConfig{
@@ -143,7 +150,9 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 	}
 	if !e.ReadOnly {
-		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"})
+		if !e.NoCreate {
+			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"})
+		}
 		if !e.CreateOnly {
 			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"})
 		}

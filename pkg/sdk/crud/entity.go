@@ -45,6 +45,7 @@ type Field struct {
 	// ActionOnly: nur Eingabe in Formularen eigener Aktionen (Action.Fields),
 	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	ActionOnly bool
+	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
 	Options    []metamodel.Option
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
 	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls
@@ -113,8 +114,14 @@ type Entity struct {
 	ReadOnly bool
 	// CreateOnly: anlegen ja, ändern nein (alle Felder fest, z. B. Einträge einer Liste).
 	CreateOnly bool
+	// NoCreate: ändern ja, anlegen nur über eigene Actions (z. B. ein Dokument
+	// entsteht beim Hochladen).
+	NoCreate bool
 	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
 	Actions []Action
+	// Routes sind Actions ohne Platz in der Oberfläche (nicht im Metamodell),
+	// z. B. content für den Viewer (metamodel.ContentAction).
+	Routes map[string]module.HandlerFunc
 	// Events: Bewegungsdaten – nach create, update, expire und deactivate geht ein
 	// SystemEvent an den Event-Dispatcher (Set.Events). CompanyCodeField ist das Feld
 	// des Buchungskreises im Event (Standard: company_code_id bzw. company_code).

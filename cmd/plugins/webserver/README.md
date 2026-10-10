@@ -597,7 +597,15 @@ abhängen:
   Lookup-Dialog.
 - **Dokumente:** Ein Abschnitt mit `Documents: true` zeigt die Dokumentverweise des
   Datensatzes (Object `Documents`, `pkg/sdk/docservice` – Plugin `document` oder ein
-  DMS-Adapter): Liste mit Link, Anhängen, Entfernen (`/docs/{entity}/{id}`).
+  DMS-Adapter): Liste mit Link, Anhängen, Entfernen (`/docs/{entity}/{id}`). Hat ein Verweis
+  einen `link` (DMS), öffnet die Ablage diesen.
+- **Dateien und Viewer:** `GET /file/{object}/{id}` liefert den Inhalt eines Datensatzes aus der
+  Action `content` des Objects (`metamodel.Content`: Base64, MIME-Typ, Dateiname) – fester Link,
+  mit `?download=1` als Download. Eingebettet nur PDF, Bilder und Text; alles andere (HTML, SVG …)
+  nur als Download. Ein Abschnitt mit `Viewer: true` bettet den Inhalt ein (iframe) mit Links
+  „In neuem Fenster öffnen“ und „Herunterladen“.
+- **Dateifelder mit `Binary: true`:** Inhalt Base64-kodiert im Feld, Dateiname in `<Feld>_name`,
+  MIME-Typ in `<Feld>_type` (PDF, Scans). Ohne Binary: Inhalt als Text wie bisher.
 - **Ergebnis-Tabellen:** Liefert eine eigene Aktion `{"message", "table": {"columns": [...],
   "rows": [[...]]}}`, zeigt das Ergebnis die Tabelle unter der Meldung (z. B. Tilgungsplan).
 - **Aktionsformulare** (eigene Aktionen mit `Fields`): Mit `ActionConfig.FormState: true`

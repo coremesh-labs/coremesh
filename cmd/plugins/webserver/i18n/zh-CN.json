@@ -132,5 +132,7 @@
   "core.validation.file_size": "文件太大（最多 20 MB）",
   "core.validation.number": "请输入数字",
   "core.validation.option": "选择无效",
-  "core.validation.required": "必填项"
+  "core.validation.required": "必填项",
+  "core.viewer.download": "下载",
+  "core.viewer.open": "在新窗口中打开"
 }

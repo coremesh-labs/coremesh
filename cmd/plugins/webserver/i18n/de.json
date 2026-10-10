@@ -132,5 +132,7 @@
   "core.validation.file_size": "Datei ist zu groß (höchstens 20 MB)",
   "core.validation.number": "Zahl erwartet",
   "core.validation.option": "Ungültige Auswahl",
-  "core.validation.required": "Pflichtfeld"
+  "core.validation.required": "Pflichtfeld",
+  "core.viewer.download": "Herunterladen",
+  "core.viewer.open": "In neuem Fenster öffnen"
 }
