@@ -604,6 +604,13 @@ abhängen:
   mit `?download=1` als Download. Eingebettet nur PDF, Bilder und Text; alles andere (HTML, SVG …)
   nur als Download. Ein Abschnitt mit `Viewer: true` bettet den Inhalt ein (iframe) mit Links
   „In neuem Fenster öffnen“ und „Herunterladen“.
+- **Aktionsformulare mit FormState** (`ActionConfig.FormState: true`): Die Maske gilt ganz –
+  Vorbelegung, Auswahlwerte, ausgeblendete und Pflichtfelder, Hinweis und **Links**
+  (`FormState.Links`, nur Pfade der Anwendung, öffnen im neuen Fenster). Felder mit `Trigger`
+  bauen das Formular neu auf (`POST /action/{module}/{object}/{name}/_form`), z. B. eine Suche,
+  die die Auswahl filtert.
+- **`GET /new/{object}`** leitet zum Formular „Neu“ des Objects in seinem Modul – fester Link,
+  z. B. „Vertrag anlegen“ aus einem Workflow-Schritt.
 - **Dateifelder mit `Binary: true`:** Inhalt Base64-kodiert im Feld, Dateiname in `<Feld>_name`,
   MIME-Typ in `<Feld>_type` (PDF, Scans). Ohne Binary: Inhalt als Text wie bisher.
 - **Ergebnis-Tabellen:** Liefert eine eigene Aktion `{"message", "table": {"columns": [...],

@@ -261,12 +261,13 @@ type view struct {
 	ActionID     string // id für custom-Actions
 	FormFields   []fieldCtx
 	FormError    string
-	Filter       map[string]string // Liste: aktive Filter (q und ObjectDefinition.Filters)
-	FilterBar    []filterField     // Liste: Felder der Filterleiste
-	ListURL      string            // Liste: URL mit den aktiven Filtern (Neuladen)
-	FormMessage  string            // Hinweis der Maske (FormState)
-	FormStateURL string            // Neuauswertung der Maske (leer = statisch)
-	History      bool              // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
+	Filter       map[string]string    // Liste: aktive Filter (q und ObjectDefinition.Filters)
+	FilterBar    []filterField        // Liste: Felder der Filterleiste
+	ListURL      string               // Liste: URL mit den aktiven Filtern (Neuladen)
+	FormMessage  string               // Hinweis der Maske (FormState)
+	FormLinks    []metamodel.FormLink // Links der Maske (FormState, neues Fenster)
+	FormStateURL string               // Neuauswertung der Maske (leer = statisch)
+	History      bool                 // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
 	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
 	EndKind   string // timeslice | status

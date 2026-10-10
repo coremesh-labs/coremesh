@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -92,5 +93,35 @@ func TestDynamicSelect(t *testing.T) {
 	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"choice": {"3.0.1"}}, true)
 	if d := h.find("pick").Payload.(map[string]any)["data"].(map[string]any); d["choice"] != "3.0.1" {
 		t.Fatalf("Daten: %v", d)
+	}
+}
+
+// TestActionFormState: Aktionsformular mit FormState – Auswahlwerte,
+// ausgeblendete Felder, Hinweis, Links (nur Pfade der Anwendung), Neuaufbau
+// über ein Trigger-Feld; /new/{object} leitet zum Formular „Neu“.
+func TestActionFormState(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.FormState = "formState"
+		d.Fields = append(d.Fields,
+			metamodel.FieldDefinition{Key: "search", Label: "Suche", Type: metamodel.TypeText, Editable: true, ActionOnly: true, Trigger: true},
+			metamodel.FieldDefinition{Key: "choice", Label: "Auswahl", Type: metamodel.TypeSelect, Editable: true, ActionOnly: true})
+		d.Actions = append(slices.Clone(d.Actions),
+			metamodel.ActionConfig{Name: "pick", Kind: metamodel.KindCustom, Label: "Wählen …", FormState: true, Fields: []string{"search", "choice", "value"}})
+	})
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/action/crm/CustomerContact/pick?id=k1", nil, true).Body.String()
+	mustContain(t, b, `<option value="A"`, `>Beta</option>`, "Welches Objekt?", `<a href="/new/Contract" target="_blank" rel="noopener">Vertrag anlegen</a>`,
+		`hx-post="/action/crm/CustomerContact/pick/_form"`)
+	if strings.Contains(b, "javascript:") || strings.Contains(b, `name="value"`) {
+		t.Fatalf("Link oder ausgeblendetes Feld:\n%s", b)
+	}
+	b = do(s, "POST", "/action/crm/CustomerContact/pick/_form", url.Values{"_id": {"k1"}, "search": {"be"}}, true).Body.String()
+	mustContain(t, b, `>Beta</option>`, `value="be"`)
+	if strings.Contains(b, ">Alpha<") {
+		t.Fatalf("Neuaufbau filtert nicht:\n%s", b)
+	}
+	w := do(s, "GET", "/new/Customer", nil, false)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Customer/new" {
+		t.Fatalf("/new: %d %q", w.Code, w.Header().Get("Location"))
 	}
 }

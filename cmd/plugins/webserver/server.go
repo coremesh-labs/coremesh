@@ -38,6 +38,8 @@ import (
 //	POST   /m/{module}/{object}/{id}         _method=PUT|DELETE (Formulare ohne JavaScript)
 //	GET    /action/{module}/{object}/{name}  Kind custom  → Formular der Action
 //	POST   /action/{module}/{object}/{name}  Kind custom  → Ergebnis + Toast
+//	POST   /action/{module}/{object}/{name}/_form          → Formular neu (Trigger)
+//	GET    /new/{object}                     –            → Weiterleitung zum Formular „Neu“
 //	GET    /api/v1/{module}                  –            → JSON: Objects und Actions
 //	POST   /api/v1/{module}/{object}/{action} beliebig    → JSON: Payload der Action
 type server struct {
@@ -72,6 +74,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
 	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
 	s.mux.HandleFunc("GET /file/{object}/{id}", s.fileContent)
+	s.mux.HandleFunc("GET /new/{object}", s.newByObject)
 	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}", s.docSectionAttach)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}/{doc}/remove", s.docSectionRemove)
@@ -614,41 +617,119 @@ func (s *server) loadAction(r *http.Request) (objectCtx, *metamodel.ActionConfig
 }
 
 func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string, values, errs map[string]string) view {
-	var message string
+	st := s.actionState(r, oc, act, id, values)
 	if values == nil {
-		values, message = s.actionDefaults(r, oc, act, id)
+		values = map[string]string{}
+		if st != nil {
+			for k, fs := range st.Fields {
+				if fs.Value != nil {
+					values[k] = *fs.Value
+				}
+			}
+		}
 	}
-	return view{
-		objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
-		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name,
-		CancelURL: oc.URL, FormMessage: message,
-		FormFields: actionFields(buildFields(oc.ActionDef, "action", values, errs, formOpts{}), act.Fields),
+	def, trigger := oc.ActionDef, ""
+	v := view{objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
+		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name, CancelURL: oc.URL}
+	if st != nil {
+		def = applyFormState(oc.ActionDef, *st)
+		trigger = oc.ActionURL + "/" + act.Name + "/_form"
+		v.FormMessage, v.FormLinks = st.Message, appLinks(st.Links)
 	}
+	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger}), act.Fields)
+	return v
 }
 
-// actionDefaults: Vorbelegung und Hinweis eines Aktionsformulars beim Öffnen
-// (ActionConfig.FormState) – aus der FormState-Action des Objects.
-func (s *server) actionDefaults(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string) (map[string]string, string) {
+// actionState: Maske einer eigenen Aktion (ActionConfig.FormState) für die
+// aktuellen Werte – Vorbelegung, Auswahlwerte, sichtbar, Pflicht, Hinweis, Links.
+// Ohne FormState: nil.
+func (s *server) actionState(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, id string, values map[string]string) *metamodel.FormState {
 	if !act.FormState || oc.Def.FormState == "" {
-		return nil, ""
+		return nil
 	}
-	req := metamodel.FormStateRequest{Mode: "action", Action: act.Name, ID: id, Values: map[string]string{}}
+	if values == nil {
+		values = map[string]string{}
+	}
+	req := metamodel.FormStateRequest{Mode: "action", Action: act.Name, ID: id, Values: values}
 	resp, err := s.call(r, oc.Object, oc.Def.FormState, req)
 	if err != nil {
 		s.logError(r, "FormState", err)
-		return nil, ""
+		return nil
 	}
 	var st metamodel.FormState
 	if err := sdk.Decode(resp.Payload, &st); err != nil {
-		return nil, ""
+		return nil
 	}
-	values := map[string]string{}
-	for k, fs := range st.Fields {
-		if fs.Value != nil {
-			values[k] = *fs.Value
+	return &st
+}
+
+// applyFormState: Felder nach der Maske – ausgeblendete entfallen, Pflicht und
+// Auswahlwerte wie geliefert.
+func applyFormState(d metamodel.ObjectDefinition, st metamodel.FormState) metamodel.ObjectDefinition {
+	out := d
+	out.Fields = nil
+	for _, f := range d.Fields {
+		fs, ok := st.Fields[f.Key]
+		if ok && fs.Visible != nil && !*fs.Visible {
+			continue
+		}
+		if ok && fs.Required != nil {
+			f.Required = *fs.Required
+		}
+		if ok && fs.Options != nil {
+			f.Options = fs.Options
+		}
+		out.Fields = append(out.Fields, f)
+	}
+	return out
+}
+
+// appLinks: nur Pfade der Anwendung (kein javascript:, keine fremden Seiten).
+func appLinks(links []metamodel.FormLink) []metamodel.FormLink {
+	var out []metamodel.FormLink
+	for _, l := range links {
+		if strings.HasPrefix(l.URL, "/") && !strings.HasPrefix(l.URL, "//") && l.Label != "" {
+			out = append(out, l)
 		}
 	}
-	return values, st.Message
+	return out
+}
+
+// POST /action/{module}/{object}/{name}/_form – Formular der Aktion für die
+// aktuellen Eingaben neu aufbauen (Feld mit Trigger geändert).
+func (s *server) actionRefresh(w http.ResponseWriter, r *http.Request) {
+	oc, act, err := s.loadAction(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	values := formValues(actionDef(oc.ActionDef, act.Fields), r.PostForm)
+	v := s.actionView(r, oc, act, r.PostForm.Get("_id"), values, nil)
+	s.render(w, r, http.StatusOK, "form-body", v, "", "")
+}
+
+// GET /new/{object} – Formular „Neu“ des Objects in seinem Modul (fester Link,
+// z. B. aus einem Workflow-Schritt im neuen Fenster).
+func (s *server) newByObject(w http.ResponseWriter, r *http.Request) {
+	object := r.PathValue("object")
+	resp, err := s.call(r, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var def struct {
+		Available bool   `json:"available"`
+		Module    string `json:"ui_module"`
+	}
+	if err := sdk.Decode(resp.Payload, &def); err != nil || !def.Available || def.Module == "" {
+		s.fail(w, r, fmt.Errorf("%w: %s", sdk.ErrNotFound, object))
+		return
+	}
+	http.Redirect(w, r, moduleURL(def.Module, object)+"/new", http.StatusSeeOther)
 }
 
 // POST /action/{module}/{object}/{name}
