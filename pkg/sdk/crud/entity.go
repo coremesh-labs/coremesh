@@ -114,6 +114,9 @@ type Entity struct {
 	ReadOnly bool
 	// CreateOnly: anlegen ja, ändern nein (alle Felder fest, z. B. Einträge einer Liste).
 	CreateOnly bool
+	// NoCreate: ändern ja, anlegen nur über eigene Actions (z. B. ein Dokument
+	// entsteht beim Hochladen).
+	NoCreate bool
 	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
 	Actions []Action
 	// Events: Bewegungsdaten – nach create, update, expire und deactivate geht ein

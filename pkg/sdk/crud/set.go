@@ -61,7 +61,9 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 			Read("list", e.ReadList).
 			Handle("get", payloadOnly(e.Get))
 		if !e.ReadOnly {
-			o.Handle("create", payloadOnly(e.Create))
+			if !e.NoCreate {
+				o.Handle("create", payloadOnly(e.Create))
+			}
 			if !e.CreateOnly {
 				o.Handle("update", payloadOnly(e.Update))
 			}
@@ -143,7 +145,9 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 		{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 	}
 	if !e.ReadOnly {
-		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"})
+		if !e.NoCreate {
+			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "create", Kind: metamodel.KindCreate, Label: "Neu"})
+		}
 		if !e.CreateOnly {
 			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"})
 		}
