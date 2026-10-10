@@ -181,3 +181,20 @@ func TestActionSection(t *testing.T) {
 		t.Fatal("ausgeblendeter Abschnitt")
 	}
 }
+
+// TestLookupActionField: Auswahl für ein Feld einer eigenen Aktion (ActionOnly) –
+// steht nur in ActionDef; die Detailansicht lädt nach einer Aktion am Datensatz neu.
+func TestLookupActionField(t *testing.T) {
+	withDef(t, "Customer", func(d *metamodel.ObjectDefinition) {
+		d.Fields = append(slices.Clone(d.Fields), metamodel.FieldDefinition{Key: "target", Label: "Ziel", Type: metamodel.TypeText, Editable: true,
+			ActionOnly: true, Lookup: &metamodel.Lookup{Object: "ContactKind", ValueField: "code", LabelFields: []string{"description"}}})
+		d.Actions = append(slices.Clone(d.Actions), metamodel.ActionConfig{Name: "move", Kind: metamodel.KindCustom, Label: "Übergeben …", Record: true, Fields: []string{"target"}})
+	})
+	s, _ := newMDServer(t)
+	w := do(s, "GET", "/lookup?from=Customer&field=target", nil, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Lookup: %d %s", w.Code, w.Body.String())
+	}
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustContain(t, b, `hx-trigger="coremesh-record-changed from:body"`, `hx-select="#detail"`, `hx-disinherit="*"`)
+}

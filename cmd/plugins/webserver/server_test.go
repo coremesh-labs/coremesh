@@ -391,8 +391,8 @@ func TestDeleteAndCustomAction(t *testing.T) {
 	w = do(s, "POST", "/action/crm/Partner/Notify", url.Values{"_id": {"p1"}, "company_name": {"x"}}, true)
 	mustContain(t, w.Body.String(), "Benachrichtigung verschickt", `<div class="result-table"><table class="data">`, "<th>Fällig</th>",
 		"<td>30.01.2026</td><td>300.00</td>", "<td>28.02.2026</td><td></td>")
-	if w.Header().Get("HX-Trigger") != "coremesh-changed" {
-		t.Fatal("HX-Trigger fehlt")
+	if w.Header().Get("HX-Trigger") != "coremesh-changed, coremesh-record-changed" {
+		t.Fatalf("HX-Trigger: %q", w.Header().Get("HX-Trigger"))
 	}
 	if p := h.last().Payload.(map[string]any); p["id"] != "p1" || p["data"] == nil {
 		t.Fatalf("custom-Payload: %v", p)
