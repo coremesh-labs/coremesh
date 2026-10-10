@@ -822,8 +822,13 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		v.Message, _ = m["message"].(string)
 	}
 	v.ResultTable = tableOf(resp.Payload)
-	// Übersicht neu laden: Die Liste hört auf dieses Ereignis.
-	w.Header().Set("HX-Trigger", "coremesh-changed")
+	// Übersicht neu laden: Die Liste hört auf dieses Ereignis; bei einer Aktion
+	// am Datensatz lädt auch die Detailansicht neu (Kopfdaten, Abschnitte).
+	if id != "" {
+		w.Header().Set("HX-Trigger", "coremesh-changed, coremesh-record-changed")
+	} else {
+		w.Header().Set("HX-Trigger", "coremesh-changed")
+	}
 	s.render(w, r, http.StatusOK, "result", v, act.Label, oc.Object)
 }
 

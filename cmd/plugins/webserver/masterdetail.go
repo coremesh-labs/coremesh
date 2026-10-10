@@ -304,12 +304,18 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, err)
 			return
 		}
-		i := slices.IndexFunc(src.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
+		// Auch Felder eigener Aktionen (ActionOnly) – die stehen nur in ActionDef.
+		fields := src.ActionDef.Fields
+		if len(fields) == 0 {
+			fields = src.Def.Fields
+		}
+		i := slices.IndexFunc(fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
 		if i < 0 {
 			s.fail(w, r, fmt.Errorf("%w: %s.%s ist kein Lookup-Feld", sdk.ErrNotFound, from, field))
 			return
 		}
-		lk = src.Def.Fields[i].Lookup
+		l := *fields[i].Lookup
+		lk = &l
 		srcParams.Set("from", from)
 	}
 	tgt, err := s.definition(r, lk.Object)
