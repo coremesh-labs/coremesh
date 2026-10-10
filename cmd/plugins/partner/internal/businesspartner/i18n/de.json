@@ -1,4 +1,5 @@
 {
+  "businesspartner.BusinessPartner.fields.abbreviation": "Kürzel (eindeutig, z. B. im Dateinamen; Buchstaben, Ziffern, -)",
   "businesspartner.BusinessPartner.fields.gender": "Geschlecht",
   "businesspartner.BusinessPartner.fields.group_code": "Partnergruppe",
   "businesspartner.BusinessPartner.fields.id": "BP-Nummer",
