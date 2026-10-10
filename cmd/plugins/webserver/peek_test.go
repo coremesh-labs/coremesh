@@ -44,8 +44,8 @@ func TestPeekIconInViews(t *testing.T) {
 	// Liste und eingebettete Tabelle: Symbol neben jedem Verweis mit Wert.
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
 	mustContain(t, b,
-		`<span class="peek" hx-get="/peek/ContactKind/MAIL" hx-trigger="mouseenter once delay:150ms, focusin once"`,
-		`hx-get="/peek/Address/a1"`, `hx-target="find .peek-card"`, `title="Kopfdaten anzeigen"`)
+		`<span class="peek" hx-get="/peek/ContactKind/MAIL?vf=`, `hx-trigger="mouseenter once delay:150ms, focusin once"`,
+		`hx-get="/peek/Address/a1?vf=`, `hx-target="find .peek-card"`, `title="Kopfdaten anzeigen"`)
 
 	// Kein Lookup oder kein Wert: kein Symbol.
 	f := metamodel.FieldDefinition{Key: "kind", Lookup: &metamodel.Lookup{Object: "ContactKind"}}
