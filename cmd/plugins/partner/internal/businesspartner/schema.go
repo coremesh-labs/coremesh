@@ -121,6 +121,11 @@ table "partner__bp" {
     type = text
     null = true
   }
+  # Kürzel (eindeutig), z. B. im Dateinamen des DMS
+  column "abbreviation" {
+    type = text
+    null = true
+  }
   column "is_blocked" {
     type    = boolean
     default = false

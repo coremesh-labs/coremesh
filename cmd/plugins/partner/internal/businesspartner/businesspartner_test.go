@@ -937,3 +937,27 @@ func TestChartChange(t *testing.T) {
 		t.Fatalf("umgestellt: 2000=%q, 1000 unverändert=%q", a2000, a1000)
 	}
 }
+
+// TestAbbreviation: Kürzel optional, nur erlaubte Zeichen, eindeutig.
+func TestAbbreviation(t *testing.T) {
+	for _, c := range []struct {
+		in string
+		ok bool
+	}{{"STATL", true}, {"Haus-Grund", true}, {"mit Leer", false}, {"a/b", false}, {"", true}} {
+		if got := c.in == "" || abbreviationRe.MatchString(c.in); got != c.ok {
+			t.Errorf("%q: %v", c.in, got)
+		}
+	}
+	e := setup(t)
+	a := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Statler GmbH", "abbreviation", " STATL "))
+	if a["abbreviation"] != "STATL" {
+		t.Fatalf("Kürzel: %v", a["abbreviation"])
+	}
+	_, err := e.do("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Andere GmbH", "abbreviation", "STATL"))
+	expect(t, err, sdk.ErrInvalidArgument, "Kürzel doppelt")
+	_, err = e.do("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Dritte GmbH", "abbreviation", "mit Leer"))
+	expect(t, err, sdk.ErrInvalidArgument, "Kürzel mit Leerzeichen")
+	if got := e.items("BusinessPartner", map[string]any{"q": "statl"}); len(got) != 1 {
+		t.Fatalf("Suche nach Kürzel: %v", got)
+	}
+}

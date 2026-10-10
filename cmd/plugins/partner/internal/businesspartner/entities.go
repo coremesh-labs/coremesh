@@ -2,6 +2,7 @@ package businesspartner
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -129,7 +130,7 @@ func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
 		Keys: []string{"id", "valid_from"}, TimeSlice: true, Order: "search_term, name1, valid_from",
-		Search: []string{"name1", "name2", "search_term"},
+		Search: []string{"name1", "name2", "search_term", "abbreviation"},
 		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
 		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
 		Filters: []string{"role"},
@@ -143,7 +144,7 @@ func (m *Module) businessPartner() *entity {
 		TitleField: "name1",
 		Sections: []metamodel.SectionDefinition{
 			{Key: "stammdaten", Title: "Stammdaten", Fields: []string{"id", "group_code", "type", "salutation_code", "name1", "name2", "gender",
-				"letter_salutation", "search_term", "is_blocked"}},
+				"letter_salutation", "search_term", "abbreviation", "is_blocked"}},
 			{Key: "gueltigkeit", Title: "Gültigkeit", Fields: []string{"valid_from", "valid_to"}},
 			{Key: "rollen", Title: "Rollen", Relation: &metamodel.Relation{Object: "PartnerRole", ForeignKey: "bp_id",
 				Columns: []string{"role_code", "company_codes", "valid_from", "valid_to"}}},
@@ -175,6 +176,7 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true, Trigger: true},
 			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
 			field{Key: "search_term", Label: "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)", Type: tText, Listable: true},
+			field{Key: "abbreviation", Label: "Kürzel (eindeutig, z. B. im Dateinamen; Buchstaben, Ziffern, -)", Type: tText, Listable: true},
 			field{Key: "letter_salutation", Label: "Briefanrede", Type: tText, ReadOnly: true, Virtual: true},
 			// Rollen, die der Partner heute hat (kommagetrennt) – z. B. für Bedingungen von Tag Sets
 			field{Key: "roles", Label: "Rollen (heute)", Type: tText, ReadOnly: true, Virtual: true},
@@ -186,6 +188,9 @@ func (m *Module) businessPartner() *entity {
 		Decorate:  m.decoratePerson,
 		Validate: func(ctx context.Context, rec, old record) error {
 			if err := m.checkShortName(ctx, rec, old); err != nil {
+				return err
+			}
+			if err := m.checkAbbreviation(ctx, rec); err != nil {
 				return err
 			}
 			if err := m.checkPerson(ctx, rec); err != nil {
@@ -298,4 +303,28 @@ func (m *Module) partnerBankDetail() *entity {
 			return nil
 		},
 	}
+}
+
+var abbreviationRe = regexp.MustCompile(`^[A-Za-z0-9ÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß-]{0,19}$`)
+
+// checkAbbreviation: Kürzel optional, höchstens 20 Zeichen ohne Leer- und
+// Sonderzeichen, über alle Partner eindeutig (alle Zeitscheiben eines Partners teilen es).
+func (m *Module) checkAbbreviation(ctx context.Context, rec record) error {
+	a := strings.TrimSpace(str(rec["abbreviation"]))
+	if a == "" {
+		rec["abbreviation"] = nil
+		return nil
+	}
+	if !abbreviationRe.MatchString(a) {
+		return invalid("Kürzel %q: Buchstaben, Ziffern und -, höchstens 20 Zeichen", a)
+	}
+	res, err := m.db.Query(ctx, `SELECT id FROM partner__bp WHERE abbreviation = ? AND id <> ? LIMIT 1`, a, rec["id"])
+	if err != nil {
+		return err
+	}
+	if len(res.Rows) > 0 {
+		return invalid("Kürzel %s hat schon Partner %s", a, str(res.Rows[0][0]))
+	}
+	rec["abbreviation"] = a
+	return nil
 }
