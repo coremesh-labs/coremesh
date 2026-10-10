@@ -45,6 +45,7 @@ type Field struct {
 	// ActionOnly: nur Eingabe in Formularen eigener Aktionen (Action.Fields),
 	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	ActionOnly bool
+	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
 	Options    []metamodel.Option
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
 	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls

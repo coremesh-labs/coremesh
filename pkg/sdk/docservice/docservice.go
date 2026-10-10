@@ -47,7 +47,8 @@ type Document struct {
 	DocTypeName string `json:"doc_type_name,omitempty"` // Bezeichnung der Dokumentart (Antwort)
 	Title       string `json:"title"`
 	DocDate     string `json:"doc_date,omitempty"`   // JJJJ-MM-TT
-	Location    string `json:"location"`             // Dateiname, Ablageort oder Link (DMS: Dokument-ID)
+	Location    string `json:"location"`             // Dateiname, Ablageort oder Link (DMS: Dokumentname)
+	Link        string `json:"link,omitempty"`       // Link zum Öffnen (DMS: /file/DmsDocument/…), leer = Location, wenn sie ein Link ist
 	ValidFrom   string `json:"valid_from,omitempty"` // gilt ab (leer = immer)
 	ValidTo     string `json:"valid_to,omitempty"`
 	Note        string `json:"note,omitempty"`

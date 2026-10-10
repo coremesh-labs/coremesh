@@ -105,6 +105,9 @@ type FieldDefinition struct {
 	// z. B. „Buchen bis“ an einem Vertrag. Erscheint nicht in Liste, Detail,
 	// Neu oder Bearbeiten und ist kein Datenfeld des Objects.
 	ActionOnly bool `json:"action_only,omitempty"`
+	// Binary: Dateifeld (TypeFile) mit beliebigem Inhalt (PDF, Bild) – die Aktion
+	// erhält ihn Base64-kodiert im Feld, Dateiname in <Feld>_name, MIME-Typ in <Feld>_type.
+	Binary bool `json:"binary,omitempty"`
 }
 
 // Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object
@@ -139,6 +142,21 @@ type SectionDefinition struct {
 	// Documents: Abschnitt mit den Dokumentverweisen des Datensatzes (Object
 	// Documents, pkg/sdk/docservice – Plugin document oder ein DMS-Adapter).
 	Documents bool `json:"documents,omitempty"`
+	// Viewer: Abschnitt zeigt den Inhalt des Datensatzes eingebettet (PDF, Bild,
+	// Text) – der WebServer holt ihn über die Action ContentAction des Objects
+	// (GET /file/{object}/{id}, fester Link).
+	Viewer bool `json:"viewer,omitempty"`
+}
+
+// ContentAction liefert den Inhalt eines Datensatzes als Datei (Payload {id},
+// Antwort Content). Der WebServer bietet ihn unter /file/{object}/{id} an.
+const ContentAction = "content"
+
+// Content ist eine Datei: Inhalt Base64-kodiert, MIME-Typ, Dateiname.
+type Content struct {
+	Content     string `json:"content"`      // Base64 (Standardkodierung)
+	ContentType string `json:"content_type"` // z. B. application/pdf
+	FileName    string `json:"file_name"`
 }
 
 // Relation verbindet ein Object (Master) mit Datensätzen eines Unter-Objects
@@ -175,8 +193,8 @@ const (
 	// TypePassword: Eingabe verdeckt, wird nie angezeigt oder vorbelegt.
 	TypePassword FieldType = "password"
 	// TypeFile: Datei hochladen – nur in Formularen eigener Aktionen
-	// (ActionOnly). Die Aktion erhält den Inhalt als Text im Feld und den
-	// Dateinamen in <Feld>_name.
+	// (ActionOnly). Die Aktion erhält den Inhalt als Text im Feld (Binary:
+	// Base64) und den Dateinamen in <Feld>_name.
 	TypeFile FieldType = "file"
 )
 

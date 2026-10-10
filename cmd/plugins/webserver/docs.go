@@ -34,10 +34,13 @@ func docSectionURL(entityType, entityID string) string {
 	return "/docs/" + entityType + "/" + url.PathEscape(entityID)
 }
 
-// Link: Ablage als Link, wenn sie wie eine URL aussieht.
-func (docSection) Link(location string) string {
-	if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
-		return location
+// Link: eigener Link des Verweises (DMS: /file/…), sonst die Ablage, wenn sie
+// wie eine URL aussieht.
+func (docSection) Link(d docservice.Document) string {
+	for _, l := range []string{d.Link, d.Location} {
+		if strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") || strings.HasPrefix(l, "/file/") {
+			return l
+		}
 	}
 	return ""
 }

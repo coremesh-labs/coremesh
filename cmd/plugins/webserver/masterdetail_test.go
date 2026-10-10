@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,7 +101,19 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		}
 		return sdk.Response{Payload: docservice.ListResponse{CanEdit: true, Types: []docservice.DocType{{Code: "AGB", Name: "AGB"}},
 			Items: []docservice.Document{{ID: "d1", DocType: "AGB", DocTypeName: "AGB", Title: "AGB 2026", DocDate: "2026-01-02",
-				Location: "https://dms.example/1", ValidFrom: "2026-01-01"}}}}, nil
+				Location: "https://dms.example/1", ValidFrom: "2026-01-01"},
+				{ID: "d2", DocType: "AGB", DocTypeName: "AGB", Title: "Bescheid", Location: "3.0.1:VV:Grundsteuer.pdf", Link: "/file/DmsDocument/d2"}}}}, nil
+	case "Customer.content":
+		h.fakeHost.record(ctx, req)
+		switch p["id"] {
+		case "c1":
+			return sdk.Response{Payload: metamodel.Content{Content: base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 x")),
+				ContentType: "application/pdf", FileName: "11.1:VV:Vertrag.pdf"}}, nil
+		case "html":
+			return sdk.Response{Payload: metamodel.Content{Content: base64.StdEncoding.EncodeToString([]byte("<script>alert(1)</script>")),
+				ContentType: "text/html", FileName: "x.html"}}, nil
+		}
+		return sdk.Response{}, fmt.Errorf("%w: Dokument", sdk.ErrNotFound)
 	case "Customer.get":
 		rec := map[string]any{"id": "c1", "name": "Muster AG", "note": "geheim"}
 		if lockedCustomer.Load() {

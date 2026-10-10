@@ -31,6 +31,11 @@ table "document__reference" {
   }
   # Dateiname, Ablageort oder Link
   column "location"    { type = text }
+  # Link zum Öffnen (z. B. fester Link eines DMS: /file/DmsDocument/…)
+  column "link" {
+    type = text
+    null = true
+  }
   column "valid_from" {
     type = date
     null = true

@@ -58,7 +58,7 @@ func (m *Module) canEdit(ctx context.Context, entityType, entityID string) bool 
 }
 
 const refCols = `r.id, r.entity_type, r.entity_id, r.doc_type, COALESCE(t.name, r.doc_type), r.title, r.doc_date, r.location, r.valid_from,
-	r.valid_to, r.note, r.created_at, r.created_by`
+	r.valid_to, r.note, r.created_at, r.created_by, r.link`
 
 func toDoc(r []any) docservice.Document {
 	d := func(v any) string {
@@ -70,7 +70,7 @@ func toDoc(r []any) docservice.Document {
 	}
 	return docservice.Document{ID: crud.Str(r[0]), EntityType: crud.Str(r[1]), EntityID: crud.Str(r[2]), DocType: crud.Str(r[3]),
 		DocTypeName: crud.Str(r[4]), Title: crud.Str(r[5]), DocDate: d(r[6]), Location: crud.Str(r[7]), ValidFrom: d(r[8]),
-		ValidTo: d(r[9]), Note: crud.Str(r[10]), CreatedAt: crud.Str(r[11]), CreatedBy: crud.Str(r[12])}
+		ValidTo: d(r[9]), Note: crud.Str(r[10]), CreatedAt: crud.Str(r[11]), CreatedBy: crud.Str(r[12]), Link: crud.Str(r[13])}
 }
 
 func (m *Module) types(ctx context.Context) ([]docservice.DocType, error) {
@@ -174,8 +174,8 @@ func (m *Module) attachAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	}
 	d.ID, d.EntityType, d.EntityID, d.CreatedAt, d.CreatedBy = crud.NewID(), in.EntityType, in.EntityID, now(), sdk.CallFromContext(ctx).UserID
 	if _, err := m.db.Exec(ctx, `INSERT INTO document__reference (id, entity_type, entity_id, doc_type, title, doc_date, location, valid_from, valid_to,
-		note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, d.ID, d.EntityType, d.EntityID, d.DocType, d.Title,
-		nullable(d.DocDate), d.Location, nullable(d.ValidFrom), nullable(d.ValidTo), nullable(d.Note), d.CreatedAt, nullable(d.CreatedBy)); err != nil {
+		note, created_at, created_by, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, d.ID, d.EntityType, d.EntityID, d.DocType, d.Title,
+		nullable(d.DocDate), d.Location, nullable(d.ValidFrom), nullable(d.ValidTo), nullable(d.Note), d.CreatedAt, nullable(d.CreatedBy), nullable(d.Link)); err != nil {
 		return sdk.Response{}, err
 	}
 	return m.respond(ctx, d.ID)
@@ -215,8 +215,8 @@ func (m *Module) updateAction(ctx context.Context, req sdk.Request) (sdk.Respons
 		return sdk.Response{}, err
 	}
 	if _, err := m.db.Exec(ctx, `UPDATE document__reference SET doc_type = ?, title = ?, doc_date = ?, location = ?, valid_from = ?, valid_to = ?,
-		note = ? WHERE id = ?`, d.DocType, d.Title, nullable(d.DocDate), d.Location, nullable(d.ValidFrom), nullable(d.ValidTo), nullable(d.Note),
-		in.ID); err != nil {
+		note = ?, link = ? WHERE id = ?`, d.DocType, d.Title, nullable(d.DocDate), d.Location, nullable(d.ValidFrom), nullable(d.ValidTo), nullable(d.Note),
+		nullable(d.Link), in.ID); err != nil {
 		return sdk.Response{}, err
 	}
 	return m.respond(ctx, in.ID)

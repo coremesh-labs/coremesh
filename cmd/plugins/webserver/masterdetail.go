@@ -39,6 +39,7 @@ type sectionView struct {
 	Relation   *metamodel.Relation
 	Tags       bool   // Abschnitt mit dem TagEditor (Plugin tag)
 	Documents  bool   // Abschnitt mit den Dokumentverweisen (docservice)
+	Viewer     bool   // Inhalt des Datensatzes eingebettet (/file/{object}/{id})
 	URL        string // nur Relation: Fragment der eingebetteten Tabelle
 }
 
@@ -73,7 +74,7 @@ func (v view) Sections() []sectionView {
 		if hiddenSecs[s.Key] {
 			continue // Darstellungsregel
 		}
-		sv := sectionView{Key: s.Key, Title: s.Title, Collapsed: s.Collapsed, Relation: s.Relation, Tags: s.Tags, Documents: s.Documents}
+		sv := sectionView{Key: s.Key, Title: s.Title, Collapsed: s.Collapsed, Relation: s.Relation, Tags: s.Tags, Documents: s.Documents, Viewer: s.Viewer}
 		for _, k := range s.Fields {
 			if i := slices.IndexFunc(d.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k }); i >= 0 {
 				sv.Fields = append(sv.Fields, d.Fields[i])
@@ -82,6 +83,9 @@ func (v view) Sections() []sectionView {
 		if s.Tags {
 			// Tags hängen am fachlichen Schlüssel, nicht an der Zeitscheibe.
 			sv.URL = tagEditorURL(v.Object, businessKey(v.Record))
+		}
+		if s.Viewer {
+			sv.URL = fileURL(v.Object, businessKey(v.Record))
 		}
 		if s.Documents {
 			sv.URL = docSectionURL(v.Object, businessKey(v.Record)) // fachlicher Schlüssel wie bei Tags
