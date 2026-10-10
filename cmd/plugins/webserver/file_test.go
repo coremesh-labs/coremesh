@@ -137,8 +137,9 @@ func TestActionFormState(t *testing.T) {
 func TestActionSection(t *testing.T) {
 	withDef(t, "Customer", func(d *metamodel.ObjectDefinition) {
 		d.Fields = append(slices.Clone(d.Fields), metamodel.FieldDefinition{Key: "answer", Label: "Antwort", Type: metamodel.TypeText, Editable: true, ActionOnly: true})
-		d.Actions = append(slices.Clone(d.Actions), metamodel.ActionConfig{Name: "step", Kind: metamodel.KindCustom, Label: "Weiter …", Record: true, Fields: []string{"answer"}})
-		d.Sections = append([]metamodel.SectionDefinition{{Key: "entscheidung", Title: "Entscheidung", Action: "step"}}, d.Sections...)
+		d.Actions = append(slices.Clone(d.Actions), metamodel.ActionConfig{Name: "step", Kind: metamodel.KindCustom, Label: "Weiter …", Record: true, Fields: []string{"answer"}},
+			metamodel.ActionConfig{Name: "back", Kind: metamodel.KindCustom, Label: "Zurück", Record: true})
+		d.Sections = append([]metamodel.SectionDefinition{{Key: "entscheidung", Title: "Entscheidung", Action: "step", Buttons: []string{"back"}}}, d.Sections...)
 	})
 	s, h := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
@@ -149,6 +150,12 @@ func TestActionSection(t *testing.T) {
 	if strings.Contains(b, "<dialog") {
 		t.Fatal("eingebettet, kein Dialog")
 	}
+	mustContain(t, b, `hx-post="/action/crm/Customer/back" hx-vals='{"_id": "c1", "_inline": "1"}'`, `>Zurück</button>`)
+	h.mu.Lock()
+	h.fail["Customer.back"] = fmt.Errorf("%w: kein vorheriger Schritt", sdk.ErrInvalidArgument)
+	h.mu.Unlock()
+	b = do(s, "POST", "/action/crm/Customer/back", url.Values{"_inline": {"1"}, "_id": {"c1"}}, true).Body.String()
+	mustContain(t, b, "kein vorheriger Schritt", `name="answer"`)
 	w := do(s, "POST", "/action/crm/Customer/step", url.Values{"_inline": {"1"}, "_id": {"c1"}, "answer": {"ja"}}, true)
 	if loc := w.Header().Get("HX-Location"); loc != `{"path":"/m/crm/Customer/c1","target":"#main-content"}` {
 		t.Fatalf("HX-Location: %q", loc)

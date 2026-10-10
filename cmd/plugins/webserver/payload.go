@@ -251,23 +251,24 @@ type view struct {
 	Record record
 
 	// Formulare
-	Mode         string // create | edit | action
-	Modal        bool   // im Dialog (HTMX) oder als eigene Seite
-	FormTitle    string
-	FormAction   string
-	Target       string // HTMX-Ziel der Antwort (edit)
-	ViewParam    string // row | detail – wohin die Antwort von update gehört
-	CancelURL    string
-	ActionID     string // id für custom-Actions
-	FormFields   []fieldCtx
-	FormError    string
-	Filter       map[string]string    // Liste: aktive Filter (q und ObjectDefinition.Filters)
-	FilterBar    []filterField        // Liste: Felder der Filterleiste
-	ListURL      string               // Liste: URL mit den aktiven Filtern (Neuladen)
-	FormMessage  string               // Hinweis der Maske (FormState)
-	FormLinks    []metamodel.FormLink // Links der Maske (FormState, neues Fenster)
-	FormStateURL string               // Neuauswertung der Maske (leer = statisch)
-	History      bool                 // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
+	Mode          string // create | edit | action
+	Modal         bool   // im Dialog (HTMX) oder als eigene Seite
+	FormTitle     string
+	FormAction    string
+	Target        string // HTMX-Ziel der Antwort (edit)
+	ViewParam     string // row | detail – wohin die Antwort von update gehört
+	CancelURL     string
+	ActionID      string // id für custom-Actions
+	FormFields    []fieldCtx
+	FormError     string
+	Filter        map[string]string    // Liste: aktive Filter (q und ObjectDefinition.Filters)
+	FilterBar     []filterField        // Liste: Felder der Filterleiste
+	ListURL       string               // Liste: URL mit den aktiven Filtern (Neuladen)
+	FormMessage   string               // Hinweis der Maske (FormState)
+	FormLinks     []metamodel.FormLink // Links der Maske (FormState, neues Fenster)
+	InlineButtons []inlineButton       // Aktionsabschnitt: weitere Aktionen als Knöpfe
+	FormStateURL  string               // Neuauswertung der Maske (leer = statisch)
+	History       bool                 // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
 	// Ende-Dialog (Lebenszyklus): timeslice → Datum, status → Bestätigung
 	EndKind   string // timeslice | status
@@ -482,4 +483,23 @@ func (v view) HasFile() bool {
 // SubmitLabel: Text der Schaltfläche einer eingebetteten Aktion (ohne „…“).
 func (v view) SubmitLabel() string {
 	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(v.Action.Label), "…"))
+}
+
+// inlineButton ist eine weitere Aktion im Aktionsabschnitt.
+type inlineButton struct{ URL, Label string }
+
+// inlineButtons: Knöpfe des Aktionsabschnitts zur Aktion act (SectionDefinition.Buttons).
+func (oc objectCtx) inlineButtons(act string) []inlineButton {
+	var out []inlineButton
+	for _, sec := range oc.Def.Sections {
+		if sec.Action != act {
+			continue
+		}
+		for _, b := range sec.Buttons {
+			if a := oc.custom(b); a != nil {
+				out = append(out, inlineButton{URL: oc.ActionURL + "/" + b, Label: a.Label})
+			}
+		}
+	}
+	return out
 }

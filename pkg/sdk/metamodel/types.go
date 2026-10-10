@@ -152,6 +152,9 @@ type SectionDefinition struct {
 	// und zeigt das Formular für den neuen Stand. Ausblenden: Marker
 	// _hidden_sections am Datensatz.
 	Action string `json:"action,omitempty"`
+	// Buttons: weitere eigene Aktionen des Datensatzes (ohne Formular) als
+	// Knöpfe neben dem Absenden im Aktionsabschnitt, z. B. „Zurück“.
+	Buttons []string `json:"buttons,omitempty"`
 }
 
 // ContentAction liefert den Inhalt eines Datensatzes als Datei (Payload {id},

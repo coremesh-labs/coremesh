@@ -103,9 +103,9 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			Items: []docservice.Document{{ID: "d1", DocType: "AGB", DocTypeName: "AGB", Title: "AGB 2026", DocDate: "2026-01-02",
 				Location: "https://dms.example/1", ValidFrom: "2026-01-01"},
 				{ID: "d2", DocType: "AGB", DocTypeName: "AGB", Title: "Bescheid", Location: "3.0.1:VV:Grundsteuer.pdf", Link: "/file/DmsDocument/d2"}}}}, nil
-	case "Customer.step":
+	case "Customer.step", "Customer.back":
 		h.fakeHost.mu.Lock()
-		err := h.fakeHost.fail["Customer.step"]
+		err := h.fakeHost.fail[req.Object+"."+req.Action]
 		h.fakeHost.mu.Unlock()
 		h.fakeHost.record(ctx, req)
 		if err != nil {
