@@ -119,6 +119,9 @@ type Entity struct {
 	NoCreate bool
 	// Actions sind weitere Actions der Entity (Kind custom), z. B. post oder reverse.
 	Actions []Action
+	// Routes sind Actions ohne Platz in der Oberfläche (nicht im Metamodell),
+	// z. B. content für den Viewer (metamodel.ContentAction).
+	Routes map[string]module.HandlerFunc
 	// Events: Bewegungsdaten – nach create, update, expire und deactivate geht ein
 	// SystemEvent an den Event-Dispatcher (Set.Events). CompanyCodeField ist das Feld
 	// des Buchungskreises im Event (Standard: company_code_id bzw. company_code).

@@ -2,6 +2,8 @@ package crud
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -70,6 +72,9 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		}
 		for _, a := range e.Actions {
 			o.Handle(a.Name, e.guardRecord(a))
+		}
+		for _, name := range slices.Sorted(maps.Keys(e.Routes)) {
+			o.Handle(name, e.Routes[name])
 		}
 		if e.FormState != nil {
 			f := e.FormState
