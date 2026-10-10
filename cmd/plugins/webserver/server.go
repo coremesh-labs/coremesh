@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -598,6 +599,10 @@ func (s *server) actionForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := s.actionView(r, oc, act, r.URL.Query().Get("id"), nil, nil)
+	if r.URL.Query().Get("inline") != "" {
+		s.render(w, r, http.StatusOK, "action-inline", v, "", "")
+		return
+	}
 	s.render(w, r, http.StatusOK, "form", v, v.FormTitle, oc.Object)
 }
 
@@ -752,7 +757,12 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		data, raw, errs = parseFields(def, r.PostForm)
 		readFiles(r, def, data, errs)
 	}
+	inline := r.PostForm.Get("_inline") != ""
 	if len(errs) > 0 {
+		if inline {
+			s.render(w, r, http.StatusOK, "action-inline", s.actionView(r, oc, act, id, raw, errs), "", "")
+			return
+		}
 		s.formAgain(w, r, s.actionView(r, oc, act, id, raw, errs), "")
 		return
 	}
@@ -761,6 +771,23 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		payload["id"] = id
 	}
 	resp, err := s.call(r, oc.Object, act.Name, payload)
+	if inline {
+		if err != nil {
+			if !errors.Is(err, sdk.ErrInvalidArgument) {
+				s.fail(w, r, err)
+				return
+			}
+			v := s.actionView(r, oc, act, id, raw, nil)
+			v.FormError = err.Error()
+			s.render(w, r, http.StatusOK, "action-inline", v, "", "")
+			return
+		}
+		// Detailansicht neu: Kopfdaten und das Formular des nächsten Schritts.
+		loc, _ := json.Marshal(map[string]string{"path": oc.URL + "/" + pathEscape(id), "target": "#main-content"})
+		w.Header().Set("HX-Location", string(loc))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if err != nil {
 		if errors.Is(err, sdk.ErrInvalidArgument) && !direct {
 			s.formAgain(w, r, s.actionView(r, oc, act, id, raw, nil), err.Error())

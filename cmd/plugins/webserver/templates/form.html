@@ -89,3 +89,15 @@
 {{range .FormGroups}}<fieldset class="form-group">{{with .Title}}<legend>{{.}}</legend>{{end}}
 <div class="form-grid">{{range .Fields}}{{template "field" .}}{{end}}</div></fieldset>
 {{end}}</div>{{end}}
+
+{{/* Formular einer eigenen Aktion im Abschnitt der Detailansicht (SectionDefinition.Action).
+     Absenden ersetzt den Abschnitt; nach Erfolg lädt die Detailansicht neu (HX-Location). */}}
+{{define "action-inline"}}<div class="action-inline">
+{{with .FormError}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+<form method="post" action="{{.FormAction}}" hx-post="{{.FormAction}}" hx-target="closest .action-section" hx-swap="innerHTML"
+  {{if .HasFile}}enctype="multipart/form-data" hx-encoding="multipart/form-data"{{end}}>
+  <input type="hidden" name="_inline" value="1">
+  {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  {{template "form-body" .}}
+  <footer><button type="submit" class="btn primary">{{.SubmitLabel}}</button></footer>
+</form></div>{{end}}

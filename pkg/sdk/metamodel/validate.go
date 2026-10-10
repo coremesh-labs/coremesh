@@ -121,13 +121,24 @@ func (d ObjectDefinition) Validate() error {
 			add("%s: title fehlt", where)
 		}
 		kinds := 0
-		for _, set := range []bool{len(s.Fields) > 0, s.Relation != nil, s.Tags, s.Documents, s.Viewer} {
+		for _, set := range []bool{len(s.Fields) > 0, s.Relation != nil, s.Tags, s.Documents, s.Viewer, s.Action != ""} {
 			if set {
 				kinds++
 			}
 		}
 		if kinds != 1 {
-			add("%s: genau eines von fields, relation, tags, documents und viewer angeben", where)
+			add("%s: genau eines von fields, relation, tags, documents, viewer und action angeben", where)
+		}
+		if s.Action != "" {
+			ok := false
+			for _, a := range d.Actions {
+				if a.Name == s.Action && a.Kind == KindCustom && a.Record {
+					ok = true
+				}
+			}
+			if !ok {
+				add("%s: action %q ist keine eigene Aktion des Datensatzes (Record)", where, s.Action)
+			}
 		}
 		for _, k := range s.Fields {
 			switch {

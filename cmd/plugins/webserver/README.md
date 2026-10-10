@@ -609,6 +609,11 @@ abhängen:
   (`FormState.Links`, nur Pfade der Anwendung, öffnen im neuen Fenster). Felder mit `Trigger`
   bauen das Formular neu auf (`POST /action/{module}/{object}/{name}/_form`), z. B. eine Suche,
   die die Auswahl filtert.
+- **Aktionsabschnitt** (`SectionDefinition.Action`): Das Formular einer eigenen Aktion des
+  Datensatzes steht eingebettet in der Detailansicht (`GET /action/…/{name}?inline=1&id=…`).
+  Absenden ersetzt bei Fehlern nur den Abschnitt; nach Erfolg lädt die Detailansicht neu
+  (`HX-Location`) – mit den neuen Kopfdaten und dem Formular für den nächsten Stand, z. B. dem
+  nächsten Workflow-Schritt. Ausblenden über den Marker `_hidden_sections`.
 - **`GET /new/{object}`** leitet zum Formular „Neu“ des Objects in seinem Modul – fester Link,
   z. B. „Vertrag anlegen“ aus einem Workflow-Schritt.
 - **Dateifelder mit `Binary: true`:** Inhalt Base64-kodiert im Feld, Dateiname in `<Feld>_name`,
