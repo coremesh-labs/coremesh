@@ -100,6 +100,6 @@
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
   {{template "form-body" .}}
   <footer><button type="submit" class="btn primary">{{.SubmitLabel}}</button>
-    {{range .InlineButtons}}<button type="button" class="btn" hx-post="{{.URL}}" hx-vals='{"_id": "{{$.ActionID}}", "_inline": "1"}'
+    {{range .InlineButtons}}<button type="button" class="btn" hx-post="{{.URL}}" hx-vals='{"_id": "{{$.ActionID}}", "_inline": "1", "_button": "1"}'
       hx-target="closest .action-section" hx-swap="innerHTML">{{.Label}}</button>{{end}}</footer>
 </form></div>{{end}}
