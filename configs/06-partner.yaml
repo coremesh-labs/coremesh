@@ -8,3 +8,4 @@ plugins:
       modules:
         businesspartner:
           short_name_unique: true    # Kurzname (Matchcode) eindeutig; false = Dubletten erlaubt
+          valid_from_days_back: 365  # Gültig ab neuer Partner ohne Angabe: heute minus Tage (Prüfungen zu früheren Daten)
