@@ -337,6 +337,20 @@ func Coerce(f *Field, v any) (any, error) {
 		return nil, Invalid("%s: Zahl erwartet", f.Label)
 	case metamodel.TypeSelect:
 		s := Str(v)
+		if f.Multiple {
+			// Komma-Liste; ohne feste Werte (Auswahl aus FormState) prüft das Modul
+			var vals []string
+			for _, p := range strings.Split(s, ",") {
+				if p = strings.TrimSpace(p); p == "" {
+					continue
+				}
+				if len(f.Options) > 0 && !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == p }) {
+					return nil, Invalid("%s: ungültiger Wert %q", f.Label, p)
+				}
+				vals = append(vals, p)
+			}
+			return strings.Join(vals, ","), nil
+		}
 		if !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == s }) {
 			return nil, Invalid("%s: ungültiger Wert %q", f.Label, s)
 		}
