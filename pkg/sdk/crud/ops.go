@@ -416,8 +416,13 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 			}
 		}
 		w, wargs := e.keyWhere(key)
-		_, err = e.DB().Exec(ctx, "UPDATE "+e.Table+" SET "+strings.Join(sets, ", ")+" WHERE "+w, append(args, wargs...)...)
-		return err
+		if _, err = e.DB().Exec(ctx, "UPDATE "+e.Table+" SET "+strings.Join(sets, ", ")+" WHERE "+w, append(args, wargs...)...); err != nil {
+			return err
+		}
+		if e.AfterUpdate != nil {
+			return e.AfterUpdate(ctx, rec)
+		}
+		return nil
 	})
 	if err != nil {
 		return sdk.Response{}, err
