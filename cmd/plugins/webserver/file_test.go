@@ -125,6 +125,9 @@ func TestActionFormState(t *testing.T) {
 	if strings.Contains(b, ">Alpha<") {
 		t.Fatalf("Neuaufbau filtert nicht:\n%s", b)
 	}
+	if w := do(s, "GET", "/open/Customer/c%7C1", nil, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Customer/c%7C1" {
+		t.Fatalf("/open: %d %q", w.Code, w.Header().Get("Location"))
+	}
 	w := do(s, "GET", "/new/Customer", nil, false)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Customer/new" {
 		t.Fatalf("/new: %d %q", w.Code, w.Header().Get("Location"))
