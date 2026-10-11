@@ -380,6 +380,7 @@ func isUnique(err error) bool {
 type companyCode struct {
 	ID          string
 	Description string
+	PartnerID   string // Geschäftspartner des Buchungskreises
 }
 
 // checkCompanyCodes: In Rollen sind nur vorhandene Buchungskreise erlaubt.
@@ -404,39 +405,39 @@ func (p *Plugin) checkCompanyCodes(ctx context.Context, q database.Querier, ccs 
 }
 
 func (p *Plugin) listCompanyCodes(ctx context.Context) ([]companyCode, error) {
-	res, err := database.Query(ctx, p.pool(), `SELECT id, description FROM iam__company_codes ORDER BY id`)
+	res, err := database.Query(ctx, p.pool(), `SELECT id, description, partner_id FROM iam__company_codes ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]companyCode, len(res.Rows))
 	for i, r := range res.Rows {
-		out[i] = companyCode{s(r[0]), s(r[1])}
+		out[i] = companyCode{s(r[0]), s(r[1]), s(r[2])}
 	}
 	return out, nil
 }
 
 func (p *Plugin) getCompanyCode(ctx context.Context, id string) (*companyCode, error) {
-	res, err := database.Query(ctx, p.pool(), p.q(`SELECT id, description FROM iam__company_codes WHERE id = ?`), id)
+	res, err := database.Query(ctx, p.pool(), p.q(`SELECT id, description, partner_id FROM iam__company_codes WHERE id = ?`), id)
 	if err != nil {
 		return nil, err
 	}
 	if len(res.Rows) == 0 {
 		return nil, fmt.Errorf("%w: Buchungskreis %q", sdk.ErrNotFound, id)
 	}
-	return &companyCode{s(res.Rows[0][0]), s(res.Rows[0][1])}, nil
+	return &companyCode{s(res.Rows[0][0]), s(res.Rows[0][1]), s(res.Rows[0][2])}, nil
 }
 
 func (p *Plugin) saveCompanyCode(ctx context.Context, cc companyCode, insert bool) error {
 	var err error
 	if insert {
-		_, err = p.pool().ExecContext(ctx, p.q(`INSERT INTO iam__company_codes (id, description, created_at) VALUES (?, ?, ?)`),
-			cc.ID, cc.Description, ts(time.Now()))
+		_, err = p.pool().ExecContext(ctx, p.q(`INSERT INTO iam__company_codes (id, description, partner_id, created_at) VALUES (?, ?, ?, ?)`),
+			cc.ID, cc.Description, nullable(cc.PartnerID), ts(time.Now()))
 		if err != nil && isUnique(err) {
 			return fmt.Errorf("%w: Buchungskreis %q gibt es bereits", sdk.ErrInvalidArgument, cc.ID)
 		}
 		return err
 	}
-	res, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__company_codes SET description = ? WHERE id = ?`), cc.Description, cc.ID)
+	res, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__company_codes SET description = ?, partner_id = ? WHERE id = ?`), cc.Description, nullable(cc.PartnerID), cc.ID)
 	if err != nil {
 		return err
 	}

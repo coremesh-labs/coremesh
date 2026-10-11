@@ -720,7 +720,7 @@ func (p *Plugin) granted(ctx context.Context, payload any) (sdk.Response, error)
 // --- CompanyCode (Verwaltung) ------------------------------------------------------
 
 func ccRecord(c companyCode) map[string]any {
-	return map[string]any{"id": c.ID, "code": c.ID, "description": c.Description}
+	return map[string]any{"id": c.ID, "code": c.ID, "description": c.Description, "partner_id": c.PartnerID}
 }
 
 // ccList: alle Buchungskreise – für einen eingeschränkten Benutzer nur seine
@@ -761,14 +761,18 @@ func (p *Plugin) ccSave(ctx context.Context, payload any, create bool) (sdk.Resp
 	var in struct {
 		ID   string `json:"id"`
 		Data struct {
-			Code        string `json:"code"`
-			Description string `json:"description"`
+			Code        string  `json:"code"`
+			Description string  `json:"description"`
+			PartnerID   *string `json:"partner_id"`
 		} `json:"data"`
 	}
 	if err := sdk.Decode(payload, &in); err != nil {
 		return sdk.Response{}, err
 	}
 	c := companyCode{ID: strings.TrimSpace(in.Data.Code), Description: strings.TrimSpace(in.Data.Description)}
+	if in.Data.PartnerID != nil {
+		c.PartnerID = strings.TrimSpace(*in.Data.PartnerID)
+	}
 	if !create {
 		if in.ID == "" {
 			return sdk.Response{}, fmt.Errorf("%w: id fehlt", sdk.ErrInvalidArgument)
@@ -777,6 +781,11 @@ func (p *Plugin) ccSave(ctx context.Context, payload any, create bool) (sdk.Resp
 			return sdk.Response{}, fmt.Errorf("%w: Die Nummer eines Buchungskreises kann nicht geändert werden", sdk.ErrInvalidArgument)
 		}
 		c.ID = in.ID
+		if in.Data.PartnerID == nil { // nicht mitgeschickt: bleibt
+			if old, err := p.getCompanyCode(ctx, c.ID); err == nil {
+				c.PartnerID = old.PartnerID
+			}
+		}
 	}
 	if c.ID == AllCompanyCodes || !companyCodeRe.MatchString(c.ID) {
 		return sdk.Response{}, fmt.Errorf("%w: Buchungskreis: 1–20 Zeichen aus A–Z, a–z, 0–9, _ und -", sdk.ErrInvalidArgument)

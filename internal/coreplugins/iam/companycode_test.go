@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"slices"
@@ -310,5 +311,24 @@ func TestKeyDateProfile(t *testing.T) {
 	}
 	if me, err := call(t, p, ctx, "Account", "UpdateProfile", map[string]any{"key_date": ""}); err != nil || me["key_date"] != "" {
 		t.Fatalf("gelöscht: %v %v", me, err)
+	}
+}
+
+// Geschäftspartner des Buchungskreises: gespeichert, beim Ändern ohne das Feld behalten.
+func TestCompanyCodePartner(t *testing.T) {
+	p, adminID := setup(t)
+	ctx := as(adminID)
+	call(t, p, ctx, "CompanyCode", "create", map[string]any{"data": map[string]any{"code": "1000", "description": "Zürich", "partner_id": "BP1"}})
+	call(t, p, ctx, "CompanyCode", "update", map[string]any{"id": "1000", "data": map[string]any{"description": "Zürich AG"}})
+	got, err := call(t, p, ctx, "CompanyCode", "get", map[string]any{"id": "1000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(got) != fmt.Sprint(map[string]any{"code": "1000", "description": "Zürich AG", "id": "1000", "partner_id": "BP1"}) {
+		t.Fatalf("Buchungskreis: %v", got)
+	}
+	call(t, p, ctx, "CompanyCode", "update", map[string]any{"id": "1000", "data": map[string]any{"description": "Zürich AG", "partner_id": ""}})
+	if got, _ := call(t, p, ctx, "CompanyCode", "get", map[string]any{"id": "1000"}); fmt.Sprint(got["partner_id"]) != "" {
+		t.Fatalf("Partner entfernen: %v", got)
 	}
 }
