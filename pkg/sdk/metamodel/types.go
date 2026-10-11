@@ -214,6 +214,9 @@ type Option struct {
 	Value    string `json:"value"`
 	Label    string `json:"label"`
 	LabelKey string `json:"label_key,omitempty"` // Übersetzungsschlüssel (i18n)
+	// Short: Abkürzung in Listen, wenn der Text lang ist (z. B. „Verb.“ für
+	// „Verbindlichkeit (wir zahlen)“); der Text steht dann im Tooltip.
+	Short string `json:"short,omitempty"`
 }
 
 // ActionConfig beschreibt eine Aktion, die die Oberfläche anbietet.

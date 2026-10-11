@@ -246,3 +246,7 @@ body.login-page { padding-left: 0; }
   .sidebar, html.nav-collapsed .sidebar { position: static; width: auto; }
   .nav-toggle { display: none; }
 }
+.info { color: var(--muted); cursor: help; margin-left: .2rem; }
+/* Zeile öffnet den Datensatz (Klick auf Zeile oder Schlüssel; Links und Knöpfe behalten ihre Aktion) */
+tr.open-row { cursor: pointer; }
+tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }

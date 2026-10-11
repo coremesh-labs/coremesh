@@ -893,3 +893,7 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
   Listen sowie Überschrift und Knöpfe der Eingabedialoge bleiben stehen.
 - Listen und eingebettete Tabellen zeigen bei Verweisen den **Schlüssel** (der Text steht im Tooltip
   und in der Kopfdaten-Vorschau), Spaltenköpfe ohne Erläuterung in Klammern (voller Text im Tooltip).
+- Auswahlwerte in Listen: kurze Texte ausgeschrieben, lange als Abkürzung (`Option.Short`, sonst Text
+  vor der Klammer bzw. Schlüssel) mit ⓘ (voller Text im Tooltip).
+- Klick auf eine Zeile (auch auf ihren Schlüssel) öffnet den Datensatz; Links, Knöpfe und ⓘ behalten
+  ihre Aktion.

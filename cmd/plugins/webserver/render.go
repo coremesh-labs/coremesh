@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
@@ -88,16 +89,19 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
 		},
 		// Listen (seit 0.36.0): bei Verweisen der Schlüssel (kurz, lernt man), der Text als Tooltip
-		"cell": func(rec record, f metamodel.FieldDefinition) string {
+		"cell": func(rec record, f metamodel.FieldDefinition) template.HTML {
 			if hiddenIn(rec, f.Key) {
 				return "—"
 			}
 			if f.Lookup != nil {
 				if v, ok := rec[f.Key]; ok && v != nil && scalar(v) != "" {
-					return scalar(v)
+					return template.HTML(template.HTMLEscapeString(scalar(v)))
 				}
 			}
-			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
+			if f.Type == metamodel.TypeSelect && labelsOf(rec)[f.Key] == "" {
+				return selectCell(rec, f)
+			}
+			return template.HTML(template.HTMLEscapeString(displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))))
 		},
 		"cellTitle": func(rec record, f metamodel.FieldDefinition) string {
 			if hiddenIn(rec, f.Key) {
@@ -106,6 +110,49 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
 		},
 	}
+}
+
+// cellMaxRunes: Auswahltexte bis zu dieser Länge stehen in Listen ausgeschrieben.
+const cellMaxRunes = 14
+
+// selectCell: Auswahlwert in Listen – kurzer Text ausgeschrieben, langer als
+// Abkürzung (Option.Short, Text vor der Klammer, sonst Schlüssel) mit ⓘ (Tooltip).
+func selectCell(rec record, f metamodel.FieldDefinition) template.HTML {
+	v, ok := rec[f.Key]
+	if !ok || v == nil {
+		return ""
+	}
+	vals := []string{scalar(v)}
+	if f.Multiple {
+		vals = strings.Split(scalar(v), ",")
+	}
+	var parts []string
+	for _, x := range vals {
+		x = strings.TrimSpace(x)
+		if x == "" {
+			continue
+		}
+		label, short := x, ""
+		for _, o := range f.Options {
+			if o.Value == x {
+				label, short = o.Label, o.Short
+			}
+		}
+		if utf8.RuneCountInString(label) <= cellMaxRunes {
+			parts = append(parts, template.HTMLEscapeString(label))
+			continue
+		}
+		abbr := short
+		if abbr == "" {
+			if s := shortLabel(label); utf8.RuneCountInString(s) <= cellMaxRunes {
+				abbr = s
+			} else {
+				abbr = x
+			}
+		}
+		parts = append(parts, template.HTMLEscapeString(abbr)+`&#8288;<span class="info" title="`+template.HTMLEscapeString(label)+`">ⓘ</span>`)
+	}
+	return template.HTML(strings.Join(parts, ", "))
 }
 
 // shortLabel: Spaltenkopf ohne Erläuterung in Klammern („Fällig am (leer = …)“ → „Fällig am“).
