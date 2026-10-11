@@ -113,7 +113,7 @@ func TestActionFormState(t *testing.T) {
 		d.Actions = append(slices.Clone(d.Actions),
 			metamodel.ActionConfig{Name: "pick", Kind: metamodel.KindCustom, Label: "Wählen …", FormState: true, Fields: []string{"search", "choice", "value"}})
 	})
-	s, _ := newMDServer(t)
+	s, h := newMDServer(t)
 	b := do(s, "GET", "/action/crm/CustomerContact/pick?id=k1", nil, true).Body.String()
 	mustContain(t, b, `<option value="A"`, `>Beta</option>`, "Welches Objekt?", `<a href="/new/Contract" target="_blank" rel="noopener">Vertrag anlegen</a>`,
 		`hx-post="/action/crm/CustomerContact/pick/_form"`)
@@ -124,6 +124,16 @@ func TestActionFormState(t *testing.T) {
 	mustContain(t, b, `>Beta</option>`, `value="be"`)
 	if strings.Contains(b, ">Alpha<") {
 		t.Fatalf("Neuaufbau filtert nicht:\n%s", b)
+	}
+	// Zusatzfelder der Maske: angezeigt mit Wert, ausgewertet beim Absenden
+	b = do(s, "GET", "/action/crm/CustomerContact/pick?id=kx", nil, true).Body.String()
+	mustContain(t, b, `name="x_name" value="Muster AG"`, `<option value="P"`, "Partner")
+	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kx"}, "x_name": {"Neu GmbH"}, "x_kind": {"P"}, "choice": {"A"}}, true)
+	if d := h.find("pick").Payload.(map[string]any)["data"].(map[string]any); d["x_name"] != "Neu GmbH" || d["x_kind"] != "P" {
+		t.Fatalf("Zusatzfelder: %v", d)
+	}
+	if got := visibleButtons([]inlineButton{{Name: "back"}, {Name: "create"}}, []string{"create"}); len(got) != 1 || got[0].Name != "back" {
+		t.Fatalf("Knöpfe: %v", got)
 	}
 	if w := do(s, "GET", "/open/Customer/c%7C1", nil, false); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/m/crm/Customer/c%7C1" {
 		t.Fatalf("/open: %d %q", w.Code, w.Header().Get("Location"))

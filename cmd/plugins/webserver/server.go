@@ -608,7 +608,7 @@ func (s *server) actionForm(w http.ResponseWriter, r *http.Request) {
 	}
 	v := s.actionView(r, oc, act, r.URL.Query().Get("id"), nil, nil)
 	if r.URL.Query().Get("inline") != "" {
-		v.InlineButtons = oc.inlineButtons(act.Name)
+		v.InlineButtons = visibleButtons(oc.inlineButtons(act.Name), v.HideButtons)
 		s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 		return
 	}
@@ -645,12 +645,23 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 	def, trigger := oc.ActionDef, ""
 	v := view{objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name, CancelURL: oc.URL}
+	keys := act.Fields
 	if st != nil {
-		def = applyFormState(oc.ActionDef, *st)
+		def = withExtra(applyFormState(oc.ActionDef, *st), st)
 		trigger = oc.ActionURL + "/" + act.Name + "/_form"
-		v.FormMessage, v.FormLinks = st.Message, appLinks(st.Links)
+		v.FormMessage, v.FormLinks, v.HideButtons = st.Message, appLinks(st.Links), st.HideButtons
+		if len(keys) > 0 && len(st.Extra) > 0 {
+			keys = append(slices.Clone(keys), extraKeys(st)...)
+		}
+		for _, f := range st.Extra {
+			if _, ok := values[f.Key]; !ok {
+				if fs, ok := st.Fields[f.Key]; ok && fs.Value != nil {
+					values[f.Key] = *fs.Value
+				}
+			}
+		}
 	}
-	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger}), act.Fields)
+	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger}), keys)
 	return v
 }
 
@@ -792,6 +803,10 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	data, raw, errs := map[string]any{}, map[string]string{}, map[string]string{}
 	if !direct {
 		def := actionDef(oc.ActionDef, act.Fields)
+		// Zusatzfelder der Maske (FormState.Extra) gehören zum Formular.
+		if st := s.actionState(r, oc, act, id, formValues(oc.ActionDef, r.PostForm)); st != nil && len(st.Extra) > 0 {
+			def = withExtra(def, st)
+		}
 		data, raw, errs = parseFields(def, r.PostForm)
 		readFiles(r, def, data, errs)
 	}
@@ -799,7 +814,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	if len(errs) > 0 {
 		if inline {
 			v := s.actionView(r, oc, act, id, raw, errs)
-			v.InlineButtons = oc.inlineButtons(act.Name)
+			v.InlineButtons = visibleButtons(oc.inlineButtons(act.Name), v.HideButtons)
 			s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 			return
 		}
@@ -832,7 +847,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 			}
 			v := s.actionView(r, oc, target, id, values, nil)
 			v.FormError = err.Error()
-			v.InlineButtons = oc.inlineButtons(target.Name)
+			v.InlineButtons = visibleButtons(oc.inlineButtons(target.Name), v.HideButtons)
 			s.render(w, r, http.StatusOK, "action-inline", v, "", "")
 			return
 		}

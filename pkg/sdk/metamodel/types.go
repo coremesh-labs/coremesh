@@ -355,6 +355,13 @@ type FormState struct {
 	// Links unter dem Hinweis, im neuen Fenster – z. B. „Vertrag anlegen“
 	// (/new/Contract). Nur Pfade der Anwendung (beginnen mit /).
 	Links []FormLink `json:"links,omitempty"`
+	// Extra: weitere Felder nur für dieses Formular (Mode action), z. B. ein von
+	// einer KI vorbelegtes Objekt; Werte über Fields[key].Value. Sie werden wie
+	// die Felder der Aktion ausgewertet und kommen in data an.
+	Extra []FieldDefinition `json:"extra,omitempty"`
+	// HideButtons: Knöpfe des Aktionsabschnitts (SectionDefinition.Buttons), die
+	// zu diesem Stand nicht passen.
+	HideButtons []string `json:"hide_buttons,omitempty"`
 }
 
 // FormLink ist ein Link im Formular.
