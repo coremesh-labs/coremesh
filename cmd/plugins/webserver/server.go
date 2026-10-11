@@ -256,6 +256,12 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if rep := oc.reportAction(); rep != nil {
+		v := s.actionView(r, oc, rep, "", nil, nil)
+		v.Modal, v.Report = false, true
+		s.render(w, r, http.StatusOK, "report", v, oc.Def.Title, oc.Object)
+		return
+	}
 	act, err := need(oc, metamodel.KindList)
 	if err != nil {
 		s.fail(w, r, err)
@@ -849,7 +855,15 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	if m, ok := resp.Payload.(map[string]any); ok {
 		v.Message, _ = m["message"].(string)
 	}
-	v.ResultTable = tableOf(resp.Payload)
+	v.ResultTable, v.Download = tableOf(resp.Payload), downloadOf(resp.Payload)
+	if rep := oc.reportAction(); rep != nil && rep.Name == act.Name && id == "" {
+		// Bericht: Maske mit den Eingaben, darunter das Ergebnis.
+		rv := s.actionView(r, oc, act, "", raw, nil)
+		rv.Modal, rv.Report = false, true
+		rv.Result, rv.Message, rv.ResultTable, rv.Download = v.Result, v.Message, v.ResultTable, v.Download
+		s.render(w, r, http.StatusOK, "report", rv, oc.Def.Title, oc.Object)
+		return
+	}
 	// Übersicht neu laden: Die Liste hört auf dieses Ereignis; bei einer Aktion
 	// am Datensatz lädt auch die Detailansicht neu (Kopfdaten, Abschnitte).
 	if id != "" {

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	"html/template"
 	"net/mail"
 	"net/url"
+	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -283,8 +287,12 @@ type view struct {
 	Result any
 	// ResultTable: Tabelle im Ergebnis einer Aktion ({"table": {"columns", "rows"}}).
 	ResultTable *resultTable
-	Message     string
-	Toast       *toast
+	// Download: Datei im Ergebnis ({"download": Content}), Link zum Speichern.
+	Download *download
+	// Report: Seite eines Berichts (Object ohne Übersicht) – Maske und Ergebnis auf einer Seite.
+	Report  bool
+	Message string
+	Toast   *toast
 }
 
 // ID ist die id des aktuellen Datensatzes.
@@ -442,6 +450,48 @@ func (v view) FilterFields() []filterField { return v.FilterBar }
 type resultTable struct {
 	Columns []string   `json:"columns"`
 	Rows    [][]string `json:"rows"`
+}
+
+// download: Datei im Ergebnis einer Aktion (z. B. CSV), als data:-URL zum Speichern.
+type download struct {
+	URL      template.URL
+	FileName string
+}
+
+// downloadOf liest {"download": {"content" (Base64), "content_type", "file_name"}} aus dem Ergebnis.
+func downloadOf(payload any) *download {
+	m, ok := payload.(map[string]any)
+	if !ok || m["download"] == nil {
+		return nil
+	}
+	var c metamodel.Content
+	if err := sdk.Decode(m["download"], &c); err != nil || c.Content == "" || c.FileName == "" {
+		return nil
+	}
+	if _, err := base64.StdEncoding.DecodeString(c.Content); err != nil {
+		return nil
+	}
+	typ := c.ContentType
+	if !mimeRe.MatchString(typ) {
+		typ = "application/octet-stream"
+	}
+	return &download{URL: template.URL("data:" + typ + ";base64," + c.Content), FileName: path.Base(c.FileName)}
+}
+
+var mimeRe = regexp.MustCompile(`^[a-z]+/[a-z0-9.+-]+(; ?charset=[a-zA-Z0-9-]+)?$`)
+
+// reportAction: Object ohne Übersicht mit einer Aktion ohne Datensatz – ein
+// Bericht (z. B. GuV): Die Seite des Objects ist die Maske dieser Aktion.
+func (oc objectCtx) reportAction() *metamodel.ActionConfig {
+	if oc.Has[string(metamodel.KindList)] != nil || oc.Denied[string(metamodel.KindList)] {
+		return nil
+	}
+	for i := range oc.Custom {
+		if !oc.Custom[i].Record {
+			return &oc.Custom[i]
+		}
+	}
+	return nil
 }
 
 // tableOf liest {"table": {"columns": [...], "rows": [[...]]}} aus dem Ergebnis.

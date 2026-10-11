@@ -54,7 +54,15 @@ var partnerDef = metamodel.ObjectDefinition{
 
 // crmModule bündelt Partner; Fremd ist ein Object außerhalb des Moduls.
 var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm", "available": true, "title_key": "crm.module.title",
-	"objects": []any{map[string]any{"object": "Partner", "title": "Geschäftspartner", "section": "Stammdaten", "available": true}}, "services": []any{"Search"}}
+	"objects": []any{map[string]any{"object": "Partner", "title": "Geschäftspartner", "section": "Stammdaten", "available": true},
+		map[string]any{"object": "Report", "title": "Bericht", "section": "Auswertungen", "available": true}}, "services": []any{"Search"}}
+
+// reportDef: Bericht ohne Übersicht – Maske und Ergebnis auf der Seite des Objects.
+var reportDef = metamodel.ObjectDefinition{
+	Name: "Report", Title: "Bericht",
+	Fields:  []metamodel.FieldDefinition{{Key: "period_to", Label: "Bis", Type: metamodel.TypeDate, Required: true, Editable: true, ActionOnly: true}},
+	Actions: []metamodel.ActionConfig{{Name: "compute", Kind: metamodel.KindCustom, Label: "Berechnen", Fields: []string{"period_to"}}},
+}
 
 func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	h.mu.Lock()
@@ -69,6 +77,9 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 		"employees": 42.0, "active": true, "kind": "customer", "created_at": "2026-10-05"}
 	switch req.Object + "." + req.Action {
 	case "Catalog.GetDefinition":
+		if p, _ := req.Payload.(map[string]any); p["object"] == "Report" {
+			return sdk.Response{Payload: map[string]any{"definition": reportDef, "available": true}}, nil
+		}
 		return sdk.Response{Payload: map[string]any{"definition": partnerDef, "available": true}}, nil
 	case "Catalog.Translations":
 		p, _ := req.Payload.(map[string]any)
@@ -114,6 +125,9 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 		return sdk.Response{Payload: inactive}, nil
 	case "Search.run":
 		return sdk.Response{Payload: map[string]any{"hits": 1}}, nil
+	case "Report.compute":
+		return sdk.Response{Payload: map[string]any{"table": map[string]any{"columns": []any{"Konto", "Betrag"}, "rows": []any{[]any{"4000", "-1.250,00"}}},
+			"download": map[string]any{"content": "S29udG87QmV0cmFnCg==", "content_type": "text/csv;charset=utf-8", "file_name": "../guv.csv"}}}, nil
 	case "Partner.Notify":
 		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt",
 			"table": map[string]any{"columns": []any{"Fällig", "Betrag"}, "rows": []any{[]any{"30.01.2026", "300.00"}, []any{"28.02.2026", nil}}}}}, nil
@@ -390,7 +404,7 @@ func TestDeleteAndCustomAction(t *testing.T) {
 
 	w = do(s, "POST", "/action/crm/Partner/Notify", url.Values{"_id": {"p1"}, "company_name": {"x"}}, true)
 	mustContain(t, w.Body.String(), "Benachrichtigung verschickt", `<div class="result-table"><table class="data">`, "<th>Fällig</th>",
-		"<td>30.01.2026</td><td>300.00</td>", "<td>28.02.2026</td><td></td>")
+		`<td>30.01.2026</td><td class="num">300.00</td>`, "<td>28.02.2026</td><td></td>")
 	if w.Header().Get("HX-Trigger") != "coremesh-changed, coremesh-record-changed" {
 		t.Fatalf("HX-Trigger: %q", w.Header().Get("HX-Trigger"))
 	}
@@ -489,4 +503,14 @@ func TestKeyDateMetadata(t *testing.T) {
 	if _, ok := s.callContext(r).Metadata[sdk.MetaKeyDate]; ok {
 		t.Fatal("ohne Stichtag keine Metadaten")
 	}
+}
+
+// Bericht: Die Seite des Objects ist die Maske; das Ergebnis erscheint darunter, mit Datei zum Speichern.
+func TestReport(t *testing.T) {
+	s, _ := newTestServer(t, "")
+	page := do(s, "GET", "/m/crm/Report", nil, false).Body.String()
+	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`)
+	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}}, false)
+	mustContain(t, w.Body.String(), `name="period_to"`, `value="2026-12-31"`, `<td class="num">-1.250,00</td>`,
+		`href="data:text/csv;charset=utf-8;base64,S29udG87QmV0cmFnCg=="`, `download="guv.csv"`)
 }

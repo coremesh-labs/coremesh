@@ -622,6 +622,12 @@ abhängen:
   MIME-Typ in `<Feld>_type` (PDF, Scans). Ohne Binary: Inhalt als Text wie bisher.
 - **Ergebnis-Tabellen:** Liefert eine eigene Aktion `{"message", "table": {"columns": [...],
   "rows": [[...]]}}`, zeigt das Ergebnis die Tabelle unter der Meldung (z. B. Tilgungsplan).
+  Beträge und Zahlen stehen rechtsbündig.
+- **Dateien im Ergebnis (seit 0.33.0):** `{"download": {"content" (Base64), "content_type",
+  "file_name"}}` bietet einen Link zum Speichern an (z. B. CSV), ohne dass etwas gespeichert wird.
+- **Berichte (seit 0.33.0):** Ein Object ohne Übersicht (keine Action `list`) mit einer eigenen
+  Aktion ohne Datensatz ist ein Bericht: `/m/{modul}/{object}` zeigt die Maske dieser Aktion,
+  nach dem Ausführen dieselbe Maske mit den Eingaben und darunter das Ergebnis (z. B. GuV).
 - **Aktionsformulare** (eigene Aktionen mit `Fields`): Mit `ActionConfig.FormState: true`
   fragt der WebServer beim Öffnen dieselbe Action mit `mode: "action"`, `action` (Name) und
   `id` (Datensatz) ab und übernimmt Vorbelegungen (`value`) und Hinweis – z. B. „Buchen bis“ =

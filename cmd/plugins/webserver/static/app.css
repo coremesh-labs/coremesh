@@ -191,3 +191,5 @@ dialog.modal form footer { position: sticky; bottom: -1.25rem; background: var(-
 .form-links { margin: .25rem 0 .75rem; display: flex; gap: 1rem; flex-wrap: wrap; }
 .action-section { border-left: 4px solid var(--accent, #2563eb); padding: .5rem 1rem; background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent); }
 .action-section footer { margin-top: .5rem; }
+table.data td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.report-result { margin-top: 1.5rem; }
