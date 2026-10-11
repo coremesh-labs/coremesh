@@ -52,6 +52,9 @@ func (d ObjectDefinition) Validate() error {
 		if f.Type == TypeSelect && len(f.Options) == 0 && d.FormState == "" {
 			add("%s: select braucht options (oder FormState, der sie liefert)", where)
 		}
+		if f.Multiple && f.Type != TypeSelect {
+			add("%s: multiple nur bei type select", where)
+		}
 		if f.Type != TypeSelect && len(f.Options) > 0 {
 			add("%s: options nur bei type select", where)
 		}

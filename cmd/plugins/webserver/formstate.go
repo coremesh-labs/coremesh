@@ -119,7 +119,11 @@ func formValues(d metamodel.ObjectDefinition, form url.Values) map[string]string
 	out := map[string]string{}
 	for _, f := range d.Fields {
 		if v, ok := form[f.Key]; ok && len(v) > 0 {
-			out[f.Key] = strings.TrimSpace(v[0])
+			if f.Multiple {
+				out[f.Key] = joinValues(v)
+			} else {
+				out[f.Key] = strings.TrimSpace(v[0])
+			}
 		}
 	}
 	return out
@@ -241,4 +245,17 @@ func (v view) FormGroups() []formGroup {
 		return 1
 	})
 	return out
+}
+
+// joinValues: Werte einer Mehrfachauswahl als Komma-Liste (ohne leere, ohne doppelte).
+func joinValues(vs []string) string {
+	var out []string
+	for _, v := range vs {
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" && !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+	}
+	return strings.Join(out, ",")
 }

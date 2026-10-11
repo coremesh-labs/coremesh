@@ -51,7 +51,12 @@
 {{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else}}
 <label class="field{{if .Error}} invalid{{end}}">
   <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
-  {{if eq .Type "select"}}
+  {{if and (eq .Type "select") .Field.Multiple}}
+  <select name="{{.Field.Key}}" multiple size="{{selectSize .Field.Options}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
+    {{range .Field.Options}}<option value="{{.Value}}" {{if inList .Value $.Value}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  <small class="muted">{{t "core.form.multiple"}}</small>
+  {{else if eq .Type "select"}}
   <select name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
     {{if not .Field.Required}}<option value=""></option>{{end}}
     {{range .Field.Options}}<option value="{{.Value}}" {{if eq .Value $.Value}}selected{{end}}>{{.Label}}</option>{{end}}

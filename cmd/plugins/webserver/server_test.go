@@ -60,8 +60,10 @@ var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm"
 // reportDef: Bericht ohne Übersicht – Maske und Ergebnis auf der Seite des Objects.
 var reportDef = metamodel.ObjectDefinition{
 	Name: "Report", Title: "Bericht",
-	Fields:  []metamodel.FieldDefinition{{Key: "period_to", Label: "Bis", Type: metamodel.TypeDate, Required: true, Editable: true, ActionOnly: true}},
-	Actions: []metamodel.ActionConfig{{Name: "compute", Kind: metamodel.KindCustom, Label: "Berechnen", Fields: []string{"period_to"}}},
+	Fields: []metamodel.FieldDefinition{{Key: "period_to", Label: "Bis", Type: metamodel.TypeDate, Required: true, Editable: true, ActionOnly: true},
+		{Key: "kinds", Label: "Arten", Type: metamodel.TypeSelect, Multiple: true, Editable: true, ActionOnly: true,
+			Options: []metamodel.Option{{Value: "MV", Label: "Miete"}, {Value: "GM", Label: "Gewerbe"}, {Value: "SP", Label: "Stellplatz"}}}},
+	Actions: []metamodel.ActionConfig{{Name: "compute", Kind: metamodel.KindCustom, Label: "Berechnen", Fields: []string{"period_to", "kinds"}}},
 }
 
 func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
@@ -507,10 +509,18 @@ func TestKeyDateMetadata(t *testing.T) {
 
 // Bericht: Die Seite des Objects ist die Maske; das Ergebnis erscheint darunter, mit Datei zum Speichern.
 func TestReport(t *testing.T) {
-	s, _ := newTestServer(t, "")
+	s, h := newTestServer(t, "")
 	page := do(s, "GET", "/m/crm/Report", nil, false).Body.String()
 	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`)
-	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}}, false)
+	mustContain(t, page, `<select name="kinds" multiple size="3"`)
+	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"MV", "SP"}}, false)
+	if d, _ := h.find("compute").Payload.(map[string]any)["data"].(map[string]any); d["kinds"] != "MV,SP" {
+		t.Errorf("Mehrfachauswahl: %v", d["kinds"])
+	}
+	mustContain(t, w.Body.String(), `<option value="MV" selected>Miete</option>`, `<option value="GM" >Gewerbe</option>`, `<option value="SP" selected>`)
+	if w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"XX"}}, false); w.Code != 422 {
+		t.Errorf("unbekannter Wert: %d", w.Code)
+	}
 	mustContain(t, w.Body.String(), `name="period_to"`, `value="2026-12-31"`, `<td class="num">-1.250,00</td>`,
 		`href="data:text/csv;charset=utf-8;base64,S29udG87QmV0cmFnCg=="`, `download="guv.csv"`)
 }

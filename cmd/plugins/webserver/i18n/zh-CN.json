@@ -69,6 +69,7 @@
   "core.error.no_permission_action": "无权执行 %s.%s",
   "core.error.not_in_module": "%s不属于模块%s",
   "core.error.unavailable": "%s当前不可用",
+  "core.form.multiple": "按 Ctrl 或 ⌘ 多选；不选 = 全部",
   "core.form.title": "%s – %s",
   "core.home.empty": "尚未注册任何模块，或您没有访问权限。",
   "core.home.objects_many": "%d 个对象",

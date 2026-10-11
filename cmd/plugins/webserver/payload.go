@@ -115,6 +115,9 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 			continue // liest runAction aus dem Multipart-Formular
 		}
 		v := strings.TrimSpace(form.Get(f.Key))
+		if f.Multiple {
+			v = joinValues(form[f.Key])
+		}
 		raw[f.Key] = v
 
 		if f.Type == metamodel.TypeBoolean {
@@ -151,7 +154,10 @@ func parseFields(d metamodel.ObjectDefinition, form url.Values) (data map[string
 		case metamodel.TypeSelect:
 			// Ohne feste Werte kommen die Auswahlwerte aus FormState (je nach
 			// Datensatz, z. B. Schritt eines Workflows) – dann prüft das Modul.
-			if len(f.Options) > 0 && !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == v }) {
+			valid := func(x string) bool {
+				return slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == x })
+			}
+			if len(f.Options) > 0 && (!f.Multiple && !valid(v) || f.Multiple && slices.ContainsFunc(strings.Split(v, ","), func(x string) bool { return !valid(x) })) {
 				errs[f.Key] = "core.validation.option"
 				continue
 			}
