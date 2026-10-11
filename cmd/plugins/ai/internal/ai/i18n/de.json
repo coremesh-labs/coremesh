@@ -38,6 +38,7 @@
   "ai.AiProvider.fields.base_url": "URL der Schnittstelle (OpenAI-kompatibel, ohne /chat/completions)",
   "ai.AiProvider.fields.code": "Schlüssel",
   "ai.AiProvider.fields.extra_headers": "Weitere Header (je Zeile „Name: Wert“)",
+  "ai.AiProvider.fields.fallback_provider": "Ausweich-Dienst (springt ein, wenn dieser gestört ist: Überlast, nicht erreichbar, Zeitlimit)",
   "ai.AiProvider.fields.has_key": "Schlüssel gespeichert",
   "ai.AiProvider.fields.is_active": "Aktiv",
   "ai.AiProvider.fields.model": "Modell (z. B. gemini-flash-latest)",

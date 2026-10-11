@@ -187,3 +187,37 @@ func TestLogRetention(t *testing.T) {
 		t.Errorf("nach dem Verfall: %v", l["items"])
 	}
 }
+
+// Ausweich-Dienst: Ist der gewählte Dienst gestört, antwortet der Ausweich-Dienst mit seinem Modell.
+func TestFallbackProvider(t *testing.T) {
+	e := setup(t)
+	e.partnerRequest()
+	retryWaits = []time.Duration{time.Millisecond, time.Millisecond}
+	e.must(providerObject, "create", map[string]any{"data": map[string]any{"code": "ZBACKUP", "name": "Ersatz", "base_url": "https://backup.example/v1",
+		"model": "m2", "auth_method": "BEARER", "api_key": "k2"}})
+	e.must(providerObject, "update", map[string]any{"id": "TEST", "data": map[string]any{"code": "TEST", "name": "Testdienst", "base_url": "https://ai.example/v1",
+		"model": "m1", "auth_method": "BEARER", "fallback_provider": "ZBACKUP"}})
+	if _, err := e.call(providerObject, "update", map[string]any{"id": "TEST", "data": map[string]any{"code": "TEST", "name": "Testdienst",
+		"base_url": "https://ai.example/v1", "model": "m1", "auth_method": "BEARER", "fallback_provider": "TEST"}}); !errors.Is(err, sdk.ErrInvalidArgument) {
+		t.Errorf("sich selbst als Ausweich: %v", err)
+	}
+	e.ai.answer = `{"partner":{"name1":"A"}}`
+	e.ai.failFirst = 3 // erster Dienst: Versuch und zwei Wiederholungen gestört
+	out := e.must(serviceObject, "run", map[string]any{"data": map[string]any{"request": "BP", "text": "x"}})
+	if out["status"] != stDone || !strings.Contains(fmt.Sprint(out["message"]), "TEST gestört") {
+		t.Fatalf("Ausweich: %v %v", out, e.ai.auth)
+	}
+	last := e.ai.auth[len(e.ai.auth)-1]
+	if !strings.HasPrefix(last, "Bearer k2|") || e.ai.bodies[len(e.ai.bodies)-1]["model"] != "m2" {
+		t.Errorf("Ausweich-Dienst nicht genutzt: %s %v", last, e.ai.bodies[len(e.ai.bodies)-1]["model"])
+	}
+	if l := e.must(logObject, "get", map[string]any{"id": fmt.Sprint(out["log_id"])}); l["provider"] != "ZBACKUP" || l["model"] != "m2" {
+		t.Errorf("Protokoll: %v %v", l["provider"], l["model"])
+	}
+	// Fehler der Anfrage selbst (401): kein Ausweich
+	e.ai.status = 401
+	n := len(e.ai.bodies)
+	if out := e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "x"}); out["status"] != stError || len(e.ai.bodies)-n != 1 {
+		t.Errorf("401: %v, %d Aufrufe", out["status"], len(e.ai.bodies)-n)
+	}
+}

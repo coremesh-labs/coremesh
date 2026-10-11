@@ -38,6 +38,7 @@
   "ai.AiProvider.fields.base_url": "接口 URL（兼容 OpenAI，不含 /chat/completions）",
   "ai.AiProvider.fields.code": "代码",
   "ai.AiProvider.fields.extra_headers": "附加请求头（每行“名称: 值”）",
+  "ai.AiProvider.fields.fallback_provider": "备用服务（当前服务故障时启用：过载、不可达、超时）",
   "ai.AiProvider.fields.has_key": "已存密钥",
   "ai.AiProvider.fields.is_active": "有效",
   "ai.AiProvider.fields.model": "模型（如 gemini-flash-latest）",
