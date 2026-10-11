@@ -47,6 +47,7 @@ type Field struct {
 	ActionOnly bool
 	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
 	Options    []metamodel.Option
+	Multiple   bool              // Mehrfachauswahl (TypeSelect): Komma-Liste (metamodel.FieldDefinition.Multiple)
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
 	Lookup     *metamodel.Lookup // Lookup ohne Ref, z. B. auf ein Object eines anderen Moduls
 	// Formular: Feldgruppe, Neuauswertung bei Änderung, deklarative Regeln.
