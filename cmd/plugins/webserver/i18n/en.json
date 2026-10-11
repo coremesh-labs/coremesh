@@ -10,6 +10,7 @@
   "core.app.bad_request": "Invalid request",
   "core.app.cancel": "Cancel",
   "core.app.close": "Close",
+  "core.app.download": "Download",
   "core.app.error": "Error",
   "core.app.error_title": "Error %d",
   "core.app.foreign_origin": "Request from another site rejected",

@@ -24,15 +24,27 @@
 </div>
 {{end}}
 
+{{/* Ergebnis einer custom-Action: Meldung, Tabelle, Datei zum Speichern. */}}
+{{define "result-body"}}
+{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not (or .ResultTable .Download)}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
+{{with .Download}}<p class="result-download"><a class="btn" href="{{.URL}}" download="{{.FileName}}">{{t "core.app.download"}}: {{.FileName}}</a></p>{{end}}
+{{with .ResultTable}}<div class="result-table"><table class="data">
+  <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+  <tbody>{{range .Rows}}<tr>{{range .}}<td{{if numeric .}} class="num"{{end}}>{{.}}</td>{{end}}</tr>{{end}}</tbody>
+</table></div>{{end}}
+{{end}}
+
+{{/* GET /m/{module}/{object} eines Berichts (Object ohne Übersicht): Maske, nach dem Ausführen mit Ergebnis. */}}
+{{define "report"}}
+{{template "form" .}}
+{{if .Result}}<section class="report-result">{{template "result-body" .}}</section>{{end}}
+{{end}}
+
 {{/* POST /action/{module}/{object}/{name}: Ergebnis einer custom-Action. */}}
 {{define "result"}}
 {{if .Modal}}<dialog open class="modal"><article>{{end}}
 <h2>{{.Action.Label}}</h2>
-{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not .ResultTable}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
-{{with .ResultTable}}<div class="result-table"><table class="data">
-  <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
-  <tbody>{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>{{end}}</tbody>
-</table></div>{{end}}
+{{template "result-body" .}}
 <footer>
   {{if .Modal}}
   <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.close"}}</button>

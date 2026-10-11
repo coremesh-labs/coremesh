@@ -16,7 +16,7 @@ func TestModuleRouting(t *testing.T) {
 
 	// Startseite: Modul-Kacheln, keine Objects.
 	home := do(s, "GET", "/", nil, false).Body.String()
-	mustContain(t, home, `<a href="/m/crm">`, "<strong>CRM</strong>", "1 Objekt")
+	mustContain(t, home, `<a href="/m/crm">`, "<strong>CRM</strong>", "2 Objekte")
 
 	// Modul-Einstieg = Übersicht des ersten Objects, Seitenleiste mit Gruppen.
 	for _, path := range []string{"/m/crm", "/m/crm/"} {

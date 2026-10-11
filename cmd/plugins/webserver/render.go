@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -156,11 +157,15 @@ var funcs = template.FuncMap{
 	"pathEscape": url.PathEscape,
 	"domID":      domID,
 	"endBtn":     newEndBtn,
+	"numeric":    func(s string) bool { return numericRe.MatchString(s) },
 	"json": func(v any) string {
 		b, _ := json.MarshalIndent(v, "", "  ")
 		return string(b)
 	},
 }
+
+// numericRe: Betrag oder Zahl (rechtsbündig in Ergebnistabellen), z. B. -1.234,56 oder 300.00.
+var numericRe = regexp.MustCompile(`^-?([0-9]{1,3}([.,' ][0-9]{3})+|[0-9]+)([.,][0-9]+)?$`)
 
 func listable(d metamodel.ObjectDefinition) []metamodel.FieldDefinition {
 	var out []metamodel.FieldDefinition

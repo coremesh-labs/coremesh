@@ -10,6 +10,7 @@
   "core.app.bad_request": "无效请求",
   "core.app.cancel": "取消",
   "core.app.close": "关闭",
+  "core.app.download": "下载",
   "core.app.error": "错误",
   "core.app.error_title": "错误 %d",
   "core.app.foreign_origin": "已拒绝来自其他站点的请求",

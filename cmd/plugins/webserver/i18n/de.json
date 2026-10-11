@@ -10,6 +10,7 @@
   "core.app.bad_request": "Ungültige Anfrage",
   "core.app.cancel": "Abbrechen",
   "core.app.close": "Schließen",
+  "core.app.download": "Herunterladen",
   "core.app.error": "Fehler",
   "core.app.error_title": "Fehler %d",
   "core.app.foreign_origin": "Anfrage von fremder Seite abgelehnt",
