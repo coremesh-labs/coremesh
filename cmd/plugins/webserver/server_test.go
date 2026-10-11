@@ -252,7 +252,7 @@ func TestListFullPageVsFragment(t *testing.T) {
 		"<!doctype html>", "htmx.min.js", `id="main-content"`, `id="toast-container"`,
 		`href="/m/crm/Partner" hx-get="/m/crm/Partner"`, // Sidebar aus dem Catalog
 		`class="active"`,                           // aktives Object
-		"<th>Firmenname</th>", "<th>Angelegt</th>", // listable
+		`<th title="Firmenname">Firmenname</th>`, `<th title="Angelegt">Angelegt</th>`, // listable
 		"ACME &lt;AG&gt;", // escaped
 		"Kunde", "Ja",     // select-Label, boolean
 		`id="row-702f31"`, // hex("p/1")

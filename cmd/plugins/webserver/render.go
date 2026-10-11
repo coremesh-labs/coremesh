@@ -87,7 +87,33 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			}
 			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
 		},
+		// Listen (seit 0.36.0): bei Verweisen der Schlüssel (kurz, lernt man), der Text als Tooltip
+		"cell": func(rec record, f metamodel.FieldDefinition) string {
+			if hiddenIn(rec, f.Key) {
+				return "—"
+			}
+			if f.Lookup != nil {
+				if v, ok := rec[f.Key]; ok && v != nil && scalar(v) != "" {
+					return scalar(v)
+				}
+			}
+			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
+		},
+		"cellTitle": func(rec record, f metamodel.FieldDefinition) string {
+			if hiddenIn(rec, f.Key) {
+				return ""
+			}
+			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
+		},
 	}
+}
+
+// shortLabel: Spaltenkopf ohne Erläuterung in Klammern („Fällig am (leer = …)“ → „Fällig am“).
+func shortLabel(s string) string {
+	if i := strings.Index(s, " ("); i > 0 {
+		return s[:i]
+	}
+	return s
 }
 
 func (r *renderer) tmpl(loc string) *template.Template {
@@ -141,6 +167,7 @@ func (r *renderer) page(loc string, w io.Writer, fragment string, data any, page
 
 var funcs = template.FuncMap{
 	"listable":    listable,
+	"shortLabel":  shortLabel,
 	"raw":         func(rec record, key string) string { return scalar(rec[key]) },
 	"locales":     func() []string { return metamodel.Locales },
 	"tagFieldCtx": func(ed *tagEditor, f tagField) tagFieldCtx { return tagFieldCtx{Ed: ed, F: f} },
