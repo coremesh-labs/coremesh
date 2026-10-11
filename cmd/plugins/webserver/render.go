@@ -12,7 +12,9 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
@@ -158,6 +160,9 @@ var funcs = template.FuncMap{
 	"domID":      domID,
 	"endBtn":     newEndBtn,
 	"numeric":    func(s string) bool { return numericRe.MatchString(s) },
+	// Mehrfachauswahl: Wert in der Komma-Liste, sichtbare Zeilen der Liste.
+	"inList":     func(v, list string) bool { return v != "" && slices.Contains(strings.Split(list, ","), v) },
+	"selectSize": func(opts []metamodel.Option) int { return min(max(len(opts), 2), 8) },
 	"json": func(v any) string {
 		b, _ := json.MarshalIndent(v, "", "  ")
 		return string(b)
@@ -201,6 +206,21 @@ func displayValueIn(rec record, f metamodel.FieldDefinition, yes, no string) str
 		return no
 	case metamodel.TypeSelect:
 		s := scalar(v)
+		if f.Multiple {
+			var labels []string
+			for _, x := range strings.Split(s, ",") {
+				l := x
+				for _, o := range f.Options {
+					if o.Value == x {
+						l = o.Label
+					}
+				}
+				if l != "" {
+					labels = append(labels, l)
+				}
+			}
+			return strings.Join(labels, ", ")
+		}
 		for _, o := range f.Options {
 			if o.Value == s {
 				return o.Label

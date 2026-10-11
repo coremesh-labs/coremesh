@@ -88,6 +88,8 @@ type FieldDefinition struct {
 	Listable bool      `json:"listable"`            // in der Übersichtstabelle anzeigen
 	Editable bool      `json:"editable"`            // im Formular bearbeitbar
 	Options  []Option  `json:"options,omitempty"`   // nur für TypeSelect
+	// Multiple: Mehrfachauswahl (nur TypeSelect); der Wert ist eine Komma-Liste, z. B. "MV,GM".
+	Multiple bool `json:"multiple,omitempty"`
 	// Lookup: Der Wert ist der Schlüssel eines Datensatzes eines anderen
 	// Objects (Fremdschlüssel). Die Oberfläche bietet einen Auswahldialog an.
 	Lookup *Lookup `json:"lookup,omitempty"`

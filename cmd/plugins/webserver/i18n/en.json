@@ -69,6 +69,7 @@
   "core.error.no_permission_action": "No permission for %s.%s",
   "core.error.not_in_module": "%s does not belong to module %s",
   "core.error.unavailable": "%s is currently unavailable",
+  "core.form.multiple": "Multiple selection with Ctrl or ⌘; none selected = all",
   "core.form.title": "%s – %s",
   "core.home.empty": "No modules registered yet, or no permission.",
   "core.home.objects_many": "%d objects",
