@@ -108,7 +108,9 @@ func (h *testHost) Handle(_ context.Context, req sdk.Request) (sdk.Response, err
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.calls = append(h.calls, sdk.Request{Object: req.Object, Action: req.Action, Payload: p})
-	list := func(items ...any) (sdk.Response, error) { return sdk.Response{Payload: map[string]any{"items": items}}, nil }
+	list := func(items ...any) (sdk.Response, error) {
+		return sdk.Response{Payload: map[string]any{"items": items}}, nil
+	}
 	switch req.Object + "." + req.Action {
 	case "Account.Check":
 		return sdk.Response{Payload: map[string]any{"allowed": !h.deny[fmt.Sprint(p["object"])+"."+fmt.Sprint(p["action"])]}}, nil
@@ -155,11 +157,12 @@ func (h *testHost) find(object, action string) []map[string]any {
 
 // fakeAI: nachgebildeter Dienst – merkt sich die Anfragen, antwortet mit answer.
 type fakeAI struct {
-	mu     sync.Mutex
-	bodies []map[string]any
-	auth   []string
-	answer string
-	status int
+	mu        sync.Mutex
+	bodies    []map[string]any
+	auth      []string
+	answer    string
+	status    int
+	failFirst int // so viele Antworten mit HTTP 503 zuerst
 }
 
 func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
@@ -170,6 +173,10 @@ func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
 	f.bodies = append(f.bodies, body)
 	f.auth = append(f.auth, r.Header.Get("Authorization")+"|"+r.Header.Get("X-Extra")+"|"+r.URL.String())
 	status, answer := f.status, f.answer
+	if f.failFirst > 0 {
+		f.failFirst--
+		status = 503
+	}
 	f.mu.Unlock()
 	if status == 0 {
 		status = 200
