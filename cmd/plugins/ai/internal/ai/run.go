@@ -189,7 +189,13 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 		if schema != nil && p.Structured {
 			req.ResponseFormat = map[string]any{"type": "json_schema", "json_schema": map[string]any{"name": "result", "schema": schema}}
 		}
-		answer, err = m.chat(ctx, p, req)
+		var used *providerRow
+		var fbNotes []string
+		answer, used, fbNotes, err = m.chatFallback(ctx, p, req)
+		if used != nil && used != p {
+			p, model = used, used.Model
+		}
+		out.Notes = fbNotes
 	} else {
 		err = perr
 	}
@@ -203,13 +209,18 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 			out.Status, out.Message = stError, jerr.Error()
 			break
 		}
-		out.Result, out.Notes = sanitize(root, raw)
+		var notes []string
+		out.Result, notes = sanitize(root, raw)
+		out.Notes = append(out.Notes, notes...)
 		out.Status, out.Message = stDone, "Struktur gefüllt"
 		if len(out.Notes) > 0 {
 			out.Message += " – " + strings.Join(out.Notes, "; ")
 		}
 	default:
 		out.Status, out.Text, out.Message = stDone, strings.TrimSpace(answer.Text), "Antwort erhalten"
+		if len(out.Notes) > 0 {
+			out.Message += " – " + strings.Join(out.Notes, "; ")
+		}
 	}
 	// Protokoll
 	nr, err := numrange.Next(ctx, m.services, numrange.Request{Object: logObject, Reference: rq.Code})
@@ -287,9 +298,24 @@ func (m *Module) cleanup(ctx context.Context) {
 
 // --- Actions ---------------------------------------------------------------------------
 
+// flat: Felder der Schnittstelle auch unter "data" (Konsole, Oberfläche).
+func flat(payload any) map[string]any {
+	var p map[string]any
+	_ = sdk.Decode(payload, &p)
+	if d, ok := p["data"].(map[string]any); ok {
+		for k, v := range p {
+			if k != "data" {
+				d[k] = v
+			}
+		}
+		return d
+	}
+	return p
+}
+
 func (m *Module) runAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	var in runRequest
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := sdk.Decode(flat(req.Payload), &in); err != nil {
 		return sdk.Response{}, err
 	}
 	out, err := m.run(ctx, in)
@@ -309,7 +335,7 @@ type structIn struct {
 
 func (m *Module) structIn(ctx context.Context, req sdk.Request) (*sNode, structIn, error) {
 	var in structIn
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := sdk.Decode(flat(req.Payload), &in); err != nil {
 		return nil, in, err
 	}
 	rq, err := m.loadRequest(ctx, in.Request)

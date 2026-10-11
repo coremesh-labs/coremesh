@@ -36,6 +36,10 @@ table "ai__provider" {
     type    = boolean
     default = false
   }
+  # Ausweich-Dienst bei Störung (Überlast, nicht erreichbar)
+  column "fallback_provider" {
+    type = text` + opt + `
+  }
   column "timeout_seconds" {
     type    = bigint
     default = 90

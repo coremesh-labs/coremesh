@@ -38,6 +38,7 @@
   "ai.AiProvider.fields.base_url": "API URL (OpenAI compatible, without /chat/completions)",
   "ai.AiProvider.fields.code": "Key",
   "ai.AiProvider.fields.extra_headers": "Additional headers (one per line “Name: Value”)",
+  "ai.AiProvider.fields.fallback_provider": "Fallback service (steps in when this one is disturbed: overload, unreachable, timeout)",
   "ai.AiProvider.fields.has_key": "Key stored",
   "ai.AiProvider.fields.is_active": "Active",
   "ai.AiProvider.fields.model": "Model (e.g. gemini-flash-latest)",

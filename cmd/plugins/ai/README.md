@@ -12,6 +12,12 @@ Datenströmen oder Protokollen. Alternativ nennt das Feld **Umgebungsvariable** 
 der Plugin-Konfiguration (`plugins.ai.env`); sie geht dem gespeicherten Schlüssel vor.
 „Verbindung prüfen“ sendet eine kurze Testanfrage.
 
+Bei Überlast (HTTP 429, 5xx) wiederholt das Plugin die Anfrage zweimal. Bleibt der Dienst gestört
+(auch nicht erreichbar oder Zeitlimit), springt der **Ausweich-Dienst** ein (Feld am Dienst, mit
+dessen eigenem Modell; höchstens drei Dienste hintereinander). Das Protokoll nennt den Dienst, der
+geantwortet hat, die Meldung den Wechsel. Fehler der Anfrage selbst (z. B. falscher Schlüssel)
+lösen keinen Wechsel aus. Die Schnittstelle nimmt ihre Felder auch unter `data` an (Konsole).
+
 ## Anfragen (`AiRequest`, `AiRequestObject`)
 
 - **TEXT:** Aufgabe, weitere Textzeilen, Zusatzzeilen des Aufrufers und der Eingang – die Antwort

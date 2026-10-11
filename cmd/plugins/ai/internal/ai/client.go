@@ -17,16 +17,16 @@ import (
 
 // providerRow ist ein KI-Dienst mit Schlüssel.
 type providerRow struct {
-	Code, Name, BaseURL, AuthMethod, AuthName, Model, KeyEnv, Headers string
-	Structured                                                        bool
-	Timeout                                                           time.Duration
-	key                                                               string
+	Code, Name, BaseURL, AuthMethod, AuthName, Model, KeyEnv, Headers, Fallback string
+	Structured                                                                  bool
+	Timeout                                                                     time.Duration
+	key                                                                         string
 }
 
 // loadProvider: Dienst (code; leer = erster aktiver) mit Schlüssel aus der
 // Umgebungsvariablen bzw. der eigenen Tabelle.
 func (m *Module) loadProvider(ctx context.Context, code string) (*providerRow, error) {
-	q := `SELECT code, name, base_url, auth_method, auth_name, model, api_key_env, extra_headers, plain_json, timeout_seconds FROM ai__provider WHERE is_active = ?`
+	q := `SELECT code, name, base_url, auth_method, auth_name, model, api_key_env, extra_headers, plain_json, timeout_seconds, fallback_provider FROM ai__provider WHERE is_active = ?`
 	args := []any{true}
 	if code != "" {
 		q += ` AND code = ?`
@@ -45,7 +45,7 @@ func (m *Module) loadProvider(ctx context.Context, code string) (*providerRow, e
 	r := res.Rows[0]
 	p := &providerRow{Code: crud.Str(r[0]), Name: crud.Str(r[1]), BaseURL: strings.TrimRight(crud.Str(r[2]), "/"), AuthMethod: crud.Str(r[3]),
 		AuthName: crud.Str(r[4]), Model: crud.Str(r[5]), KeyEnv: crud.Str(r[6]), Headers: crud.Str(r[7]), Structured: !crud.AsBool(r[8]),
-		Timeout: time.Duration(toInt(r[9])) * time.Second}
+		Timeout: time.Duration(toInt(r[9])) * time.Second, Fallback: crud.Str(r[10])}
 	if p.Timeout <= 0 {
 		p.Timeout = 90 * time.Second
 	}
@@ -87,15 +87,48 @@ var retryWaits = []time.Duration{3 * time.Second, 8 * time.Second}
 // chat sendet die Anfrage an den Dienst; bei Überlast (429, 500, 502, 503, 504) bis zu
 // zweimal erneut.
 func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, error) {
+	a, _, err := m.chatRetry(ctx, p, req)
+	return a, err
+}
+
+// disturbed: Störung des Dienstes (Überlast, Serverfehler, nicht erreichbar) – kein Fehler der Anfrage.
+func disturbed(status int, err error) bool {
+	return err != nil && (status == 0 || status == 408 || status == 429 || status >= 500)
+}
+
+// chatFallback: wie chat; ist der Dienst gestört, springt sein Ausweich-Dienst ein
+// (mit dessen Modell; Kette höchstens drei Dienste). Liefert den Dienst, der geantwortet hat.
+func (m *Module) chatFallback(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, *providerRow, []string, error) {
+	var notes []string
+	seen := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		seen[p.Code] = true
+		a, status, err := m.chatRetry(ctx, p, req)
+		if !disturbed(status, err) || p.Fallback == "" || seen[p.Fallback] {
+			return a, p, notes, err
+		}
+		fb, ferr := m.loadProvider(ctx, p.Fallback)
+		if ferr != nil {
+			return a, p, notes, err
+		}
+		notes = append(notes, fmt.Sprintf("%s gestört (%v) – Ausweich-Dienst %s", p.Code, err, fb.Code))
+		m.log.WarnContext(ctx, "KI-Dienst gestört, Ausweich-Dienst", "dienst", p.Code, "ausweich", fb.Code, "err", err.Error())
+		req.Model = fb.Model
+		p = fb
+	}
+	return nil, p, notes, fmt.Errorf("KI-Dienste gestört")
+}
+
+func (m *Module) chatRetry(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, int, error) {
 	for i := 0; ; i++ {
 		a, status, err := m.chatOnce(ctx, p, req)
 		retry := status == 429 || status == 500 || status == 502 || status == 503 || status == 504
 		if err == nil || !retry || i >= len(retryWaits) {
-			return a, err
+			return a, status, err
 		}
 		select {
 		case <-ctx.Done():
-			return a, err
+			return a, status, err
 		case <-time.After(retryWaits[i]):
 		}
 	}

@@ -57,6 +57,8 @@ func (m *Module) provider() *crud.Entity {
 			{Key: "extra_headers", Label: "Weitere Header (je Zeile „Name: Wert“)", Type: tArea},
 			{Key: "plain_json", Label: "Ohne JSON-Schema (für Dienste ohne response_format; die Struktur steht dann nur im Text)", Type: tBool},
 			{Key: "timeout_seconds", Label: "Zeitlimit (Sekunden)", Type: tNum},
+			{Key: "fallback_provider", Label: "Ausweich-Dienst (springt ein, wenn dieser gestört ist: Überlast, nicht erreichbar, Zeitlimit)", Type: tText,
+				Listable: true, Ref: refProvider},
 			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
 		},
 		Validate: m.checkProvider,
@@ -98,6 +100,10 @@ func (m *Module) checkProvider(ctx context.Context, rec, _ crud.Record) error {
 	rec["api_key_env"] = nilIfEmpty(crud.Str(rec["api_key_env"]))
 	if _, err := parseHeaders(crud.Str(rec["extra_headers"])); err != nil {
 		return err
+	}
+	rec["fallback_provider"] = nilIfEmpty(strings.ToUpper(crud.Str(rec["fallback_provider"])))
+	if rec["fallback_provider"] == rec["code"] {
+		return crud.Invalid("Ausweich-Dienst: ein anderer Dienst als dieser")
 	}
 	if toInt(rec["timeout_seconds"]) <= 0 {
 		rec["timeout_seconds"] = 90
