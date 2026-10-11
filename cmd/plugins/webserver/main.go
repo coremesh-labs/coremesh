@@ -18,7 +18,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.35.0"
+	version = "0.35.1"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -31,8 +31,10 @@ type settings struct {
 	StaticDir     string `json:"static_dir"`     // Dateien, die eingebettete /static/-Dateien überschreiben
 
 	// Authentifizierung
-	Database     string `json:"database"`      // Datenbank der Benutzertabellen (Standard main)
-	SessionTTL   string `json:"session_ttl"`   // Gültigkeit einer Anmeldung (Standard 12h)
+	Database   string `json:"database"`    // Datenbank der Benutzertabellen (Standard main)
+	SessionTTL string `json:"session_ttl"` // Gültigkeit einer Anmeldung (Standard 12h)
+	// WriteTimeout: längste Antwortzeit einer Anfrage (Standard 3m; KI-Schritte brauchen mitunter länger als eine Minute).
+	WriteTimeout string `json:"write_timeout"`
 	CookieSecure string `json:"cookie_secure"` // auto (bei TLS) | true (z. B. hinter TLS-Proxy) | false
 
 	// TLS: beide gesetzt = HTTPS
@@ -64,9 +66,13 @@ func (w *webserver) Manifest(context.Context) (sdk.Manifest, error) {
 // Configure startet den HTTP(S)-Server und – im Hintergrund – das Anlegen des
 // ersten Benutzers. Ein belegter Port lässt den Start mit klarer Meldung scheitern.
 func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
-	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto"}
+	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto", WriteTimeout: "3m"}
 	if err := sdk.Decode(cfg.Settings, &s); err != nil {
 		return err
+	}
+	writeTimeout, err := time.ParseDuration(s.WriteTimeout)
+	if err != nil || writeTimeout <= 0 {
+		return fmt.Errorf("%w: write_timeout %q", sdk.ErrInvalidArgument, s.WriteTimeout)
 	}
 	ttl, err := time.ParseDuration(s.SessionTTL)
 	if err != nil || ttl <= 0 {
@@ -90,7 +96,7 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 		Handler:           newServer(cfg.Host, views, s, auth),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      60 * time.Second,
+		WriteTimeout:      writeTimeout,
 		IdleTimeout:       120 * time.Second,
 	}
 	scheme := "http"
