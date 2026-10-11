@@ -16,6 +16,8 @@
   {{/* responseHandling: auch 4xx/5xx swappen – Fehler kommen als Toast (HX-Retarget).
        disableInheritance: hx-Attribute gelten nur am eigenen Element; jedes
        Element nennt Ziel und Swap selbst (wichtig für überschriebene Blöcke). */}}
+  {{/* Seitenleiste eingeklappt (localStorage) vor dem ersten Zeichnen setzen – kein Flackern. */}}
+  <script>try{if(localStorage.getItem("coremesh.nav")==="collapsed")document.documentElement.classList.add("nav-collapsed")}catch(e){}</script>
   <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}],"disableInheritance":true}'>
   {{block "head" .}}
   <link rel="stylesheet" href="/static/app.css">
@@ -24,22 +26,25 @@
 </head>
 <body>
   <aside class="sidebar">
-    {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
+    <div class="brand-row">
+      {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
+      <button type="button" class="nav-toggle" onclick="coremeshToggleNav()" title="{{t "core.nav.toggle"}}" aria-label="{{t "core.nav.toggle"}}">☰</button>
+    </div>
     {{block "sidebar" .}}
     <nav>
       {{range .Nav}}{{block "nav-module" .}}
       {{/* Modulwechsel = ganze Seite (Seitenleiste zeigt die Objects des neuen Moduls). */}}
-      <a class="module{{if .Active}} active{{end}}" href="/m/{{.Name}}" {{if .Active}}aria-current="true"{{end}}>
-        {{with .Icon}}<i class="{{.}}"></i>{{end}}{{.Title}}
+      <a class="module{{if .Active}} active{{end}}" href="/m/{{.Name}}" title="{{.Title}}" {{if .Active}}aria-current="true"{{end}}>
+        <span class="nav-short" aria-hidden="true">{{printf "%.2s" .Title}}</span><span class="nav-text">{{.Title}}</span>
       </a>
       {{if .Active}}
       <div class="subnav">
         {{range .Sections}}
         {{with .Title}}<span class="section">{{.}}</span>{{end}}
         {{range .Items}}{{block "nav-item" .}}
-        <a href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true"
+        <a href="{{.URL}}" hx-get="{{.URL}}" hx-target="#main-content" hx-push-url="true" title="{{or .Title .Object}}"
            {{if .Active}}class="active" aria-current="page"{{end}}>
-          {{with .Icon}}<i class="{{.}}"></i>{{end}}{{or .Title .Object}}
+          <span class="nav-short" aria-hidden="true">{{printf "%.2s" (or .Title .Object)}}</span><span class="nav-text">{{or .Title .Object}}</span>
         </a>
         {{end}}{{end}}
         {{end}}
@@ -66,6 +71,21 @@
         a.classList.toggle("active", path === href || path.indexOf(href + "/") === 0);
       });
     });
+    // Seitenleiste ein-/ausklappen (bleibt je Browser gespeichert).
+    function coremeshToggleNav() {
+      var c = document.documentElement.classList.toggle("nav-collapsed");
+      try { localStorage.setItem("coremesh.nav", c ? "collapsed" : "open"); } catch (e) {}
+    }
+    // Spaltenköpfe der Listen kleben unter dem festen Listenkopf: dessen Höhe als CSS-Variable.
+    function coremeshStickyHeads() {
+      document.querySelectorAll(".object-list").forEach(function (l) {
+        var h = l.querySelector(".list-head");
+        if (h) l.style.setProperty("--list-head-h", h.offsetHeight + "px");
+      });
+    }
+    window.addEventListener("load", coremeshStickyHeads);
+    window.addEventListener("resize", coremeshStickyHeads);
+    document.addEventListener("htmx:afterSettle", coremeshStickyHeads);
     // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
     // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
     function coremeshPick(row) {

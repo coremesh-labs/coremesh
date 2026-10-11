@@ -136,5 +136,6 @@
   "core.validation.option": "选择无效",
   "core.validation.required": "必填项",
   "core.viewer.download": "下载",
-  "core.viewer.open": "在新窗口中打开"
+  "core.viewer.open": "在新窗口中打开",
+  "core.nav.toggle": "折叠/展开菜单"
 }
