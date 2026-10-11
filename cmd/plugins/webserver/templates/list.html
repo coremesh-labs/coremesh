@@ -74,7 +74,8 @@
 
 {{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>". */}}
 {{define "row"}}
-<tr id="row-{{domID .ID}}">
+<tr id="row-{{domID .ID}}"{{with .Has.item}} class="open-row" hx-get="{{$.URL}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
+    hx-trigger="click[!event.target.closest('a,button,input,select,label,.peek,.info')]"{{end}}>
   {{range listable .Def}}<td title="{{cellTitle $.Record .}}">{{cell $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</td>{{end}}
   <td class="actions">{{block "row-actions" .}}
     {{with .Has.item}}

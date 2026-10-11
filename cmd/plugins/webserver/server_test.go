@@ -396,7 +396,7 @@ func TestDeleteAndCustomAction(t *testing.T) {
 	mustContain(t, dlg, "Partner inaktivieren?", `hx-post="/m/crm/Partner/p%2F1/end" hx-target="#row-702f31" hx-swap="outerHTML"`)
 	mustNotContain(t, dlg, `type="date"`)
 	w = do(s, "POST", "/m/crm/Partner/p%2F1/end", url.Values{"_view": {"row"}}, true)
-	mustContain(t, w.Body.String(), `<tr id="row-702f31">`, `class="badge inactive"`, "Geschäftspartner inaktiviert")
+	mustContain(t, w.Body.String(), `<tr id="row-702f31"`, `class="badge inactive"`, "Geschäftspartner inaktiviert")
 	if p := h.find("Deactivate").Payload.(map[string]any); p["id"] != "p/1" {
 		t.Fatalf("deactivate: %v", p)
 	}

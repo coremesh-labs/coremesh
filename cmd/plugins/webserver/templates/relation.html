@@ -24,7 +24,8 @@
   </thead>
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
-    <tr>
+    <tr{{with .Rel.DetailURL}} class="open-row" hx-get="{{.}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
+        hx-trigger="click[!event.target.closest('a,button,input,select,label,.peek,.info')]"{{end}}>
       {{range $f := .Rel.Columns}}
       <td title="{{cellTitle $.Row $f}}">{{cell $.Row $f}}{{template "peek-icon" (peekFor $.Row $f)}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
         <a class="inline-edit" href="{{.}}/{{pathEscape $v}}/edit" hx-get="{{.}}/{{pathEscape $v}}/edit?view=refresh"
