@@ -200,7 +200,7 @@ dl.fields dd.multiline { white-space: pre-wrap; font-family: ui-monospace, SFMon
    Spaltenköpfe kleben oben; nur der Inhalt scrollt. --- */
 :root { --nav-w: 13.5rem; --nav-w-open: 13.5rem; }
 html.nav-collapsed { --nav-w: 3.4rem; }
-body { display: block; padding-left: var(--nav-w); transition: padding-left .15s; }
+body { display: block; padding-left: var(--nav-w); transition: padding-left .15s; height: 100vh; overflow: hidden; }
 .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--nav-w); overflow-y: auto; overflow-x: hidden;
            padding: .75rem .5rem; z-index: 30; font-size: .9rem; transition: width .15s, box-shadow .15s; }
 .brand-row { display: flex; align-items: center; justify-content: space-between; gap: .25rem; margin-bottom: .75rem; }
@@ -224,7 +224,10 @@ html.nav-collapsed .sidebar:not(:hover) .subnav { margin-left: 0; padding-left: 
 html.nav-collapsed .sidebar:not(:hover) nav a { padding: .3rem .2rem; justify-content: center; }
 html.nav-collapsed .sidebar:not(:hover) .brand-row { justify-content: center; }
 html.nav-collapsed .sidebar:hover { width: var(--nav-w-open); box-shadow: 4px 0 18px rgba(0, 0, 0, .18); }
-main { padding: 0 1.5rem 1.5rem; }
+/* nur der Inhalt scrollt (auch seitwärts bei breiten Tabellen) – Kopf klebt darin */
+main { padding: 0 1.5rem 1.5rem; height: 100vh; overflow: auto; }
+.object-list table.data td { white-space: nowrap; } /* kein overflow: hidden – die Kopfdaten-Vorschau ragt heraus */
+.object-list table.data th, table.data.sub th, table.data.sub td { white-space: nowrap; }
 .page-header { position: sticky; top: 0; z-index: 6; background: var(--bg); padding: .9rem 0 .7rem; margin-bottom: .5rem; }
 /* Liste: Kopf mit Filtern klebt, darunter die Spaltenköpfe */
 .list-head { position: sticky; top: 0; z-index: 6; background: var(--bg); padding-bottom: .25rem; }
@@ -238,7 +241,8 @@ dialog.modal article > h2:first-child, dialog.modal article > header:first-child
        background: var(--surface); margin: -1.25rem -1.25rem .75rem; padding: 1rem 1.25rem .6rem; border-bottom: 1px solid var(--border); }
 body.login-page { padding-left: 0; }
 @media (max-width: 720px) {
-  body, html.nav-collapsed body { padding-left: 0; }
+  body, html.nav-collapsed body { padding-left: 0; height: auto; overflow: visible; }
+  main { height: auto; overflow: visible; }
   .sidebar, html.nav-collapsed .sidebar { position: static; width: auto; }
   .nav-toggle { display: none; }
 }

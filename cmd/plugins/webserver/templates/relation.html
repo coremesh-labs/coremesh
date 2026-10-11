@@ -20,13 +20,13 @@
 {{if .Rows}}
 <table class="data sub">
   <thead>
-    <tr>{{range .Columns}}<th>{{.Label}}</th>{{end}}<th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th></tr>
+    <tr>{{range .Columns}}<th title="{{.Label}}">{{shortLabel .Label}}</th>{{end}}<th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th></tr>
   </thead>
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
     <tr>
       {{range $f := .Rel.Columns}}
-      <td>{{value $.Row $f}}{{template "peek-icon" (peekFor $.Row $f)}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
+      <td title="{{cellTitle $.Row $f}}">{{cell $.Row $f}}{{template "peek-icon" (peekFor $.Row $f)}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
         <a class="inline-edit" href="{{.}}/{{pathEscape $v}}/edit" hx-get="{{.}}/{{pathEscape $v}}/edit?view=refresh"
            hx-target="#modal" title="{{t "core.relation.edit_linked"}}">✎</a>{{end}}{{end}}</td>
       {{end}}

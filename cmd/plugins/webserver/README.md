@@ -885,3 +885,11 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
 - **Kein Reaktivieren:** Inaktivierte Geschäftspartner lassen sich in der Oberfläche nicht wieder aktivieren (das Flag ist schreibgeschützt). Benutzer in `iam` schon (Feld „Aktiv“ im Formular).
 - **Blättern und Sortieren** werden nur als URL-Parameter durchgereicht. Bedienelemente dafür
   folgen, sobald sich eine Konvention etwa für `total` etabliert hat.
+
+## Rahmen und Listen (seit 0.36.0)
+
+- Seitenleiste fest am Rand; „☰“ klappt sie auf Kürzel ein (je Browser gespeichert), beim Überfahren
+  klappt sie über dem Inhalt auf. Nur der Inhalt scrollt; Seitenkopf, Filter und Spaltenköpfe der
+  Listen sowie Überschrift und Knöpfe der Eingabedialoge bleiben stehen.
+- Listen und eingebettete Tabellen zeigen bei Verweisen den **Schlüssel** (der Text steht im Tooltip
+  und in der Kopfdaten-Vorschau), Spaltenköpfe ohne Erläuterung in Klammern (voller Text im Tooltip).
