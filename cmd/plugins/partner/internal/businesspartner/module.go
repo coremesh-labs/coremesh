@@ -43,7 +43,14 @@ var (
 // New erzeugt das Modul mit allen Entitäten.
 func New() *Module {
 	m := &Module{}
-	m.set = crud.NewSet(m.entities()...)
+	ents := m.entities()
+	for _, e := range ents {
+		switch e.Object {
+		case "PartnerRole", "PartnerAddress", "PartnerContact", "PartnerBankDetail":
+			e.Prepare = m.childValidFrom(e.Prepare)
+		}
+	}
+	m.set = crud.NewSet(ents...)
 	return m
 }
 

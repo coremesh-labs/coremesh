@@ -91,6 +91,9 @@ func (m *Module) partnerRole() *entity {
 			}
 			for _, cc := range entries {
 				cc["bp_id"], cc["role_code"] = rec["bp_id"], rec["role_code"]
+				if strings.TrimSpace(str(cc["reconciliation_account"])) == "" {
+					cc["reconciliation_account"] = m.suggestReconciliation(ctx, str(cc["company_code"]), str(rec["role_code"]))
+				}
 				if err := m.insertCompanyCode(ctx, cc, true); err != nil {
 					return err
 				}
@@ -250,4 +253,43 @@ func (m *Module) partnerCompanyCode() *entity {
 		},
 	}
 	return e
+}
+
+// suggestReconciliation: Abstimmkonto ohne Angabe – das eine Abstimmkonto des
+// Buchungskreises für Lieferanten (Kreditorenrolle) bzw. Kunden (Debitorenrolle)
+// im Hauptbuch; "" bei keinem oder mehreren (dann bleibt es Pflichtangabe).
+func (m *Module) suggestReconciliation(ctx context.Context, cc, role string) string {
+	res, err := m.db.Query(ctx, "SELECT is_debitor, is_creditor FROM partner__role_types WHERE code = ?", role)
+	if err != nil || len(res.Rows) == 0 {
+		return ""
+	}
+	kind := ""
+	switch {
+	case asBool(res.Rows[0][1]):
+		kind = "SUPPLIER"
+	case asBool(res.Rows[0][0]):
+		kind = "CUSTOMER"
+	default:
+		return ""
+	}
+	resp, err := m.services.Call(ctx, "GLAccountCompany", "list", map[string]any{"query": map[string]any{"company_code_id": cc, "reconciliation_type": kind}})
+	if err != nil {
+		return ""
+	}
+	var l struct {
+		Items []map[string]any `json:"items"`
+	}
+	if sdk.Decode(resp.Payload, &l) != nil {
+		return ""
+	}
+	var accounts []string
+	for _, it := range l.Items {
+		if str(it["reconciliation_type"]) == kind && !asBool(it["is_blocked"]) {
+			accounts = append(accounts, str(it["account_number"]))
+		}
+	}
+	if len(accounts) != 1 {
+		return ""
+	}
+	return accounts[0]
 }

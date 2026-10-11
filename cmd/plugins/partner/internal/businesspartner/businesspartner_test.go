@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlite"
@@ -96,6 +97,9 @@ func (h *testHost) RollbackTx(ctx context.Context, _ string) error {
 func (h *testHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	p, _ := req.Payload.(map[string]any)
 	switch req.Object + "." + req.Action {
+	case "GLAccountCompany.list": // Abstimmkonten im Hauptbuch
+		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"account_number": "3300", "reconciliation_type": "SUPPLIER"},
+			map[string]any{"account_number": "1200", "reconciliation_type": "CUSTOMER"}, map[string]any{"account_number": "1210", "reconciliation_type": "CUSTOMER"}}}}, nil // mehrdeutig: kein Vorschlag
 	case "CompanyCode.get":
 		if slices.Contains(h.companyCodes, str(p["id"])) {
 			return sdk.Response{Payload: map[string]any{"id": p["id"]}}, nil
@@ -959,5 +963,34 @@ func TestAbbreviation(t *testing.T) {
 	expect(t, err, sdk.ErrInvalidArgument, "Kürzel mit Leerzeichen")
 	if got := e.items("BusinessPartner", map[string]any{"q": "statl"}); len(got) != 1 {
 		t.Fatalf("Suche nach Kürzel: %v", got)
+	}
+}
+
+// Neuer Partner ohne „Gültig ab“: ein Jahr zurück; seine Rolle ohne Datum ab dem
+// Beginn des Partners, frühestens ab dem Beginn des Katalogeintrags.
+func TestPartnerValidFromBack(t *testing.T) {
+	e := setup(t)
+	bp := e.must("BusinessPartner", "create", data("type", "ORGANIZATION", "name1", "Rückwirkend GmbH"))
+	want := time.Now().AddDate(0, 0, -365).Format(time.DateOnly)
+	if fmt.Sprint(bp["valid_from"])[:10] != want {
+		t.Fatalf("Gültig ab: %v, erwartet %s", bp["valid_from"], want)
+	}
+	r := e.must("PartnerRole", "create", data("bp_id", bp["id"], "role_code", "CREDITOR", "company_codes", "1000"))
+	from := fmt.Sprint(r["valid_from"])[:10]
+	var c any
+	_ = e.h.db.QueryRow(`SELECT MIN(valid_from) FROM partner__role_types WHERE code = 'CREDITOR'`).Scan(&c)
+	cat := dateOnly(c)
+	if cc, _ := e.h.db.Query(`SELECT reconciliation_account FROM partner__company_codes WHERE bp_id = ?`, bp["id"]); cc != nil {
+		var acc string
+		if cc.Next() {
+			_ = cc.Scan(&acc)
+		}
+		cc.Close()
+		if acc != "3300" {
+			t.Errorf("Abstimmkonto vorgeschlagen: %q", acc)
+		}
+	}
+	if from != max(want, cat) {
+		t.Errorf("Rolle gültig ab %s, erwartet %s (Partner %s, Katalog %s)", from, max(want, cat), want, cat)
 	}
 }
