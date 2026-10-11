@@ -138,6 +138,7 @@ type Entity struct {
 	Prepare     func(ctx context.Context, rec Record) error
 	Validate    func(ctx context.Context, rec, old Record) error // nach der Typprüfung, in der Transaktion
 	AfterCreate func(ctx context.Context, rec Record) error      // in der Transaktion
+	AfterUpdate func(ctx context.Context, rec Record) error      // in der Transaktion, nach dem Schreiben (z. B. abhängige Zeilen neu rechnen)
 	ListScope   func(ctx context.Context) (where string, args []any, none bool, err error)
 	CheckRecord func(ctx context.Context, action string, rec Record) error // Zugriff je Datensatz
 	Decorate    func(ctx context.Context, rec Record) error                // virtuelle Felder füllen
