@@ -86,6 +86,23 @@
     window.addEventListener("load", coremeshStickyHeads);
     window.addEventListener("resize", coremeshStickyHeads);
     document.addEventListener("htmx:afterSettle", coremeshStickyHeads);
+    // Listen merken sich ihre Adresse mit Filtern (je Tab); „Zurück“ im Datensatz kehrt dorthin zurück.
+    function coremeshRememberList() {
+      if (!document.querySelector(".object-list")) return;
+      try { sessionStorage.setItem("coremesh.list:" + location.pathname, location.pathname + location.search); } catch (e) {}
+    }
+    window.addEventListener("load", coremeshRememberList);
+    document.addEventListener("htmx:pushedIntoHistory", coremeshRememberList);
+    document.addEventListener("htmx:replacedInHistory", coremeshRememberList);
+    document.addEventListener("htmx:historyRestore", coremeshRememberList);
+    document.addEventListener("htmx:configRequest", function (e) {
+      var b = e.detail.elt;
+      if (!b || !b.dataset || !b.dataset.listBack) return;
+      try {
+        var u = sessionStorage.getItem("coremesh.list:" + b.dataset.listBack);
+        if (u) { e.detail.path = u; b.setAttribute("hx-push-url", u); }
+      } catch (x) {}
+    });
     // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
     // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
     function coremeshPick(row) {
