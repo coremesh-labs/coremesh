@@ -256,7 +256,7 @@ func TestPermissionsShapeUI(t *testing.T) {
 	}
 
 	list := get("/m/crm/Partner")
-	mustContain(t, list, "ACME", ">Anzeigen<", `href="/m/crm/Partner"`)
+	mustContain(t, list, "ACME", `class="open-row" hx-get="/m/crm/Partner/`, `href="/m/crm/Partner"`) // Zeile öffnet den Datensatz
 	mustNotContain(t, list, ">Neu<", ">Bearbeiten<", ">Löschen<", ">Benachrichtigen<")
 
 	u := &user{Permissions: []string{"Partner.*", "*.list"}}

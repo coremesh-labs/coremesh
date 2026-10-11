@@ -78,10 +78,7 @@
     hx-trigger="click[!event.target.closest('a,button,input,select,label,.peek,.info')]"{{end}}>
   {{range listable .Def}}<td title="{{cellTitle $.Record .}}">{{cell $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</td>{{end}}
   <td class="actions">{{block "row-actions" .}}
-    {{with .Has.item}}
-    <a href="{{$.URL}}/{{pathEscape $.ID}}" hx-get="{{$.URL}}/{{pathEscape $.ID}}"
-       hx-target="#main-content" hx-push-url="true">{{.Label}}</a>
-    {{end}}
+    {{/* „Anzeigen“ entfällt: die Zeile öffnet den Datensatz (seit 0.36.0) */}}
     {{if not (locked $.Record)}}{{with .Has.update}}
     <a href="{{$.URL}}/{{pathEscape $.ID}}/edit" hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=row"
        hx-target="#modal">{{.Label}}</a>
