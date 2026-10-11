@@ -77,6 +77,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
 	s.mux.HandleFunc("GET /file/{object}/{id}", s.fileContent)
 	s.mux.HandleFunc("GET /new/{object}", s.newByObject)
+	s.mux.HandleFunc("GET /open/{object}/{id}", s.openByObject)
 	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}", s.docSectionAttach)
 	s.mux.HandleFunc("POST /docs/{entity}/{id}/{doc}/remove", s.docSectionRemove)
@@ -717,6 +718,33 @@ func (s *server) actionRefresh(w http.ResponseWriter, r *http.Request) {
 	values := formValues(actionDef(oc.ActionDef, act.Fields), r.PostForm)
 	v := s.actionView(r, oc, act, r.PostForm.Get("_id"), values, nil)
 	s.render(w, r, http.StatusOK, "form-body", v, "", "")
+}
+
+// GET /open/{object}/{id} – Detailansicht eines Datensatzes in seinem Modul (fester Link,
+// z. B. „Rechnung bearbeiten“ aus einem Workflow-Schritt).
+func (s *server) openByObject(w http.ResponseWriter, r *http.Request) {
+	module, ok := s.moduleOf(w, r, r.PathValue("object"))
+	if ok {
+		http.Redirect(w, r, moduleURL(module, r.PathValue("object"))+"/"+pathEscape(r.PathValue("id")), http.StatusSeeOther)
+	}
+}
+
+// moduleOf: Modul (Oberfläche) eines Objects aus dem Katalog.
+func (s *server) moduleOf(w http.ResponseWriter, r *http.Request, object string) (string, bool) {
+	resp, err := s.call(r, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
+	if err != nil {
+		s.fail(w, r, err)
+		return "", false
+	}
+	var def struct {
+		Available bool   `json:"available"`
+		Module    string `json:"ui_module"`
+	}
+	if err := sdk.Decode(resp.Payload, &def); err != nil || !def.Available || def.Module == "" {
+		s.fail(w, r, fmt.Errorf("%w: %s", sdk.ErrNotFound, object))
+		return "", false
+	}
+	return def.Module, true
 }
 
 // GET /new/{object} – Formular „Neu“ des Objects in seinem Modul (fester Link,
