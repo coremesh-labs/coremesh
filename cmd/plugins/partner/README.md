@@ -301,3 +301,16 @@ Dependency Injection und DBSchema.Init.
 - **Mandanten:** Partner sind nicht nach Mandant getrennt (`tenant_id`). Das ließe sich
   bei Bedarf als Spalte mit Filter aus `CallFromContext(ctx).TenantID` ergänzen.
 - **PostgreSQL:** Schema und SQL sind portabel geschrieben, getestet ist bisher nur SQLite.
+
+## Gültig ab und Abstimmkonto (seit 0.14.0)
+
+- Ein neuer Geschäftspartner ohne „Gültig ab“ gilt ab heute minus 365 Tage
+  (`settings.modules.businesspartner.valid_from_days_back`), damit Prüfungen anderer Prozesse zu
+  früheren Daten (Rechnung, Vertragsbeginn) ihn schon gültig finden; die Maske „Neu“ schlägt das
+  Datum vor.
+- Rollen, Adressen, Kommunikation und Bankverbindungen ohne eigenes Datum gelten ab dem Beginn des
+  Partners, frühestens ab dem Beginn ihres Katalogeintrags.
+- Finanzrolle ohne Abstimmkonto: Das Modul nimmt das eine Abstimmkonto des Buchungskreises für
+  Lieferanten bzw. Kunden aus dem Hauptbuch (`GLAccountCompany`); bei keinem oder mehreren bleibt es
+  Pflichtangabe.
+

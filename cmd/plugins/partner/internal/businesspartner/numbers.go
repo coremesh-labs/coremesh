@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
@@ -42,6 +43,19 @@ const (
 type settings struct {
 	// ShortNameUnique: Kurzname muss eindeutig sein (Standard true).
 	ShortNameUnique *bool `json:"short_name_unique"`
+	// ValidFromDaysBack: „Gültig ab“ neuer Geschäftspartner ohne Angabe – heute
+	// minus so viele Tage (Standard 365), damit Prüfungen anderer Prozesse zu
+	// früheren Daten (Rechnung, Vertragsbeginn) den Partner schon gültig finden.
+	ValidFromDaysBack *int `json:"valid_from_days_back"`
+}
+
+// defaultValidFrom: „Gültig ab“ eines neuen Geschäftspartners ohne Angabe.
+func (s settings) defaultValidFrom() string {
+	days := 365
+	if s.ValidFromDaysBack != nil && *s.ValidFromDaysBack >= 0 {
+		days = *s.ValidFromDaysBack
+	}
+	return time.Now().AddDate(0, 0, -days).Format(time.DateOnly)
 }
 
 func (s settings) shortNameUnique() bool { return s.ShortNameUnique == nil || *s.ShortNameUnique }
@@ -117,6 +131,9 @@ func (m *Module) group(ctx context.Context, code string) (string, string, error)
 
 // preparePartner (vor der Transaktion): Gruppe, Kurzname-Vorschlag, BP-Nummer.
 func (m *Module) preparePartner(ctx context.Context, rec record) error {
+	if strings.TrimSpace(str(rec["valid_from"])) == "" {
+		rec["valid_from"] = m.settings.defaultValidFrom()
+	}
 	code, key, err := m.group(ctx, str(rec["group_code"]))
 	if err != nil {
 		return err
@@ -232,6 +249,10 @@ func (m *Module) partnerFormState(ctx context.Context, req metamodel.FormStateRe
 	if req.Mode != "create" {
 		return st, nil
 	}
+	if req.Values["valid_from"] == "" {
+		v := m.settings.defaultValidFrom()
+		st.Fields["valid_from"] = metamodel.FieldState{Value: &v}
+	}
 	if req.Values["search_term"] == "" && req.Values["name1"] != "" {
 		if v, err := m.suggestShortName(ctx, req.Values["name1"], ""); err == nil && v != "" {
 			st.Fields["search_term"] = metamodel.FieldState{Value: &v}
@@ -333,4 +354,52 @@ func (m *Module) resolve(ctx context.Context, req sdk.Request) (sdk.Response, er
 		}
 	}
 	return sdk.Response{Payload: map[string]any{"ids": out}}, nil
+}
+
+// childValidFrom: Rolle, Adresse, Kommunikation und Bankverbindung ohne „Gültig ab“
+// gelten ab dem Beginn des Geschäftspartners (sonst erst ab heute – die Rolle
+// Kreditor fehlte dann z. B. für eine ältere Rechnung), frühestens ab dem
+// Beginn ihres Katalogeintrags (Rolle, Kommunikationstyp, Adressrolle).
+func (m *Module) childValidFrom(next func(context.Context, record) error) func(context.Context, record) error {
+	catalogs := map[string]string{"role_code": "partner__role_types", "comm_type_code": "partner__comm_types", "address_role_code": "partner__address_roles"}
+	return func(ctx context.Context, rec record) error {
+		if strings.TrimSpace(str(rec["valid_from"])) == "" && str(rec["bp_id"]) != "" {
+			from := ""
+			if res, err := m.db.Query(ctx, `SELECT MIN(valid_from) FROM partner__bp WHERE id = ?`, rec["bp_id"]); err == nil && len(res.Rows) > 0 {
+				from = dateOnly(res.Rows[0][0])
+			}
+			for f, table := range catalogs {
+				if code := str(rec[f]); code != "" && from != "" {
+					res, err := m.db.Query(ctx, `SELECT MIN(valid_from) FROM `+table+` WHERE code = ?`, code)
+					if err == nil && len(res.Rows) > 0 {
+						if c := dateOnly(res.Rows[0][0]); c > from {
+							from = c
+						}
+					}
+				}
+			}
+			if from != "" && from < today() {
+				rec["valid_from"] = from
+			}
+		}
+		if next != nil {
+			return next(ctx, rec)
+		}
+		return nil
+	}
+}
+
+// dateOnly: Datum einer Spalte als JJJJ-MM-TT (Text oder Zeit).
+func dateOnly(v any) string {
+	switch x := v.(type) {
+	case time.Time:
+		return x.Format(time.DateOnly)
+	case nil:
+		return ""
+	}
+	s := str(v)
+	if len(s) >= 10 {
+		return s[:10]
+	}
+	return ""
 }
