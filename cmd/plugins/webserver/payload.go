@@ -277,6 +277,7 @@ type view struct {
 	FormMessage   string               // Hinweis der Maske (FormState)
 	FormLinks     []metamodel.FormLink // Links der Maske (FormState, neues Fenster)
 	InlineButtons []inlineButton       // Aktionsabschnitt: weitere Aktionen als Knöpfe
+	HideButtons   []string             // Knöpfe, die die Maske ausblendet (FormState.HideButtons)
 	FormStateURL  string               // Neuauswertung der Maske (leer = statisch)
 	History       bool                 // Liste inkl. beendeter / inaktiver Einträge (?includeHistory=true)
 
@@ -542,7 +543,7 @@ func (v view) SubmitLabel() string {
 }
 
 // inlineButton ist eine weitere Aktion im Aktionsabschnitt.
-type inlineButton struct{ URL, Label string }
+type inlineButton struct{ Name, URL, Label string }
 
 // inlineButtons: Knöpfe des Aktionsabschnitts zur Aktion act (SectionDefinition.Buttons).
 func (oc objectCtx) inlineButtons(act string) []inlineButton {
@@ -553,9 +554,46 @@ func (oc objectCtx) inlineButtons(act string) []inlineButton {
 		}
 		for _, b := range sec.Buttons {
 			if a := oc.custom(b); a != nil {
-				out = append(out, inlineButton{URL: oc.ActionURL + "/" + b, Label: a.Label})
+				out = append(out, inlineButton{Name: b, URL: oc.ActionURL + "/" + b, Label: a.Label})
 			}
 		}
 	}
 	return out
+}
+
+// visibleButtons: Knöpfe ohne die von der Maske ausgeblendeten.
+func visibleButtons(all []inlineButton, hide []string) []inlineButton {
+	var out []inlineButton
+	for _, b := range all {
+		if !slices.Contains(hide, b.Name) {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// withExtra: Metamodell mit den Zusatzfeldern der Maske (FormState.Extra), als
+// bearbeitbare Felder nur für das Formular der Aktion.
+func withExtra(d metamodel.ObjectDefinition, st *metamodel.FormState) metamodel.ObjectDefinition {
+	if st == nil || len(st.Extra) == 0 {
+		return d
+	}
+	out := d
+	out.Fields = append(slices.Clone(d.Fields), st.Extra...)
+	for i := len(d.Fields); i < len(out.Fields); i++ {
+		out.Fields[i].Editable, out.Fields[i].ActionOnly = true, true
+	}
+	return out
+}
+
+// extraKeys: Schlüssel der Zusatzfelder.
+func extraKeys(st *metamodel.FormState) []string {
+	if st == nil {
+		return nil
+	}
+	keys := make([]string, len(st.Extra))
+	for i, f := range st.Extra {
+		keys[i] = f.Key
+	}
+	return keys
 }

@@ -1,0 +1,12 @@
+# KI (externes Plugin, eigenes Go-Modul unter cmd/plugins/ai): Anfragen an
+# OpenAI-kompatible Dienste (z. B. Google Gemini) mit Protokoll; Objekt-Anfragen
+# füllen Strukturen aus dem Metamodell (Geschäftspartner, Rechnung, Vertrag …).
+# Andere Plugins rufen Ai.run / Ai.form / Ai.collect / Ai.create.
+plugins:
+  ai:
+    version: 0.1.0
+    databases:
+      main: { access: write }        # Tabellen ai__* via DBSchema.Init
+    # Schlüssel über eine Umgebungsvariable (Feld „Umgebungsvariable“ am KI-Dienst)
+    # nur in einer privaten Konfiguration, z. B.:
+    # env: { GEMINI_API_KEY: "…" }

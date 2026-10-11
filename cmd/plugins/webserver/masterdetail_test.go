@@ -147,6 +147,13 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		var in metamodel.FormStateRequest
 		_ = sdk.Decode(req.Payload, &in)
 		st := metamodel.FormState{Fields: map[string]metamodel.FieldState{}}
+		if in.Mode == "action" && in.Action == "pick" && in.ID == "kx" {
+			v := "Muster AG"
+			st.Extra = []metamodel.FieldDefinition{{Key: "x_name", Label: "Name", Type: metamodel.TypeText, Required: true, Group: "Partner"},
+				{Key: "x_kind", Label: "Art", Type: metamodel.TypeSelect, Group: "Partner", Options: []metamodel.Option{{Value: "P", Label: "Person"}}}}
+			st.Fields["x_name"] = metamodel.FieldState{Value: &v}
+			return sdk.Response{Payload: st}, nil
+		}
 		if in.Mode == "action" && in.Action == "pick" {
 			no := false
 			opts := []metamodel.Option{{Value: "A", Label: "Alpha"}, {Value: "B", Label: "Beta"}}
@@ -198,6 +205,9 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 	case "CustomerContact.get":
 		return sdk.Response{Payload: map[string]any{"id": "k1", "customer_id": "c1", "valid_from": "2026-01-01", "kind_code": "MAIL", "value": "info@muster.ch",
 			"_labels": map[string]any{"kind_code": "E-Mail"}}}, nil
+	case "CustomerContact.pick":
+		h.fakeHost.record(ctx, req)
+		return sdk.Response{Payload: map[string]any{"message": "gewählt"}}, nil
 	case "CustomerContact.create", "CustomerContact.update":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"id": "k2"}}, nil

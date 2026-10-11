@@ -625,6 +625,10 @@ abhängen:
   Beträge und Zahlen stehen rechtsbündig.
 - **Dateien im Ergebnis (seit 0.33.0):** `{"download": {"content" (Base64), "content_type",
   "file_name"}}` bietet einen Link zum Speichern an (z. B. CSV), ohne dass etwas gespeichert wird.
+- **Zusatzfelder der Maske (seit 0.35.0):** `FormState.Extra` liefert weitere Felder nur für das
+  Formular einer Aktion (z. B. ein von der KI vorbelegtes Objekt, Gruppen je Unter-Objekt); sie
+  werden wie die Felder der Aktion ausgewertet. `FormState.HideButtons` blendet Knöpfe des
+  Aktionsabschnitts aus, die zum Stand nicht passen.
 - **Mehrfachauswahl (seit 0.34.0):** Ein Auswahlfeld mit `Multiple: true` erlaubt mehrere Werte;
   das Modul erhält sie als Komma-Liste (z. B. `"MV,GM"`), keine Auswahl = leer.
 - **Berichte (seit 0.33.0):** Ein Object ohne Übersicht (keine Action `list`) mit einer eigenen
