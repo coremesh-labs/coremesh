@@ -8,6 +8,7 @@
 {{define "list"}}
 <section id="list" class="object-list"
          hx-get="{{.ListURL}}" hx-trigger="coremesh-changed from:body" hx-swap="outerHTML">
+  <div class="list-head">
   <header class="page-header">
     <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}</h1>
     {{block "list-toolbar" .}}
@@ -51,6 +52,7 @@
     {{if .Filter}}<a class="link" href="{{.URL}}" hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true">{{t "core.list.reset"}}</a>{{end}}
   </form>
   {{end}}{{end}}
+  </div>
   {{template "table" .}}
 </section>
 {{end}}

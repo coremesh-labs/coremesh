@@ -136,5 +136,6 @@
   "core.validation.option": "Invalid selection",
   "core.validation.required": "Required",
   "core.viewer.download": "Download",
-  "core.viewer.open": "Open in new window"
+  "core.viewer.open": "Open in new window",
+  "core.nav.toggle": "Collapse/expand menu"
 }

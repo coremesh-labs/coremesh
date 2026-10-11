@@ -195,3 +195,50 @@ table.data td.num { text-align: right; white-space: nowrap; font-variant-numeric
 .report-result { margin-top: 1.5rem; }
 /* mehrzeilige Felder (Textarea, z. B. YAML) in der Detailansicht: Zeilen und Einrückung bleiben */
 dl.fields dd.multiline { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+
+/* --- Rahmen (seit 0.36.0): Seitenleiste fest und einklappbar, Seitenkopf, Filter und
+   Spaltenköpfe kleben oben; nur der Inhalt scrollt. --- */
+:root { --nav-w: 13.5rem; --nav-w-open: 13.5rem; }
+html.nav-collapsed { --nav-w: 3.4rem; }
+body { display: block; padding-left: var(--nav-w); transition: padding-left .15s; }
+.sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--nav-w); overflow-y: auto; overflow-x: hidden;
+           padding: .75rem .5rem; z-index: 30; font-size: .9rem; transition: width .15s, box-shadow .15s; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; gap: .25rem; margin-bottom: .75rem; }
+.brand-row .brand { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: .3rem; }
+.nav-toggle { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 1.1rem; line-height: 1;
+              padding: .3rem .45rem; border-radius: var(--radius); flex: none; }
+.nav-toggle:hover { background: var(--bg); color: var(--text); }
+.sidebar nav a { padding: .3rem .5rem; white-space: nowrap; }
+.sidebar nav a .nav-text { overflow: hidden; text-overflow: ellipsis; }
+.nav-short { display: none; }
+.subnav { margin: .1rem 0 .5rem .45rem; padding-left: .4rem; font-size: .87rem; }
+.subnav .section { margin: .45rem 0 .1rem .5rem; font-size: .7rem; }
+.user-menu { font-size: .85rem; }
+/* eingeklappt: Kürzel; beim Überfahren klappt die Leiste über dem Inhalt auf */
+html.nav-collapsed .sidebar:not(:hover) .nav-text,
+html.nav-collapsed .sidebar:not(:hover) .brand,
+html.nav-collapsed .sidebar:not(:hover) .subnav .section,
+html.nav-collapsed .sidebar:not(:hover) .user-menu { display: none; }
+html.nav-collapsed .sidebar:not(:hover) .nav-short { display: inline-block; width: 2rem; text-align: center; font-size: .78rem; font-weight: 600; }
+html.nav-collapsed .sidebar:not(:hover) .subnav { margin-left: 0; padding-left: 0; border-left: 0; }
+html.nav-collapsed .sidebar:not(:hover) nav a { padding: .3rem .2rem; justify-content: center; }
+html.nav-collapsed .sidebar:not(:hover) .brand-row { justify-content: center; }
+html.nav-collapsed .sidebar:hover { width: var(--nav-w-open); box-shadow: 4px 0 18px rgba(0, 0, 0, .18); }
+main { padding: 0 1.5rem 1.5rem; }
+.page-header { position: sticky; top: 0; z-index: 6; background: var(--bg); padding: .9rem 0 .7rem; margin-bottom: .5rem; }
+/* Liste: Kopf mit Filtern klebt, darunter die Spaltenköpfe */
+.list-head { position: sticky; top: 0; z-index: 6; background: var(--bg); padding-bottom: .25rem; }
+.list-head .page-header { position: static; margin-bottom: .25rem; }
+.list-head .list-filters { margin-bottom: .5rem; }
+.object-list table.data thead th { position: sticky; top: var(--list-head-h, 0); z-index: 5; background: var(--surface);
+                                   box-shadow: inset 0 -1px 0 var(--border); }
+table.data { border-radius: var(--radius); }
+/* Eingabemasken: Überschrift und Knöpfe des Dialogs bleiben stehen */
+dialog.modal article > h2:first-child, dialog.modal article > header:first-child { position: sticky; top: -1.25rem; z-index: 2;
+       background: var(--surface); margin: -1.25rem -1.25rem .75rem; padding: 1rem 1.25rem .6rem; border-bottom: 1px solid var(--border); }
+body.login-page { padding-left: 0; }
+@media (max-width: 720px) {
+  body, html.nav-collapsed body { padding-left: 0; }
+  .sidebar, html.nav-collapsed .sidebar { position: static; width: auto; }
+  .nav-toggle { display: none; }
+}
