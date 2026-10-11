@@ -468,7 +468,7 @@ func TestNestedRelationDetailLink(t *testing.T) {
 	d.Sections = []metamodel.SectionDefinition{{Key: "addr", Title: "Adressen", Relation: &metamodel.Relation{Object: "Address", ForeignKey: "contact_id"}}}
 	mdDefs["CustomerContact"] = d
 	s, _ = newMDServer(t)
-	mustContain(t, do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String(), `<a href="/m/crm/CustomerContact/k1">Anzeigen</a>`)
+	mustContain(t, do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String(), `class="open-row" hx-get="/m/crm/CustomerContact/k1"`)
 }
 
 // customerMarkers: Customer.get liefert Feldberechtigungen (TestFieldAccessUI).
