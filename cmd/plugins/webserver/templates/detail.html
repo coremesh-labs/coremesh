@@ -71,6 +71,6 @@
 {{/* Felder eines Abschnitts. Daten: sectionCtx {View, Section}. */}}
 {{define "section-fields"}}
 <dl class="fields">
-  {{range .Section.Fields}}<dt>{{.Label}}</dt><dd>{{value $.View.Record .}}{{template "peek-icon" (peekFor $.View.Record .)}}</dd>{{end}}
+  {{range .Section.Fields}}<dt>{{.Label}}</dt><dd{{if eq (print .Type) "textarea"}} class="multiline"{{end}}>{{value $.View.Record .}}{{template "peek-icon" (peekFor $.View.Record .)}}</dd>{{end}}
 </dl>
 {{end}}

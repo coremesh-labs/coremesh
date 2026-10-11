@@ -255,7 +255,7 @@ func TestDetailSections(t *testing.T) {
 		`<details class="section" id="section-archive" >`,       // zugeklappt
 		`hx-get="/m/crm/Customer/c1/rel/contacts"`,              // eingebettete Tabelle
 		`hx-trigger="load, coremesh-changed from:body"`,         // lädt neu nach dem Speichern
-		"<dt>Notiz</dt><dd>geheim</dd>",
+		`<dt>Notiz</dt><dd class="multiline">geheim</dd>`,
 	)
 }
 
