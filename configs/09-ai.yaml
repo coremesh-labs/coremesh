@@ -4,7 +4,7 @@
 # Andere Plugins rufen Ai.run / Ai.form / Ai.collect / Ai.create.
 plugins:
   ai:
-    version: 0.1.0
+    version: 0.1.1
     databases:
       main: { access: write }        # Tabellen ai__* via DBSchema.Init
     # Schlüssel über eine Umgebungsvariable (Feld „Umgebungsvariable“ am KI-Dienst)

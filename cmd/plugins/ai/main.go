@@ -10,7 +10,7 @@ import (
 	"github.com/coremesh-labs/coremesh/cmd/plugins/ai/internal/ai"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 func main() {
 	plugin.Main(module.NewPlugin(

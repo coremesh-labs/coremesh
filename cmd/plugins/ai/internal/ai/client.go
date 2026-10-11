@@ -81,11 +81,30 @@ type chatAnswer struct {
 	Model  string
 }
 
-// chat sendet die Anfrage an den Dienst.
+// retryWaits: Pausen vor den Wiederholungen bei Überlast (HTTP 429, 5xx).
+var retryWaits = []time.Duration{3 * time.Second, 8 * time.Second}
+
+// chat sendet die Anfrage an den Dienst; bei Überlast (429, 500, 502, 503, 504) bis zu
+// zweimal erneut.
 func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, error) {
+	for i := 0; ; i++ {
+		a, status, err := m.chatOnce(ctx, p, req)
+		retry := status == 429 || status == 500 || status == 502 || status == 503 || status == 504
+		if err == nil || !retry || i >= len(retryWaits) {
+			return a, err
+		}
+		select {
+		case <-ctx.Done():
+			return a, err
+		case <-time.After(retryWaits[i]):
+		}
+	}
+}
+
+func (m *Module) chatOnce(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, int, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	u := p.BaseURL + "/chat/completions"
 	if p.AuthMethod == "QUERY" {
@@ -95,7 +114,7 @@ func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*ch
 	defer cancel()
 	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	hr.Header.Set("Content-Type", "application/json")
 	switch p.AuthMethod {
@@ -110,12 +129,12 @@ func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*ch
 	}
 	resp, err := m.http.Do(hr)
 	if err != nil {
-		return nil, fmt.Errorf("KI-Dienst %s nicht erreichbar: %v", p.Code, redact(err.Error(), p.key))
+		return nil, 0, fmt.Errorf("KI-Dienst %s nicht erreichbar: %v", p.Code, redact(err.Error(), p.key))
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode/100 != 2 {
-		return &chatAnswer{Raw: string(raw)}, fmt.Errorf("KI-Dienst %s: HTTP %d – %s", p.Code, resp.StatusCode, redact(errorText(raw), p.key))
+		return &chatAnswer{Raw: string(raw)}, resp.StatusCode, fmt.Errorf("KI-Dienst %s: HTTP %d – %s", p.Code, resp.StatusCode, redact(errorText(raw), p.key))
 	}
 	var out struct {
 		Model   string `json:"model"`
@@ -129,7 +148,7 @@ func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*ch
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil || len(out.Choices) == 0 {
-		return &chatAnswer{Raw: string(raw)}, fmt.Errorf("KI-Dienst %s: Antwort ohne Ergebnis", p.Code)
+		return &chatAnswer{Raw: string(raw)}, resp.StatusCode, fmt.Errorf("KI-Dienst %s: Antwort ohne Ergebnis", p.Code)
 	}
 	a := &chatAnswer{Raw: string(raw), Tokens: out.Usage.Total, Model: out.Model}
 	switch c := out.Choices[0].Message.Content.(type) {
@@ -146,7 +165,7 @@ func (m *Module) chat(ctx context.Context, p *providerRow, req chatRequest) (*ch
 		}
 		a.Text = b.String()
 	}
-	return a, nil
+	return a, resp.StatusCode, nil
 }
 
 // errorText: Meldung aus einer Fehlerantwort (OpenAI- und Google-Format).

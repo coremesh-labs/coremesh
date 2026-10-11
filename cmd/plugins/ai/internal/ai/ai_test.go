@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 )
@@ -141,6 +142,13 @@ func TestTextRequestAndProvider(t *testing.T) {
 	if k := e.m.text(e.ctx, `SELECT api_key FROM ai__provider_secret WHERE provider = ?`, "TEST"); k != "geheim-123" {
 		t.Errorf("Schlüssel nach Änderung: %q", k)
 	}
+	// Überlast: wiederholt
+	retryWaits = []time.Duration{time.Millisecond, time.Millisecond}
+	e.ai.failFirst = 2
+	n := len(e.ai.bodies)
+	if out := e.must(serviceObject, "run", map[string]any{"request": "SUMMARY", "text": "x"}); out["status"] != stDone || len(e.ai.bodies)-n != 3 {
+		t.Errorf("Wiederholung: %v, %d Versuche", out["status"], len(e.ai.bodies)-n)
+	}
 	// Fehler des Dienstes: Status ERROR, kein Abbruch, Schlüssel nicht in der Meldung
 	e.ai.status = 401
 	out = e.must(serviceObject, "run", map[string]any{"request": "SUMMARY", "text": "x"})
@@ -152,7 +160,7 @@ func TestTextRequestAndProvider(t *testing.T) {
 	e.must(requestObject, "update", map[string]any{"id": "SUMMARY", "data": map[string]any{"code": "SUMMARY", "name": "Zusammenfassung", "kind": kindText,
 		"task_text": "Fasse in einem Satz zusammen.", "retention_days": 2}})
 	rep := e.must(logObject, "repeat", map[string]any{"id": "KI-2026-000001"})
-	mustContain(t, fmt.Sprint(rep["message"]), "KI-2026-000004")
+	mustContain(t, fmt.Sprint(rep["message"]), "KI-2026-000005")
 	msgs, _ := json.Marshal(e.ai.bodies[len(e.ai.bodies)-1]["messages"])
 	mustContain(t, string(msgs), "Fasse in einem Satz zusammen.", "Langer Text")
 	// Rechte
