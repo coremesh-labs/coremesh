@@ -157,12 +157,13 @@ func (h *testHost) find(object, action string) []map[string]any {
 
 // fakeAI: nachgebildeter Dienst – merkt sich die Anfragen, antwortet mit answer.
 type fakeAI struct {
-	mu        sync.Mutex
-	bodies    []map[string]any
-	auth      []string
-	answer    string
-	status    int
-	failFirst int // so viele Antworten mit HTTP 503 zuerst
+	mu         sync.Mutex
+	bodies     []map[string]any
+	auth       []string
+	answer     string
+	status     int
+	failFirst  int  // so viele Antworten mit HTTP 503 zuerst
+	noPDFImage bool // PDF als image_url ablehnen (HTTP 400, wie OpenAI)
 }
 
 func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
@@ -177,7 +178,11 @@ func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
 		f.failFirst--
 		status = 503
 	}
+	reject := f.noPDFImage && bytes.Contains(b, []byte(`"url":"data:application/pdf`))
 	f.mu.Unlock()
+	if reject {
+		return &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Invalid content part type: image_url"}}`)), Header: http.Header{}}, nil
+	}
 	if status == 0 {
 		status = 200
 	}

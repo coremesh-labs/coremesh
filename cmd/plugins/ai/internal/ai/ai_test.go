@@ -230,8 +230,16 @@ func TestTextWithFile(t *testing.T) {
 	pdf := base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 x"))
 	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung 250526", "input": pdf, "content_type": "application/pdf"})
 	msgs, _ := json.Marshal(e.ai.bodies[0]["messages"])
-	mustContain(t, string(msgs), `Eingang:\nRechnung 250526`, `"type":"file"`, `"filename":"dokument.pdf"`, `"file_data":"data:application/pdf;base64,`+pdf)
+	mustContain(t, string(msgs), `Eingang:\nRechnung 250526`, `"type":"image_url"`, `"url":"data:application/pdf;base64,`+pdf)
 	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Brief", "input": pdf, "content_type": "image/png"})
 	msgs, _ = json.Marshal(e.ai.bodies[1]["messages"])
 	mustContain(t, string(msgs), `"type":"image_url"`, `data:image/png;base64,`)
+	// Dienst lehnt PDF als image_url ab: einmal als file
+	e.ai.noPDFImage = true
+	out := e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung", "input": pdf, "content_type": "application/pdf"})
+	msgs, _ = json.Marshal(e.ai.bodies[len(e.ai.bodies)-1]["messages"])
+	if out["status"] != stDone {
+		t.Fatalf("Wiederholung als file: %v", out)
+	}
+	mustContain(t, string(msgs), `"type":"file"`, `"filename":"dokument.pdf"`, `"file_data":"data:application/pdf;base64,`+pdf)
 }
