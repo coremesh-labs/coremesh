@@ -18,6 +18,7 @@ import (
 // Schnittstelle für andere Module:
 //
 //	Ai.run     {request, input (Base64), content_type?, text?, context? (Zeilen), company_code?, keep?}
+//	           (text und eine Datei als input zusammen: Text im Auftrag, Datei als Anhang)
 //	           → {log_id, status, message, result (OBJECT: Struktur), text (TEXT), notes}
 //	Ai.form    {request, result, defaults? {"name.feld": Wert}, company_code?} → {fields [FieldDefinition], values}
 //	Ai.collect {request, values {Feld der Maske: Wert}, company_code?} → {result}
@@ -109,9 +110,11 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 	}
 	m.cleanup(ctx)
 	// Eingang
+	// Text und Datei zusammen: der Text im Auftrag, die Datei (PDF, Bild) als Anhang –
+	// z. B. wenn der Briefkopf nur im Bild steht.
 	text, ctype := strings.TrimSpace(in.Text), "text/plain"
 	var file []byte
-	if text == "" && in.Input != "" {
+	if in.Input != "" {
 		b, err := base64.StdEncoding.DecodeString(in.Input)
 		if err != nil {
 			return nil, crud.Invalid("Eingang: nicht Base64-kodiert")
@@ -121,7 +124,10 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 			if !utf8.Valid(b) {
 				return nil, crud.Invalid("Eingang: Text ist kein UTF-8")
 			}
-			text = string(b)
+			if text == "" {
+				text = string(b)
+			}
+			ctype = "text/plain"
 		} else {
 			file = b
 		}
@@ -164,8 +170,7 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 	}
 	user := chatMessage{Role: "user", Content: b.String()}
 	if file != nil {
-		user.Content = []any{map[string]any{"type": "text", "text": b.String()},
-			map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:" + ctype + ";base64," + base64.StdEncoding.EncodeToString(file)}}}
+		user.Content = []any{map[string]any{"type": "text", "text": b.String()}, filePart(ctype, file)}
 	}
 	msgs = append(msgs, user)
 
@@ -565,4 +570,22 @@ func (m *Module) testProviderAction(ctx context.Context, req sdk.Request) (sdk.R
 	}
 	return sdk.Response{Payload: map[string]any{"message": fmt.Sprintf("%s antwortet (%s, %d ms): %s", p.Name, firstOf(a.Model, p.Model),
 		m.now().Sub(start).Milliseconds(), strings.TrimSpace(a.Text))}}, nil
+}
+
+// filePart: Datei als Teil der Nachricht – Bilder als image_url, andere Dateien
+// (z. B. PDF) als file mit file_data (OpenAI-kompatibel).
+func filePart(ctype string, file []byte) map[string]any {
+	data := "data:" + ctype + ";base64," + base64.StdEncoding.EncodeToString(file)
+	if strings.HasPrefix(ctype, "image/") {
+		return map[string]any{"type": "image_url", "image_url": map[string]any{"url": data}}
+	}
+	return map[string]any{"type": "file", "file": map[string]any{"filename": "dokument" + extFor(ctype), "file_data": data}}
+}
+
+func extFor(ctype string) string {
+	switch ctype {
+	case "application/pdf":
+		return ".pdf"
+	}
+	return ""
 }
