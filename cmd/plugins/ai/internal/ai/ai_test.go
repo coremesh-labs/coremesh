@@ -248,4 +248,18 @@ func TestTextWithFile(t *testing.T) {
 		t.Fatalf("Wiederholung als file: %v", out)
 	}
 	mustContain(t, string(msgs), `"type":"file"`, `"filename":"dokument.pdf"`, `"file_data":"data:application/pdf;base64,`+pdf)
+	// Einstellung des Dienstes: FILE – gleich als file; IMAGE_URL – keine Wiederholung
+	e.m.db.Exec(e.ctx, `UPDATE ai__provider SET file_part = 'FILE'`)
+	n := len(e.ai.bodies)
+	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung", "input": pdf, "content_type": "application/pdf"})
+	if len(e.ai.bodies) != n+1 {
+		t.Fatalf("FILE: %d Anfragen", len(e.ai.bodies)-n)
+	}
+	msgs, _ = json.Marshal(e.ai.bodies[n]["messages"])
+	mustContain(t, string(msgs), `"type":"file"`)
+	e.m.db.Exec(e.ctx, `UPDATE ai__provider SET file_part = 'IMAGE_URL'`)
+	n = len(e.ai.bodies)
+	if out = e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung", "input": pdf, "content_type": "application/pdf"}); out["status"] == stDone || len(e.ai.bodies) != n+1 {
+		t.Fatalf("IMAGE_URL: %v, %d Anfragen", out["status"], len(e.ai.bodies)-n)
+	}
 }

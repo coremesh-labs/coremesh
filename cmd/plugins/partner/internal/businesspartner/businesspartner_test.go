@@ -881,6 +881,18 @@ func TestFilterByRole(t *testing.T) {
 	if n := len(e.items("BusinessPartner", map[string]any{})); n < 2 {
 		t.Fatalf("ohne Filter: %d", n)
 	}
+	// role_kind: nach dem Merkmal der Rollenart (Mieter = Debitor, Kreditor = Kreditor)
+	c := e.newBP("Handwerker GmbH")
+	e.must("PartnerRole", "create", data("bp_id", c, "role_code", "CREDITOR", "valid_from", "2000-01-01", "company_codes", "1000"))
+	if got := e.items("BusinessPartner", map[string]any{"role_kind": "CREDITOR"}); len(got) != 1 || got[0]["id"] != c {
+		t.Fatalf("Kreditoren: %v", got)
+	}
+	if got := e.items("BusinessPartner", map[string]any{"role_kind": "DEBITOR"}); len(got) != 1 || got[0]["id"] != a {
+		t.Fatalf("Debitoren: %v", got)
+	}
+	if got := e.items("BusinessPartner", map[string]any{"role_kind": "X"}); len(got) != 0 {
+		t.Fatalf("unbekannt: %v", got)
+	}
 }
 
 // TestPersonSalutation: Geschlecht nur bei natürlichen Personen, Anrede als

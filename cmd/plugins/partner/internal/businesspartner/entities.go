@@ -133,10 +133,19 @@ func (m *Module) businessPartner() *entity {
 		Search: []string{"name1", "name2", "search_term", "abbreviation"},
 		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
 		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
-		Filters: []string{"role"},
+		// Filter role_kind (CREDITOR, DEBITOR): Partner mit einer Rolle, deren Rollenart
+		// Kreditor bzw. Debitor ist (Merkmale der Rollenart, z. B. Kreditor, Vermieter, Behörde).
+		Filters: []string{"role", "role_kind"},
 		FilterExpr: map[string]func(v any) (string, []any){"role": func(v any) (string, []any) {
 			return "EXISTS (SELECT 1 FROM partner__roles r WHERE r.bp_id = partner__bp.id AND r.role_code = ? AND r.valid_from <= ? AND r.valid_to >= ?)",
 				[]any{str(v), today(), today()}
+		}, "role_kind": func(v any) (string, []any) {
+			col := map[string]string{"CREDITOR": "t.is_creditor", "DEBITOR": "t.is_debitor"}[strings.ToUpper(strings.TrimSpace(str(v)))]
+			if col == "" {
+				return "1 = 0", nil
+			}
+			return "EXISTS (SELECT 1 FROM partner__roles r JOIN partner__role_types t ON t.code = r.role_code WHERE r.bp_id = partner__bp.id AND " + col +
+				" = ? AND r.valid_from <= ? AND r.valid_to >= ? AND t.valid_from <= ? AND t.valid_to >= ?)", []any{true, today(), today(), today(), today()}
 		}},
 		// Detailansicht im Stil von LeanIX: Stammdaten plus eingebettete
 		// Unter-Objects. Adressen sind n:m über die Zuordnung PartnerAddress
