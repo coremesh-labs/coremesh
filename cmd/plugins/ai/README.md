@@ -10,7 +10,13 @@ URL, Modell, Anmeldung (`BEARER`, eigener `HEADER`, `QUERY`-Parameter, `NONE`), 
 einer eigenen Tabelle ohne Leseschnittstelle und erscheint weder in der Oberfläche noch in Listen,
 Datenströmen oder Protokollen. Alternativ nennt das Feld **Umgebungsvariable** eine Variable aus
 der Plugin-Konfiguration (`plugins.ai.env`); sie geht dem gespeicherten Schlüssel vor.
-„Verbindung prüfen“ sendet eine kurze Testanfrage.
+„Verbindung prüfen“ sendet eine kurze Testanfrage. Der Schlüssel lässt sich auch beim Ändern
+neu eintragen (seit 0.3.2, Textfeld).
+
+`Ai.run` nimmt Text und Datei zusammen (seit 0.3.0): Der Text steht im Auftrag, die Datei geht als
+Anhang mit. Wie, steht am Dienst unter **Dateien senden als** (seit 0.3.3): `image_url` (Gemini,
+auch PDF), `file` (OpenAI für PDF) oder automatisch (erst `image_url`, lehnt der Dienst die Art
+ab, einmal `file`). Bilder gehen immer als `image_url`.
 
 Bei Überlast (HTTP 429, 5xx) wiederholt das Plugin die Anfrage zweimal. Bleibt der Dienst gestört
 (auch nicht erreichbar oder Zeitlimit), springt der **Ausweich-Dienst** ein (Feld am Dienst, mit

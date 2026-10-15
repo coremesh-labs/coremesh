@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
@@ -55,6 +56,7 @@ func (m *Module) provider() *crud.Entity {
 			{Key: "has_key", Label: "Schlüssel gespeichert", Type: tBool, Listable: true, ReadOnly: true, Virtual: true},
 			{Key: "api_key_env", Label: "Umgebungsvariable mit dem Schlüssel (geht dem gespeicherten vor; in der Konfiguration des Plugins setzen)", Type: tText, Listable: true},
 			{Key: "extra_headers", Label: "Weitere Header (je Zeile „Name: Wert“)", Type: tArea},
+			{Key: "file_part", Label: "Dateien (z. B. PDF) senden als", Type: tSel, Options: filePartOptions},
 			{Key: "plain_json", Label: "Ohne JSON-Schema (für Dienste ohne response_format; die Struktur steht dann nur im Text)", Type: tBool},
 			{Key: "timeout_seconds", Label: "Zeitlimit (Sekunden)", Type: tNum},
 			{Key: "fallback_provider", Label: "Ausweich-Dienst (springt ein, wenn dieser gestört ist: Überlast, nicht erreichbar, Zeitlimit)", Type: tText,
@@ -100,6 +102,10 @@ func (m *Module) checkProvider(ctx context.Context, rec, _ crud.Record) error {
 	rec["api_key_env"] = nilIfEmpty(crud.Str(rec["api_key_env"]))
 	if _, err := parseHeaders(crud.Str(rec["extra_headers"])); err != nil {
 		return err
+	}
+	rec["file_part"] = firstOf(strings.ToUpper(strings.TrimSpace(crud.Str(rec["file_part"]))), filePartAuto)
+	if !slices.ContainsFunc(filePartOptions, func(o metamodel.Option) bool { return o.Value == rec["file_part"] }) {
+		return crud.Invalid("Dateien senden als %q unbekannt", rec["file_part"])
 	}
 	rec["fallback_provider"] = nilIfEmpty(strings.ToUpper(crud.Str(rec["fallback_provider"])))
 	if rec["fallback_provider"] == rec["code"] {

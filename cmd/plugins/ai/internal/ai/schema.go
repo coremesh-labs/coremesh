@@ -36,6 +36,11 @@ table "ai__provider" {
     type    = boolean
     default = false
   }
+  # Dateien (z. B. PDF) senden als: AUTO (image_url, bei Ablehnung file), IMAGE_URL, FILE (seit 0.3.3)
+  column "file_part" {
+    type    = text
+    default = "AUTO"
+  }
   # Ausweich-Dienst bei Störung (Überlast, nicht erreichbar)
   column "fallback_provider" {
     type = text` + opt + `
