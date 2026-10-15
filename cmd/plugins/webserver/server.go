@@ -642,7 +642,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 			}
 		}
 	}
-	def, trigger := oc.ActionDef, ""
+	def, trigger, readonly := oc.ActionDef, "", map[string]bool{}
 	v := view{objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name, CancelURL: oc.URL}
 	keys := act.Fields
@@ -653,6 +653,12 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 		if len(keys) > 0 && len(st.Extra) > 0 {
 			keys = append(slices.Clone(keys), extraKeys(st)...)
 		}
+		// FieldState.ReadOnly: angezeigt, nicht änderbar (z. B. Vorschau vor dem Anlegen).
+		for k, fs := range st.Fields {
+			if fs.ReadOnly != nil && *fs.ReadOnly {
+				readonly[k] = true
+			}
+		}
 		for _, f := range st.Extra {
 			if _, ok := values[f.Key]; !ok {
 				if fs, ok := st.Fields[f.Key]; ok && fs.Value != nil {
@@ -661,7 +667,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 			}
 		}
 	}
-	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger}), keys)
+	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger, readonly: readonly}), keys)
 	return v
 }
 

@@ -221,3 +221,17 @@ func TestFallbackProvider(t *testing.T) {
 		t.Errorf("401: %v, %d Aufrufe", out["status"], len(e.ai.bodies)-n)
 	}
 }
+
+// Text und Datei zusammen: Text im Auftrag, PDF als Anhang (file), Bild als image_url.
+func TestTextWithFile(t *testing.T) {
+	e := setup(t)
+	e.partnerRequest()
+	e.ai.answer = `{"partner":{"name1":"Sanitär Beaker"}}`
+	pdf := base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 x"))
+	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung 250526", "input": pdf, "content_type": "application/pdf"})
+	msgs, _ := json.Marshal(e.ai.bodies[0]["messages"])
+	mustContain(t, string(msgs), `Eingang:\nRechnung 250526`, `"type":"file"`, `"filename":"dokument.pdf"`, `"file_data":"data:application/pdf;base64,`+pdf)
+	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Brief", "input": pdf, "content_type": "image/png"})
+	msgs, _ = json.Marshal(e.ai.bodies[1]["messages"])
+	mustContain(t, string(msgs), `"type":"image_url"`, `data:image/png;base64,`)
+}
