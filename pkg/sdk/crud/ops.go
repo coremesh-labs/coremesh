@@ -391,8 +391,8 @@ func (e *Entity) Update(ctx context.Context, payload any) (sdk.Response, error) 
 		}
 		for k, v := range in {
 			f := e.Field(k)
-			if f.Virtual {
-				continue // virtuelle Felder nur beim Anlegen
+			if f.Virtual && !f.VirtualUpdate {
+				continue // virtuelle Felder nur beim Anlegen (außer VirtualUpdate)
 			}
 			if (f.Immutable || slices.Contains(e.Keys, k)) && Str(v) != Str(old[k]) {
 				return Invalid("%s kann nach dem Anlegen nicht geändert werden", f.Label)

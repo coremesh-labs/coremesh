@@ -142,6 +142,12 @@ func TestTextRequestAndProvider(t *testing.T) {
 	if k := e.m.text(e.ctx, `SELECT api_key FROM ai__provider_secret WHERE provider = ?`, "TEST"); k != "geheim-123" {
 		t.Errorf("Schlüssel nach Änderung: %q", k)
 	}
+	// Neuer Schlüssel beim Ändern (virtuelles Feld auch beim Ändern), Leerzeichen entfernt
+	e.must(providerObject, "update", map[string]any{"id": "TEST", "data": map[string]any{"code": "TEST", "name": "Testdienst", "base_url": "https://ai.example/v1",
+		"model": "m1", "auth_method": "BEARER", "api_key": "  AQ.neu-456 "}})
+	if k := e.m.text(e.ctx, `SELECT api_key FROM ai__provider_secret WHERE provider = ?`, "TEST"); k != "AQ.neu-456" {
+		t.Errorf("neuer Schlüssel beim Ändern: %q", k)
+	}
 	// Überlast: wiederholt
 	retryWaits = []time.Duration{time.Millisecond, time.Millisecond}
 	e.ai.failFirst = 2

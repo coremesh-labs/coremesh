@@ -51,7 +51,7 @@ func (m *Module) provider() *crud.Entity {
 			{Key: "auth_method", Label: "Anmeldung", Type: tSel, Required: true, Options: authMethods},
 			{Key: "auth_name", Label: "Name des Headers bzw. Parameters (bei eigenem Header / URL-Parameter)", Type: tText,
 				ShowIf: &metamodel.Condition{Field: "auth_method", Values: []string{"HEADER", "QUERY"}}},
-			{Key: "api_key", Label: "API-Schlüssel (nur schreiben; leer = unverändert)", Type: tPass, Virtual: true},
+			{Key: "api_key", Label: "API-Schlüssel (nur schreiben, wird nicht wieder angezeigt; leer = unverändert)", Type: tText, Virtual: true, VirtualUpdate: true},
 			{Key: "has_key", Label: "Schlüssel gespeichert", Type: tBool, Listable: true, ReadOnly: true, Virtual: true},
 			{Key: "api_key_env", Label: "Umgebungsvariable mit dem Schlüssel (geht dem gespeicherten vor; in der Konfiguration des Plugins setzen)", Type: tText, Listable: true},
 			{Key: "extra_headers", Label: "Weitere Header (je Zeile „Name: Wert“)", Type: tArea},
