@@ -170,7 +170,7 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 	}
 	user := chatMessage{Role: "user", Content: b.String()}
 	if file != nil {
-		user.Content = []any{map[string]any{"type": "text", "text": b.String()}, filePart(ctype, file)}
+		user.Content = []any{map[string]any{"type": "text", "text": b.String()}, filePart(ctype, file, false)}
 	}
 	msgs = append(msgs, user)
 
@@ -197,6 +197,14 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 		var used *providerRow
 		var fbNotes []string
 		answer, used, fbNotes, err = m.chatFallback(ctx, p, req)
+		// Dateien: erst image_url (Gemini u. a., auch PDF), lehnt der Dienst die Art des
+		// Teils ab, einmal als file (OpenAI für PDF).
+		if err != nil && file != nil && !strings.HasPrefix(ctype, "image/") && partRejected(err) {
+			msgs[len(msgs)-1].Content = []any{map[string]any{"type": "text", "text": b.String()}, filePart(ctype, file, true)}
+			req.Messages = msgs
+			answer, used, fbNotes, err = m.chatFallback(ctx, p, req)
+			fbNotes = append(fbNotes, "Datei als file statt image_url gesendet")
+		}
 		if used != nil && used != p {
 			p, model = used, used.Model
 		}
@@ -572,11 +580,11 @@ func (m *Module) testProviderAction(ctx context.Context, req sdk.Request) (sdk.R
 		m.now().Sub(start).Milliseconds(), strings.TrimSpace(a.Text))}}, nil
 }
 
-// filePart: Datei als Teil der Nachricht – Bilder als image_url, andere Dateien
-// (z. B. PDF) als file mit file_data (OpenAI-kompatibel).
-func filePart(ctype string, file []byte) map[string]any {
+// filePart: Datei als Teil der Nachricht – als image_url (Bilder; PDF bei Gemini)
+// oder als file mit file_data (asFile; PDF bei OpenAI).
+func filePart(ctype string, file []byte, asFile bool) map[string]any {
 	data := "data:" + ctype + ";base64," + base64.StdEncoding.EncodeToString(file)
-	if strings.HasPrefix(ctype, "image/") {
+	if !asFile {
 		return map[string]any{"type": "image_url", "image_url": map[string]any{"url": data}}
 	}
 	return map[string]any{"type": "file", "file": map[string]any{"filename": "dokument" + extFor(ctype), "file_data": data}}
@@ -588,4 +596,10 @@ func extFor(ctype string) string {
 		return ".pdf"
 	}
 	return ""
+}
+
+// partRejected: Der Dienst lehnt die Art eines Nachrichtenteils ab (HTTP 400).
+func partRejected(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "400") && (strings.Contains(msg, "part") || strings.Contains(msg, "image_url") || strings.Contains(msg, "file"))
 }
