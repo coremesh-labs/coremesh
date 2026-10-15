@@ -42,6 +42,9 @@ type Field struct {
 	Immutable  bool // nach dem Anlegen nicht änderbar
 	ReadOnly   bool // nur Anzeige (z. B. generierte id)
 	Virtual    bool // nicht in der Tabelle (verarbeiten Hooks)
+	// VirtualUpdate: virtuelles Feld auch beim Ändern an Validate (sonst nur beim
+	// Anlegen), z. B. ein Schlüssel, der in einer eigenen Tabelle steht.
+	VirtualUpdate bool
 	// ActionOnly: nur Eingabe in Formularen eigener Aktionen (Action.Fields),
 	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	ActionOnly bool
