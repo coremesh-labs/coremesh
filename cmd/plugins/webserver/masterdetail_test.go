@@ -173,6 +173,13 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			st.Fields["x_name"] = metamodel.FieldState{Value: &v}
 			return sdk.Response{Payload: st}, nil
 		}
+		if in.Mode == "action" && in.Action == "pick" && in.ID == "kb" {
+			yes := true
+			st.Fields["choice"] = metamodel.FieldState{Options: []metamodel.Option{{Value: "A", Label: "Alpha"}}, Required: &yes}
+			st.Buttons = []metamodel.FormButton{{Value: "SELECTED", Label: "Übernehmen", Primary: true},
+				{Value: "SKIPPED", Label: "Überspringen", NoValidate: true, Confirm: "Wirklich?"}}
+			return sdk.Response{Payload: st}, nil
+		}
 		if in.Mode == "action" && in.Action == "pick" {
 			no := false
 			opts := []metamodel.Option{{Value: "A", Label: "Alpha"}, {Value: "B", Label: "Beta"}}

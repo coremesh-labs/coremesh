@@ -32,7 +32,8 @@
   {{template "form-body" .}}
   {{block "form-buttons" .}}
   <footer>
-    <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}{{t "core.app.save"}}{{end}}</button>
+    {{if .FormButtons}}{{template "form-state-buttons" .}}{{else}}
+    <button type="submit" class="btn primary">{{if eq .Mode "action"}}{{.Action.Label}}{{else}}{{t "core.app.save"}}{{end}}</button>{{end}}
     {{if .Modal}}
     <button type="button" class="btn" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.cancel"}}</button>
     {{else}}
@@ -58,7 +59,7 @@
   <small class="muted">{{t "core.form.multiple"}}</small>
   {{else if eq .Type "select"}}
   <select name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
-    {{if not .Field.Required}}<option value=""></option>{{end}}
+    {{if not .Field.Required}}<option value=""></option>{{else if not (hasOption .Field.Options "")}}<option value="" {{if eq .Value ""}}selected{{end}} disabled>{{t "core.form.choose"}}</option>{{end}}
     {{range .Field.Options}}<option value="{{.Value}}" {{if eq .Value $.Value}}selected{{end}}>{{.Label}}</option>{{end}}
   </select>
   {{else if eq .Type "textarea"}}
@@ -104,7 +105,21 @@
   <input type="hidden" name="_inline" value="1">
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
   {{template "form-body" .}}
-  <footer><button type="submit" class="btn primary">{{.SubmitLabel}}</button>
+  <footer>{{if .FormButtons}}{{template "form-state-buttons-inline" .}}{{else}}<button type="submit" class="btn primary">{{.SubmitLabel}}</button>{{end}}
     {{range .InlineButtons}}<button type="button" class="btn" hx-post="{{.URL}}" hx-vals='{"_id": "{{$.ActionID}}", "_inline": "1", "_button": "1"}'
       hx-target="closest .action-section" hx-swap="innerHTML">{{.Label}}</button>{{end}}</footer>
 </form></div>{{end}}
+
+{{/* Knöpfe der Maske (FormState.Buttons): mit Prüfung als Absenden (_submit), ohne
+     Prüfung (NoValidate) ohne die Eingaben – z. B. „Überspringen“. Dialog: Ziel #modal,
+     eingebettet (form-state-buttons-inline): der Aktionsabschnitt. */}}
+{{define "form-state-buttons"}}{{range .FormButtons}}{{if .NoValidate}}<button type="button" class="btn{{if .Primary}} primary{{end}}"
+  hx-post="{{$.FormAction}}" hx-vals='{"_id": "{{$.ActionID}}", "_submit": "{{.Value}}"}' hx-target="#modal"
+  {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+{{else}}<button type="submit" name="_submit" value="{{.Value}}" class="btn{{if .Primary}} primary{{end}}" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+{{end}}{{end}}{{end}}
+{{define "form-state-buttons-inline"}}{{range .FormButtons}}{{if .NoValidate}}<button type="button" class="btn{{if .Primary}} primary{{end}}"
+  hx-post="{{$.FormAction}}" hx-vals='{"_id": "{{$.ActionID}}", "_submit": "{{.Value}}", "_inline": "1"}' hx-target="closest .action-section" hx-swap="innerHTML"
+  {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+{{else}}<button type="submit" name="_submit" value="{{.Value}}" class="btn{{if .Primary}} primary{{end}}" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
+{{end}}{{end}}{{end}}
