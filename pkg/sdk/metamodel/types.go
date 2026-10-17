@@ -144,6 +144,10 @@ type SectionDefinition struct {
 	// Documents: Abschnitt mit den Dokumentverweisen des Datensatzes (Object
 	// Documents, pkg/sdk/docservice – Plugin document oder ein DMS-Adapter).
 	Documents bool `json:"documents,omitempty"`
+	// Texts: Abschnitt mit den Texten des Datensatzes (Object Texts,
+	// pkg/sdk/textservice – Plugin tag, Modul textmanagement). Welche
+	// Textkategorien erlaubt und welche Pflicht sind, legen die Zuordnungen fest.
+	Texts bool `json:"texts,omitempty"`
 	// Viewer: Abschnitt zeigt den Inhalt des Datensatzes eingebettet (PDF, Bild,
 	// Text) – der WebServer holt ihn über die Action ContentAction des Objects
 	// (GET /file/{object}/{id}, fester Link).

@@ -37,6 +37,14 @@ type withSchema struct{ *fakeModule }
 
 func (w withSchema) Schema() Schema { return *w.schema }
 
+// withPrefix: Modul mit eigenem Tabellen-Präfix (TablePrefixer).
+type withPrefix struct {
+	withSchema
+	prefix string
+}
+
+func (w withPrefix) TablePrefix() string { return w.prefix }
+
 func def(name string) metamodel.ObjectDefinition {
 	return metamodel.ObjectDefinition{Name: name, Title: name,
 		Fields:  []metamodel.FieldDefinition{{Key: "name", Label: "Name", Type: metamodel.TypeText}},
@@ -188,6 +196,27 @@ func TestSchemaIsolation(t *testing.T) {
 	stock.schema = &Schema{HCL: table("erp__stock_item"), Seed: []sdk.SchemaSeed{{Table: "erp__sales_order"}}}
 	if err := NewPlugin(Info{Name: "erp", Version: "1"}, sales, stock).Err(); err == nil || !strings.Contains(err.Error(), "fremde Tabelle") {
 		t.Fatalf("fremder Seed: %v", err)
+	}
+	// Eigene Präfixe: längstes passendes Präfix bestimmt den Eigentümer der Tabelle.
+	tags := withPrefix{withSchema{simple("tags", &ev, "Tag")}, "erp__"}
+	tags.schema = &Schema{HCL: table("erp__tag_types") + table("erp__value_options")}
+	texts := withPrefix{withSchema{simple("texts", &ev, "Text")}, "erp__text"}
+	texts.schema = &Schema{HCL: table("erp__text") + table("erp__text_category"), Seed: []sdk.SchemaSeed{{Table: "erp__text_category"}}}
+	if err := NewPlugin(Info{Name: "erp", Version: "1"}, tags, texts).Err(); err != nil {
+		t.Fatalf("eigene Präfixe: %v", err)
+	}
+	tags.schema = &Schema{HCL: table("erp__tag_types") + table("erp__text_notes")}
+	if err := NewPlugin(Info{Name: "erp", Version: "1"}, tags, texts).Err(); err == nil || !strings.Contains(err.Error(), "gehört zum Präfix von Modul texts") {
+		t.Fatalf("Tabelle im Präfix des anderen Moduls: %v", err)
+	}
+	texts.prefix = "erp__"
+	tags.schema = &Schema{HCL: table("erp__tag_types")}
+	if err := NewPlugin(Info{Name: "erp", Version: "1"}, tags, texts).Err(); err == nil || !strings.Contains(err.Error(), "gleiches Tabellen-Präfix") {
+		t.Fatalf("gleiches Präfix: %v", err)
+	}
+	texts.prefix = "crm__text"
+	if err := NewPlugin(Info{Name: "erp", Version: "1"}, tags, texts).Err(); err == nil || !strings.Contains(err.Error(), `muss mit "erp__" beginnen`) {
+		t.Fatalf("fremdes Plugin-Präfix: %v", err)
 	}
 	stock.schema = &Schema{HCL: "schema \"main\" {}\n" + table("erp__stock_item")}
 	if err := NewPlugin(Info{Name: "erp", Version: "1"}, stock).Err(); err == nil || !strings.Contains(err.Error(), "schema-Block") {

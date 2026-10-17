@@ -30,7 +30,7 @@ type Plugin struct {
 	handlers map[[2]string]HandlerFunc
 	readers  map[[2]string]ReadFunc
 	owner    map[[2]string]*mounted // (Object, Action) → Modul
-	err      error // Fehler aus RegisterRoutes – das Plugin startet dann nicht
+	err      error                  // Fehler aus RegisterRoutes – das Plugin startet dann nicht
 
 	mu      sync.Mutex
 	running []*mounted // initialisiert, in Startreihenfolge
@@ -149,6 +149,22 @@ func (p *Plugin) checkSchemas() []error {
 		}
 	}
 	var errs []error
+	prefixes := map[string]string{} // Modul → Präfix
+	for _, m := range withSchema {
+		prefix := TablePrefix(p.info.Name, m.desc.Name)
+		if tp, ok := m.mod.(TablePrefixer); ok {
+			prefix = tp.TablePrefix()
+			if !strings.HasPrefix(prefix, sdk.TablePrefix(p.info.Name)) {
+				errs = append(errs, fmt.Errorf("Modul %s: Tabellen-Präfix %q muss mit %q beginnen", m.desc.Name, prefix, sdk.TablePrefix(p.info.Name)))
+			}
+		}
+		for other, op := range prefixes {
+			if op == prefix {
+				errs = append(errs, fmt.Errorf("Module %s und %s: gleiches Tabellen-Präfix %q", other, m.desc.Name, prefix))
+			}
+		}
+		prefixes[m.desc.Name] = prefix
+	}
 	for _, m := range withSchema {
 		s := m.mod.(SchemaProvider).Schema()
 		if schemaBlockRe.MatchString(s.HCL) {
@@ -157,14 +173,26 @@ func (p *Plugin) checkSchemas() []error {
 		if len(withSchema) < 2 {
 			continue
 		}
-		prefix := TablePrefix(p.info.Name, m.desc.Name)
+		prefix := prefixes[m.desc.Name]
+		// Eigentümer einer Tabelle: Modul mit dem längsten passenden Präfix.
+		owner := func(table string) string {
+			best, name := "", ""
+			for n, pf := range prefixes {
+				if strings.HasPrefix(table, pf) && len(pf) > len(best) {
+					best, name = pf, n
+				}
+			}
+			return name
+		}
 		for _, t := range tableRe.FindAllStringSubmatch(s.HCL, -1) {
 			if !strings.HasPrefix(t[1], prefix) {
 				errs = append(errs, fmt.Errorf("Modul %s: Tabelle %s muss mit %q beginnen", m.desc.Name, t[1], prefix))
+			} else if o := owner(t[1]); o != m.desc.Name {
+				errs = append(errs, fmt.Errorf("Modul %s: Tabelle %s gehört zum Präfix von Modul %s", m.desc.Name, t[1], o))
 			}
 		}
 		for _, seed := range s.Seed {
-			if !strings.HasPrefix(seed.Table, prefix) {
+			if !strings.HasPrefix(seed.Table, prefix) || owner(seed.Table) != m.desc.Name {
 				errs = append(errs, fmt.Errorf("Modul %s: Seed für fremde Tabelle %s", m.desc.Name, seed.Table))
 			}
 		}

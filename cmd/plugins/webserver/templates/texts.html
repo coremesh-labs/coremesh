@@ -1,0 +1,36 @@
+{{/* Abschnitt „Texte“ (texts.go). Daten: textSection. */}}
+{{define "text-section"}}
+<div class="text-list">
+{{with .Unavailable}}<p class="empty">{{.}}</p>{{else}}
+  {{with .Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+  {{if .Missing}}<p class="form-error" role="status">{{t "core.texts.missing"}}: {{range $i, $c := .Missing}}{{if $i}}, {{end}}{{$c.Name}}{{end}}</p>{{end}}
+  {{if .Items}}
+  <table class="data">
+    <thead><tr><th>{{t "core.texts.category"}}</th><th>{{t "core.texts.position"}}</th><th>{{t "core.texts.language"}}</th>
+      <th>{{t "core.texts.content"}}</th><th>{{t "core.texts.changed"}}</th>{{if $.CanEdit}}<th></th>{{end}}</tr></thead>
+    <tbody>{{range .Items}}<tr>
+      <td>{{.CategoryName}}</td><td>{{.Position}}</td><td>{{$.LanguageName .Language}}</td>
+      <td class="text-content">{{.Content}}</td><td>{{.ChangedAt}}{{with .ChangedBy}} · {{.}}{{end}}</td>
+      {{if $.CanEdit}}<td class="actions">
+        <button type="button" class="btn" hx-get="{{$.URL}}?edit={{.ID}}" hx-target="closest .text-list" hx-swap="outerHTML">{{t "core.texts.edit"}}</button>
+        <button type="button" class="btn" hx-post="{{$.URL}}/{{.ID}}/remove" hx-target="closest .text-list" hx-swap="outerHTML"
+          hx-confirm="{{t "core.texts.remove_confirm"}}">{{t "core.texts.remove"}}</button></td>{{end}}
+    </tr>{{end}}</tbody>
+  </table>
+  {{else}}<p class="empty">{{t "core.texts.empty"}}</p>{{end}}
+  {{if and .CanEdit .Categories}}
+  <form class="text-form" hx-post="{{.URL}}" hx-target="closest .text-list" hx-swap="outerHTML">
+    {{with .Form.ID}}<input type="hidden" name="id" value="{{.}}">{{end}}
+    <label>{{t "core.texts.category"}}<select name="category" required {{if .Form.ID}}disabled{{end}}>{{range .Categories}}<option value="{{.Code}}" {{if eq .Code $.Form.Category}}selected{{end}}>{{.Name}}{{if .Mandatory}} *{{end}}</option>{{end}}</select></label>
+    <label>{{t "core.texts.position"}}<input type="number" name="position" min="1" value="{{if .Form.Position}}{{.Form.Position}}{{end}}" placeholder="{{t "core.texts.position_hint"}}"></label>
+    <label>{{t "core.texts.language"}}<select name="language" required>{{range .Languages}}<option value="{{.Code}}" {{if eq .Code $.Form.Language}}selected{{end}}>{{.Name}} ({{.Code}})</option>{{end}}</select></label>
+    <label class="wide">{{t "core.texts.content"}}<textarea name="content" rows="4" required>{{.Form.Content}}</textarea></label>
+    <div class="buttons">
+      <button type="submit" class="btn primary">{{if .Form.ID}}{{t "core.texts.save"}}{{else}}{{t "core.texts.add"}}{{end}}</button>
+      {{if .Form.ID}}<button type="button" class="btn" hx-get="{{.URL}}" hx-target="closest .text-list" hx-swap="outerHTML">{{t "core.texts.cancel"}}</button>{{end}}
+    </div>
+  </form>
+  {{else if .CanEdit}}<p class="muted">{{t "core.texts.no_categories"}}</p>{{end}}
+{{end}}
+</div>
+{{end}}
