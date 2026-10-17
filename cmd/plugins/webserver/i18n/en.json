@@ -4,6 +4,8 @@
   "core.action.expire": "End …",
   "core.action.item": "Show",
   "core.action.list": "Overview",
+  "core.action.reactivate": "Reactivate",
+  "core.action.reactivate.confirm": "Reactivate this record?",
   "core.action.update": "Edit",
   "core.app.actions": "Actions",
   "core.app.back": "Back",

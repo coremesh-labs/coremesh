@@ -4,6 +4,8 @@
   "core.action.expire": "Beenden …",
   "core.action.item": "Anzeigen",
   "core.action.list": "Übersicht",
+  "core.action.reactivate": "Wieder aktivieren",
+  "core.action.reactivate.confirm": "Datensatz wieder aktivieren?",
   "core.action.update": "Bearbeiten",
   "core.app.actions": "Aktionen",
   "core.app.back": "Zurück",

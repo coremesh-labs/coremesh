@@ -360,6 +360,9 @@ Tabellenzellen brechen um, und die Knöpfe eines Aktionsabschnitts (z. B. Workfl
 bleiben beim Scrollen unten im Bild. Seit 0.38.2 stehen Fehlermeldungen in kräftigem Rot
 in einem roten Kasten.
 
+Seit 0.39.0 haben inaktive Datensätze (ja/nein-Status ohne eigene Ende-Logik) die Aktion
+„Wieder aktivieren“; Text und Rückfrage kommen aus dem WebServer (`core.action.reactivate`).
+
 ### Metamodell
 
 ```go
