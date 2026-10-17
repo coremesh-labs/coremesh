@@ -102,10 +102,12 @@ type Entity struct {
 	StatusActive, StatusInactive any
 	// EndLabel/EndConfirm ersetzen Text und Rückfrage der Ende-Action (z. B. „Schließen“).
 	EndLabel, EndConfirm string
-	Fields               []Field
-	Order                string   // ORDER BY
-	Filters              []string // erlaubte Filter in list
-	Search               []string // Spalten für den Suchparameter q (LIKE)
+	// NoReactivate: keine Aktion „Wieder aktivieren“ (sonst bei ja/nein-Status ohne OnEnd).
+	NoReactivate bool
+	Fields       []Field
+	Order        string   // ORDER BY
+	Filters      []string // erlaubte Filter in list
+	Search       []string // Spalten für den Suchparameter q (LIKE)
 	// FilterExpr: eigene Bedingung für einen Filter statt "feld = ?" (z. B. Kontonummer
 	// mit oder ohne Kontenplan).
 	FilterExpr map[string]func(v any) (string, []any)

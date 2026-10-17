@@ -83,6 +83,47 @@ func (e *Entity) Deactivate(ctx context.Context, payload any) (sdk.Response, err
 	})
 }
 
+// reactivatable: „Wieder aktivieren“ gibt es bei einem ja/nein-Status ohne
+// eigene Ende-Logik (OnEnd); verworfene Belege u. Ä. bleiben verworfen.
+func (e *Entity) reactivatable() bool {
+	return e.StatusField != "" && !e.TimeSlice && e.StatusInactive == nil && e.OnEnd == nil && !e.NoReactivate
+}
+
+// Reactivate setzt das Status-Feld wieder auf aktiv (Gegenstück zu Deactivate).
+// Zugriff wie beim Ändern (CheckRecord mit "update").
+func (e *Entity) Reactivate(ctx context.Context, payload any) (sdk.Response, error) {
+	if !e.reactivatable() {
+		return sdk.Response{}, fmt.Errorf("%w: %s lässt sich nicht wieder aktivieren", sdk.ErrUnimplemented, e.Title)
+	}
+	key, err := e.ParseID(idOf(payload))
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	active, _ := e.statusValues()
+	err = e.DB().InTx(ctx, nil, func(ctx context.Context) error {
+		rec, err := e.Load(ctx, key)
+		if err != nil {
+			return err
+		}
+		key = e.KeyOf(rec)
+		if _, err := e.checkReadable(ctx, rec); err != nil {
+			return err
+		}
+		if e.CheckRecord != nil {
+			if err := e.CheckRecord(ctx, "update", rec); err != nil {
+				return err
+			}
+		}
+		w, args := e.keyWhere(key)
+		_, err = e.DB().Exec(ctx, "UPDATE "+e.Table+" SET "+e.StatusField+" = ? WHERE "+w, append([]any{active}, args...)...)
+		return err
+	})
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	return e.respondEvent(ctx, key, "reactivate")
+}
+
 func (e *Entity) endWith(ctx context.Context, key Record, action string, change func(ctx context.Context, rec Record) (string, any, error)) (sdk.Response, error) {
 	err := e.DB().InTx(ctx, nil, func(ctx context.Context) error {
 		rec, err := e.Load(ctx, key)
