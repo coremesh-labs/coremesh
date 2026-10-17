@@ -60,6 +60,19 @@ func (m *Module) targetOf(ctx context.Context, entityType, entityID string, writ
 	return t, nil
 }
 
+// decode: Payload direkt oder in "data" (Konsole, Formular-Aktionen).
+func decode(req sdk.Request, out any) error {
+	if err := sdk.Decode(req.Payload, out); err != nil {
+		return err
+	}
+	if p, ok := req.Payload.(map[string]any); ok {
+		if d, ok := p["data"]; ok {
+			return sdk.Decode(d, out)
+		}
+	}
+	return nil
+}
+
 func attrText(v any) string {
 	switch x := v.(type) {
 	case nil:
@@ -189,7 +202,7 @@ func missing(cats []textservice.Category, items []textservice.Text) []textservic
 
 func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	var in textservice.ListRequest
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := decode(req, &in); err != nil {
 		return sdk.Response{}, err
 	}
 	t, err := m.targetOf(ctx, in.EntityType, in.EntityID, false)
@@ -218,7 +231,7 @@ func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response,
 
 func (m *Module) checkAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	var in textservice.CheckRequest
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := decode(req, &in); err != nil {
 		return sdk.Response{}, err
 	}
 	t, err := m.targetOf(ctx, in.EntityType, in.EntityID, false)
@@ -257,7 +270,7 @@ func (m *Module) load(ctx context.Context, id string) (textservice.Text, error) 
 //   - je Datensatz, Kategorie, Position und Sprache ein Text.
 func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	var in textservice.Text
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := decode(req, &in); err != nil {
 		return sdk.Response{}, err
 	}
 	in.ID = strings.TrimSpace(in.ID)
@@ -357,7 +370,7 @@ func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response,
 
 func (m *Module) removeAction(ctx context.Context, req sdk.Request) (sdk.Response, error) {
 	var in textservice.RemoveRequest
-	if err := sdk.Decode(req.Payload, &in); err != nil {
+	if err := decode(req, &in); err != nil {
 		return sdk.Response{}, err
 	}
 	old, err := m.load(ctx, strings.TrimSpace(in.ID))

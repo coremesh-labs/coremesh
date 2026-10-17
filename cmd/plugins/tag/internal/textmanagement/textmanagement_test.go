@@ -275,3 +275,16 @@ func (h *testHost) Read(_ context.Context, req sdk.Request, _ sdk.RowWriter) (sd
 func (s pluginServices) Read(ctx context.Context, object, action string, payload any, w sdk.RowWriter) (sdk.ReadEnd, error) {
 	return s.p.Read(ctx, sdk.Request{Object: object, Action: action, Payload: payload}, w)
 }
+
+// Konsole: Eingaben in "data".
+func TestTextsDataPayload(t *testing.T) {
+	e := setup(t)
+	e.must("TextAssignment", "create", map[string]any{"entity_type": "Contract", "company_code": "*", "category": "NOTE"})
+	out := e.must(textservice.Object, textservice.ActionSave, map[string]any{"entity_type": "Contract", "entity_id": "1000|MV-1",
+		"category": "NOTE", "language": "de", "content": "über die Konsole"})
+	if out == nil {
+		if l, _ := e.svc.List(e.ctx, textservice.ListRequest{EntityType: "Contract", EntityID: "1000|MV-1"}); len(l.Items) != 1 {
+			t.Fatalf("Text über data: %+v", l)
+		}
+	}
+}
