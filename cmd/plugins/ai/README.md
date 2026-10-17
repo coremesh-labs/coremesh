@@ -49,11 +49,15 @@ denselben Eingang mit der aktuellen Fassung der Anfrage.
 
 | Action | Payload | Ergebnis |
 |---|---|---|
-| `run` | `request`, `input` (Base64) mit `content_type` oder `text`, `context` (Zeilen), `company_code`, `keep` | `log_id`, `status` (`DONE`/`ERROR`), `message`, `result` (OBJECT) bzw. `text` |
+| `run` | `request`, `input` (Base64) mit `content_type` oder `text`, `context` (Zeilen), `company_code`, `keep`, `defaults` | `log_id`, `status` (`DONE`/`ERROR`), `message`, `result` (OBJECT) bzw. `text` |
 | `form` | `request`, `result`, `defaults` (`"name.feld": Wert`) | `fields` (Felder einer Eingabemaske, `f__…`), `values` |
 | `collect` | `request`, `values` (Werte der Maske) | `result` (Struktur, leere Zeilen entfallen) |
 | `create` | `request`, `result`, `defaults` | `object`, `id`, `record` – eingebettete Objekte zuerst, dann `saveAggregate` der Wurzel mit den Relationen |
 | `schema` | `request` | `schema`, `empty`, `values` |
+
+Seit 0.4.0 legen `defaults` auch Auswahllisten fest, die von einem anderen Feld abhängen
+(`Lookup.Filters`, z. B. `contract_type: contract_id.contract_type`): Mit der Vorgabe
+`contract.contract_type` bekommt die KI nur die Konditionsgegenstände dieser Vertragsart.
 
 Recht: `AiRequest.run` (Rollenpflege). Ein Fehler des Dienstes ist kein Fehler des Aufrufs:
 `status = ERROR` mit Meldung – der Aufrufer kann dann ohne Vorbelegung weitermachen.

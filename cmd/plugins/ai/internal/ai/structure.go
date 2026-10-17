@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,7 +48,10 @@ type reqLine struct {
 }
 
 // structure: Baum der Objekt-Anfrage mit den Feldern aus dem Metamodell.
-func (m *Module) structure(ctx context.Context, request, cc string) (*sNode, error) {
+// defaults („name.feld“ → Wert, z. B. contract.contract_type) lösen Verweise auf,
+// die von einem anderen Feld abhängen (Lookup.Filters, z. B. nur die
+// Konditionsgegenstände der vorgegebenen Vertragsart).
+func (m *Module) structure(ctx context.Context, request, cc string, defaults map[string]string) (*sNode, error) {
 	res, err := m.db.Query(ctx, `SELECT line_no, name, object, parent, relation, via_field, fields, exclude, hint, multiple
 		FROM ai__request_object WHERE request = ? ORDER BY line_no`, request)
 	if err != nil {
@@ -120,7 +124,18 @@ func (m *Module) structure(ctx context.Context, request, cc string) (*sNode, err
 				p.Embedded = append(p.Embedded, n)
 			}
 		}
-		n.Fields = m.fieldsOf(ctx, defs[l.Name], l, skip, cc, maxValues)
+		resolve := func(src string) (string, bool) {
+			field, remote, nested := strings.Cut(src, ".")
+			v := ""
+			switch {
+			case !nested:
+				v = defaults[l.Name+"."+field]
+			case l.Parent != "" && n.FK != "" && field == n.FK: // über den Fremdschlüssel zur Wurzel
+				v = defaults[l.Parent+"."+remote]
+			}
+			return v, v != ""
+		}
+		n.Fields = m.fieldsOf(ctx, defs[l.Name], l, skip, cc, maxValues, resolve)
 	}
 	// Verweisfelder eingebetteter Objekte entfallen beim übergeordneten
 	for _, n := range byName {
@@ -178,7 +193,8 @@ var standardSkip = map[string]bool{"id": true, "is_active": true, "valid_to": tr
 
 // fieldsOf: Felder eines Objects – die genannten oder alle bearbeitbaren;
 // Auswahlwerte aus dem Metamodell, kleine Kataloge über ihr Lookup.
-func (m *Module) fieldsOf(ctx context.Context, d metamodel.ObjectDefinition, l reqLine, skip map[string]bool, cc string, maxValues int) []sField {
+func (m *Module) fieldsOf(ctx context.Context, d metamodel.ObjectDefinition, l reqLine, skip map[string]bool, cc string, maxValues int,
+	resolve func(src string) (string, bool)) []sField {
 	want := splitList(l.Fields)
 	excl := map[string]bool{}
 	for _, k := range splitList(l.Excl) {
@@ -186,9 +202,10 @@ func (m *Module) fieldsOf(ctx context.Context, d metamodel.ObjectDefinition, l r
 	}
 	var out []sField
 	add := func(f metamodel.FieldDefinition) {
-		sf := sField{Key: f.Key, Label: f.Label, Type: f.Type, Required: f.Required, Options: f.Options, Lookup: f.Lookup}
-		if f.Lookup != nil && len(f.Options) == 0 && f.Key != l.Via {
-			opts, ok := m.lookupValues(ctx, f.Lookup, cc, maxValues)
+		lk := bindLookup(f.Lookup, resolve)
+		sf := sField{Key: f.Key, Label: f.Label, Type: f.Type, Required: f.Required, Options: f.Options, Lookup: lk}
+		if lk != nil && len(f.Options) == 0 && f.Key != l.Via {
+			opts, ok := m.lookupValues(ctx, lk, cc, maxValues)
 			if ok {
 				sf.Options = opts
 			} else {
@@ -211,6 +228,32 @@ func (m *Module) fieldsOf(ctx context.Context, d metamodel.ObjectDefinition, l r
 			continue
 		}
 		add(f)
+	}
+	return out
+}
+
+// bindLookup: Filter, die von einem anderen Feld abhängen, mit bekannten Werten
+// festlegen ("=Wert"); unbekannte bleiben, wie sie sind.
+func bindLookup(lk *metamodel.Lookup, resolve func(src string) (string, bool)) *metamodel.Lookup {
+	if lk == nil || resolve == nil {
+		return lk
+	}
+	var out *metamodel.Lookup
+	for target, src := range lk.Filters {
+		if strings.HasPrefix(src, "=") || src == "company_code" || src == "company_code_id" {
+			continue
+		}
+		if v, ok := resolve(src); ok {
+			if out == nil {
+				c := *lk
+				c.Filters = maps.Clone(lk.Filters)
+				out = &c
+			}
+			out.Filters[target] = "=" + v
+		}
+	}
+	if out == nil {
+		return lk
 	}
 	return out
 }
