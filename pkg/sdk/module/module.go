@@ -66,6 +66,15 @@ type SchemaProvider interface {
 	Schema() Schema
 }
 
+// TablePrefixer ist optional: ein Modul im Plugin mit mehreren Schema-Modulen
+// legt sein Tabellen-Präfix selbst fest (statt <plugin>__<modul>_), z. B. damit
+// ein bestehendes Modul seine Tabellen behält, wenn ein zweites hinzukommt. Das
+// Präfix beginnt mit dem Plugin-Präfix (es darf es auch sein); eine Tabelle gehört
+// dem Modul mit dem längsten passenden Präfix, gleiche Präfixe sind verboten.
+type TablePrefixer interface {
+	TablePrefix() string
+}
+
 // Migrator ist optional: Migrate stellt Daten älterer Versionen um (z. B.
 // Verweise auf umgeschlüsselte Datensätze anderer Module). Das Plugin ruft es
 // einmal je Prozess vor der ersten Anfrage an das Modul auf – innerhalb dieser

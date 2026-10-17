@@ -76,6 +76,10 @@ func (m *Module) Shutdown(context.Context) error { return nil }
 
 func (m *Module) Schema() module.Schema { return module.Schema{HCL: schemaHCL} }
 
+// TablePrefix: Tabellen tag__… (seit 0.5.0 teilt sich das Plugin mit textmanagement,
+// dessen Tabellen tag__text… heißen).
+func (m *Module) TablePrefix() string { return "tag__" }
+
 //go:embed i18n/*.json
 var i18nFiles embed.FS
 

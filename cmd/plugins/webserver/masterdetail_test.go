@@ -16,6 +16,7 @@ import (
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/docservice"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/textservice"
 )
 
 // mdHost ergänzt fakeHost um ein Master-Detail-Szenario im Modul crm:
@@ -103,6 +104,24 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			Items: []docservice.Document{{ID: "d1", DocType: "AGB", DocTypeName: "AGB", Title: "AGB 2026", DocDate: "2026-01-02",
 				Location: "https://dms.example/1", ValidFrom: "2026-01-01"},
 				{ID: "d2", DocType: "AGB", DocTypeName: "AGB", Title: "Bescheid", Location: "3.0.1:VV:Grundsteuer.pdf", Link: "/file/DmsDocument/d2"}}}}, nil
+	case "Texts.list", "Texts.save", "Texts.remove":
+		h.fakeHost.record(ctx, req)
+		if req.Action == "save" {
+			var in textservice.Text
+			_ = sdk.Decode(req.Payload, &in)
+			if in.Content == "" {
+				return sdk.Response{}, fmt.Errorf("%w: Text ist leer", sdk.ErrInvalidArgument)
+			}
+			return sdk.Response{Payload: in}, nil
+		}
+		if req.Action == "remove" {
+			return sdk.Response{Payload: map[string]any{"removed": true}}, nil
+		}
+		return sdk.Response{Payload: textservice.ListResponse{CanEdit: true,
+			Categories: []textservice.Category{{Code: "NOTE", Name: "Anmerkung", Cardinality: "MULTIPLE"}, {Code: "DESC", Name: "Beschreibung", Cardinality: "SINGLE", Mandatory: true}},
+			Languages:  []textservice.Language{{Code: "de", Name: "Deutsch"}, {Code: "en", Name: "Englisch"}},
+			Missing:    []textservice.Category{{Code: "DESC", Name: "Beschreibung", Mandatory: true}},
+			Items:      []textservice.Text{{ID: "t1", Category: "NOTE", CategoryName: "Anmerkung", Position: 1, Language: "en", Content: "Key with the caretaker"}}}}, nil
 	case "Customer.step", "Customer.back":
 		h.fakeHost.mu.Lock()
 		err := h.fakeHost.fail[req.Object+"."+req.Action]

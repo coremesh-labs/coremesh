@@ -1,4 +1,9 @@
-# TagManagement (`tag`)
+# TagManagement und Texte (`tag`)
+
+Das Plugin beherbergt zwei Module, die fachlich nichts gemeinsam haben: **TagManagement**
+(`internal/tagmanagement`, unten) und seit 0.5.0 **Texte** (`internal/textmanagement`, Abschnitt
+[Texte](#texte-textmanagement)). Tabellen: `tag__…` bzw. `tag__text…` (eigene Präfixe über
+`module.TablePrefixer`).
 
 Ein generisches Plugin, mit dem **beliebige Objekte anderer Plugins um Tags (Merkmale) erweitert
 werden**, ohne dass diese Plugins eigene Spalten oder Tabellen anlegen. Beispiele sind eine
@@ -418,3 +423,24 @@ decken ab:
 - Bedingungen auf Feldwerte (Mietvertrag vs. Darlehensvertrag),
 - Verweis-Tags inkl. Label und Suche,
 - `find` und `history`.
+
+
+## Texte (`textmanagement`)
+
+Anmerkungen, Beschreibungen und andere Texte an jedem Datensatz jedes Objects – Vertrag,
+Mietobjekt, Gebäude … Zugang nur über den **Service `Texts`** ([`pkg/sdk/textservice`](../../../pkg/sdk/textservice/textservice.go)):
+`list`, `save`, `remove`, `check`. In der Oberfläche zeigt ein Abschnitt `SectionDefinition{Texts: true}`
+die Texte des Datensatzes (`/texts/{object}/{id}`).
+
+| Begriff | Bedeutung |
+|---|---|
+| **Textkategorie** (`TextCategory`) | z. B. Anmerkung, Beschreibung; **Häufigkeit** `SINGLE` (einmal je Datensatz, Position 1) oder `MULTIPLE` (Positionen 1, 2, …) |
+| **Sprache** (`TextLanguage`) | Sprachschlüssel, z. B. `de`, `en`, `zh-CN`; je Position gibt es den Text in mehreren Sprachen |
+| **Zuordnung** (`TextAssignment`) | Kategorie an einem Object (`entity_type`) im Buchungskreis oder für alle (`*`), **Pflicht** oder optional, optional nur für Datensätze mit bestimmten Feldwerten (`condition_field` / `condition_values`, z. B. `contract_type` = `MV`) |
+| **Text** | Datensatz (`entity_type` + fachlicher Schlüssel), Kategorie, Position, Sprache, Inhalt; eindeutig je Datensatz, Kategorie, Position und Sprache |
+
+- Pflicht: mindestens ein Text der Kategorie (in irgendeiner Sprache). `list` meldet fehlende
+  Pflichtkategorien (`missing`), `check` nur diese – z. B. für eine Prüfung vor dem Aktivieren.
+- Rechte folgen dem Ziel-Datensatz: lesen = `<Object>.get`, schreiben = `<Object>.update` im
+  Buchungskreis des Datensatzes.
+- Umschlüsselung (`<Object>.rekey`): Texte folgen dem neuen Schlüssel.
