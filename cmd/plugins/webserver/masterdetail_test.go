@@ -121,7 +121,7 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			Categories: []textservice.Category{{Code: "NOTE", Name: "Anmerkung", Cardinality: "MULTIPLE"}, {Code: "DESC", Name: "Beschreibung", Cardinality: "SINGLE", Mandatory: true}},
 			Languages:  []textservice.Language{{Code: "de", Name: "Deutsch"}, {Code: "en", Name: "Englisch"}},
 			Missing:    []textservice.Category{{Code: "DESC", Name: "Beschreibung", Mandatory: true}},
-			Items:      []textservice.Text{{ID: "t1", Category: "NOTE", CategoryName: "Anmerkung", Position: 1, Language: "en", Content: "Key with the caretaker"}}}}, nil
+			Items:      []textservice.Text{{ID: "t1", Category: "NOTE", CategoryName: "Anmerkung", Position: 1, Language: "en", Content: "Key with the caretaker", ValidTo: "2026-12-31"}}}}, nil
 	case "Customer.step", "Customer.back":
 		h.fakeHost.mu.Lock()
 		err := h.fakeHost.fail[req.Object+"."+req.Action]

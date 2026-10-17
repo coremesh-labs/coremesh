@@ -2,7 +2,8 @@
 // Modul textmanagement): Anmerkungen, Beschreibungen und andere Texte an jedem
 // Datensatz jedes Objects – Vertrag, Mietobjekt, Gebäude …
 //
-// Ein Text hat eine Kategorie (Textart), eine Position und einen Sprachschlüssel.
+// Ein Text hat eine Kategorie (Textart), eine Position, einen Sprachschlüssel und
+// einen Gültigkeitszeitraum (von – bis, leer = unbegrenzt).
 // Die Kategorie legt fest, ob ein Datensatz sie einmal (Position 1) oder mehrfach
 // (Positionen 1, 2, …) haben kann; je Position gibt es den Text in mehreren
 // Sprachen. Welche Kategorien an welchem Object (und Datensatz, über eine
@@ -53,12 +54,14 @@ type Text struct {
 	Position     int    `json:"position,omitempty"`      // 0 beim Anlegen = nächste freie (einmalig: 1)
 	Language     string `json:"language"`                // Sprachschlüssel, z. B. de, en
 	Content      string `json:"content"`
+	ValidFrom    string `json:"valid_from,omitempty"` // gültig ab (JJJJ-MM-TT, leer = unbegrenzt)
+	ValidTo      string `json:"valid_to,omitempty"`   // gültig bis (leer = unbegrenzt)
 	ChangedAt    string `json:"changed_at,omitempty"`
 	ChangedBy    string `json:"changed_by,omitempty"`
 }
 
 // Category ist eine am Datensatz erlaubte Kategorie; Pflicht = mindestens ein
-// Text der Kategorie (in irgendeiner Sprache) muss am Datensatz stehen.
+// am Stichtag gültiger Text der Kategorie (in irgendeiner Sprache).
 type Category struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
@@ -72,11 +75,14 @@ type Language struct {
 	Name string `json:"name"`
 }
 
-// ListRequest: Texte eines Datensatzes; Language (optional) nur in dieser Sprache.
+// ListRequest: Texte eines Datensatzes; Language (optional) nur in dieser Sprache,
+// EffectiveDate (optional) nur die an diesem Tag gültigen. Fehlende Pflichttexte
+// gelten zum EffectiveDate, ohne Angabe zum Stichtag des Benutzers.
 type ListRequest struct {
-	EntityType string `json:"entity_type"`
-	EntityID   string `json:"entity_id"`
-	Language   string `json:"language,omitempty"`
+	EntityType    string `json:"entity_type"`
+	EntityID      string `json:"entity_id"`
+	Language      string `json:"language,omitempty"`
+	EffectiveDate string `json:"effective_date,omitempty"`
 }
 
 // ListResponse: Texte (Kategorie, Position, Sprache), ob der Benutzer ändern darf,
@@ -91,8 +97,9 @@ type ListResponse struct {
 
 // CheckRequest: fehlende Pflichttexte eines Datensatzes (z. B. vor dem Aktivieren).
 type CheckRequest struct {
-	EntityType string `json:"entity_type"`
-	EntityID   string `json:"entity_id"`
+	EntityType    string `json:"entity_type"`
+	EntityID      string `json:"entity_id"`
+	EffectiveDate string `json:"effective_date,omitempty"` // leer = Stichtag des Benutzers
 }
 
 // CheckResponse: Pflichtkategorien ohne Text (leer = vollständig).

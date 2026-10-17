@@ -3,6 +3,6 @@
 # pkg/sdk/textservice (Actions Texts.*, Modul textmanagement), nie über Tabellen.
 plugins:
   tag:
-    version: 0.5.0
+    version: 0.5.1
     databases:
       main: { access: write }        # Tabellen tag__* via DBSchema.Init

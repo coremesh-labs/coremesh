@@ -6,10 +6,11 @@
   {{if .Missing}}<p class="form-error" role="status">{{t "core.texts.missing"}}: {{range $i, $c := .Missing}}{{if $i}}, {{end}}{{$c.Name}}{{end}}</p>{{end}}
   {{if .Items}}
   <table class="data">
-    <thead><tr><th>{{t "core.texts.category"}}</th><th>{{t "core.texts.position"}}</th><th>{{t "core.texts.language"}}</th>
+    <thead><tr><th>{{t "core.texts.category"}}</th><th>{{t "core.texts.position"}}</th><th>{{t "core.texts.language"}}</th><th>{{t "core.texts.valid"}}</th>
       <th>{{t "core.texts.content"}}</th><th>{{t "core.texts.changed"}}</th>{{if $.CanEdit}}<th></th>{{end}}</tr></thead>
     <tbody>{{range .Items}}<tr>
       <td>{{.CategoryName}}</td><td>{{.Position}}</td><td>{{$.LanguageName .Language}}</td>
+      <td>{{if or .ValidFrom .ValidTo}}{{or .ValidFrom "…"}} – {{or .ValidTo "…"}}{{else}}{{t "core.texts.unlimited"}}{{end}}</td>
       <td class="text-content">{{.Content}}</td><td>{{.ChangedAt}}{{with .ChangedBy}} · {{.}}{{end}}</td>
       {{if $.CanEdit}}<td class="actions">
         <button type="button" class="btn" hx-get="{{$.URL}}?edit={{.ID}}" hx-target="closest .text-list" hx-swap="outerHTML">{{t "core.texts.edit"}}</button>
@@ -24,6 +25,8 @@
     <label>{{t "core.texts.category"}}<select name="category" required {{if .Form.ID}}disabled{{end}}>{{range .Categories}}<option value="{{.Code}}" {{if eq .Code $.Form.Category}}selected{{end}}>{{.Name}}{{if .Mandatory}} *{{end}}</option>{{end}}</select></label>
     <label>{{t "core.texts.position"}}<input type="number" name="position" min="1" value="{{if .Form.Position}}{{.Form.Position}}{{end}}" placeholder="{{t "core.texts.position_hint"}}"></label>
     <label>{{t "core.texts.language"}}<select name="language" required>{{range .Languages}}<option value="{{.Code}}" {{if eq .Code $.Form.Language}}selected{{end}}>{{.Name}} ({{.Code}})</option>{{end}}</select></label>
+    <label>{{t "core.texts.valid_from"}}<input type="date" name="valid_from" value="{{.Form.ValidFrom}}"></label>
+    <label>{{t "core.texts.valid_to"}}<input type="date" name="valid_to" value="{{.Form.ValidTo}}"></label>
     <label class="wide">{{t "core.texts.content"}}<textarea name="content" rows="4" required>{{.Form.Content}}</textarea></label>
     <div class="buttons">
       <button type="submit" class="btn primary">{{if .Form.ID}}{{t "core.texts.save"}}{{else}}{{t "core.texts.add"}}{{end}}</button>
