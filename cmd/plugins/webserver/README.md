@@ -357,7 +357,8 @@ kein einziges Object.
 
 Seit 0.38.1 bleibt die Detailansicht so breit wie der sichtbare Bereich: Lange Werte und
 Tabellenzellen brechen um, und die Knöpfe eines Aktionsabschnitts (z. B. Workflow-Schritt)
-bleiben beim Scrollen unten im Bild.
+bleiben beim Scrollen unten im Bild. Seit 0.38.2 stehen Fehlermeldungen in kräftigem Rot
+in einem roten Kasten.
 
 ### Metamodell
 
