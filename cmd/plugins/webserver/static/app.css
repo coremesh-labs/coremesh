@@ -261,3 +261,14 @@ tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--su
 .text-form .buttons { display: flex; gap: .5rem; }
 .text-list .text-content { white-space: pre-wrap; }
 .text-list td.actions { white-space: nowrap; }
+/* Detailansicht (seit 0.38.1): nichts macht die Seite breiter als den sichtbaren Bereich – lange
+   Werte und Tabellenzellen brechen um, Eingabefelder schrumpfen mit; die Knöpfe des
+   Aktionsabschnitts (z. B. Workflow-Schritt) bleiben beim Scrollen unten im Bild. */
+.detail { max-width: 100cqw; }
+.detail dl.fields { grid-template-columns: max-content minmax(0, 1fr); }
+.detail dl.fields dd { min-width: 0; overflow-wrap: anywhere; }
+.detail table.data.sub td { white-space: normal; overflow-wrap: anywhere; }
+.form-grid > *, .field > * { min-width: 0; }
+.field input, .field select, .field textarea { max-width: 100%; min-width: 0; }
+.action-section form footer { position: sticky; bottom: 0; z-index: 3; flex-wrap: wrap; padding: .5rem 0;
+       background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--bg)); border-top: 1px solid var(--border); }

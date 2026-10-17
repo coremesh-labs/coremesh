@@ -355,6 +355,10 @@ eingebetteten Tabellen zugeordneter Unter-Objects. Lookup-Felder wählen ihren W
 Dialog aus einer Stammdatentabelle. Alles kommt aus dem **Metamodell**. Der WebServer kennt
 kein einziges Object.
 
+Seit 0.38.1 bleibt die Detailansicht so breit wie der sichtbare Bereich: Lange Werte und
+Tabellenzellen brechen um, und die Knöpfe eines Aktionsabschnitts (z. B. Workflow-Schritt)
+bleiben beim Scrollen unten im Bild.
+
 ### Metamodell
 
 ```go
