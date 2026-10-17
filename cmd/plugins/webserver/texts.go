@@ -13,7 +13,8 @@ import (
 
 // Abschnitt „Texte“ der Detailansicht (SectionDefinition.Texts): die Texte des
 // Datensatzes über das Object Texts (pkg/sdk/textservice – Plugin tag, Modul
-// textmanagement): Kategorie, Position, Sprache, Inhalt; fehlende Pflichttexte.
+// textmanagement): Kategorie, Position, Sprache, Gültigkeit, Inhalt; fehlende Pflichttexte
+// (am Stichtag).
 //
 //	GET  /texts/{entity}/{id}[?edit=<text>]   Liste und Formular (Fragment)
 //	POST /texts/{entity}/{id}                 Text anlegen bzw. ändern (id im Formular)
@@ -96,7 +97,7 @@ func (s *server) textSectionSave(w http.ResponseWriter, r *http.Request) {
 	f := r.PostForm
 	pos, _ := strconv.Atoi(strings.TrimSpace(f.Get("position")))
 	t := textservice.Text{ID: f.Get("id"), EntityType: r.PathValue("entity"), EntityID: r.PathValue("id"), Category: f.Get("category"),
-		Position: pos, Language: f.Get("language"), Content: f.Get("content")}
+		Position: pos, Language: f.Get("language"), Content: f.Get("content"), ValidFrom: f.Get("valid_from"), ValidTo: f.Get("valid_to")}
 	if _, err := s.call(r, textservice.Object, textservice.ActionSave, t); err != nil {
 		parts := strings.SplitN(err.Error(), ": ", 2)
 		s.renderTexts(w, r, t, parts[len(parts)-1])

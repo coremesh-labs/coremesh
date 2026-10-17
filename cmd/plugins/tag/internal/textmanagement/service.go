@@ -157,15 +157,43 @@ func (m *Module) languages(ctx context.Context) ([]textservice.Language, error) 
 	return out, nil
 }
 
-const textCols = `x.id, x.entity_type, x.entity_id, x.category, COALESCE(c.name, x.category), x.position, x.language, x.content, x.changed_at, x.changed_by`
+const textCols = `x.id, x.entity_type, x.entity_id, x.category, COALESCE(c.name, x.category), x.position, x.language, x.content, x.changed_at, x.changed_by,
+	x.valid_from, x.valid_to`
+
+func dateText(v any) string {
+	if crud.Str(v) == "" {
+		return ""
+	}
+	d, _ := crud.ParseDate(v)
+	return d
+}
 
 func toText(r []any) textservice.Text {
 	pos, _ := strconv.Atoi(crud.Str(r[5]))
 	return textservice.Text{ID: crud.Str(r[0]), EntityType: crud.Str(r[1]), EntityID: crud.Str(r[2]), Category: crud.Str(r[3]),
-		CategoryName: crud.Str(r[4]), Position: pos, Language: crud.Str(r[6]), Content: crud.Str(r[7]), ChangedAt: crud.Str(r[8]), ChangedBy: crud.Str(r[9])}
+		CategoryName: crud.Str(r[4]), Position: pos, Language: crud.Str(r[6]), Content: crud.Str(r[7]), ChangedAt: crud.Str(r[8]), ChangedBy: crud.Str(r[9]),
+		ValidFrom: dateText(r[10]), ValidTo: dateText(r[11])}
 }
 
-func (m *Module) texts(ctx context.Context, entityType, entityID, language string) ([]textservice.Text, error) {
+// validAt: Text gilt am Tag d (leere Grenzen = unbegrenzt).
+func validAt(t textservice.Text, d string) bool {
+	return (t.ValidFrom == "" || t.ValidFrom <= d) && (t.ValidTo == "" || t.ValidTo >= d)
+}
+
+// overlaps: Zeiträume [a1, a2] und [b1, b2] überschneiden sich (leer = unbegrenzt).
+func overlaps(a1, a2, b1, b2 string) bool {
+	return (a1 == "" || b2 == "" || a1 <= b2) && (b1 == "" || a2 == "" || b1 <= a2)
+}
+
+// effective: Stichtag (leer = Stichtag des Benutzers).
+func effective(ctx context.Context, date string) (string, error) {
+	if strings.TrimSpace(date) == "" {
+		return crud.KeyDate(ctx), nil
+	}
+	return crud.ParseDate(date)
+}
+
+func (m *Module) texts(ctx context.Context, entityType, entityID, language, at string) ([]textservice.Text, error) {
 	q := `SELECT ` + textCols + ` FROM tag__text x LEFT JOIN tag__text_category c ON c.code = x.category
 		LEFT JOIN tag__text_language l ON l.code = x.language WHERE x.entity_type = ? AND x.entity_id = ?`
 	args := []any{entityType, entityID}
@@ -173,7 +201,11 @@ func (m *Module) texts(ctx context.Context, entityType, entityID, language strin
 		q += ` AND x.language = ?`
 		args = append(args, language)
 	}
-	res, err := m.db.Query(ctx, q+` ORDER BY c.sort_order, x.category, x.position, l.sort_order, x.language`, args...)
+	if at != "" {
+		q += ` AND (x.valid_from IS NULL OR x.valid_from <= ?) AND (x.valid_to IS NULL OR x.valid_to >= ?)`
+		args = append(args, at, at)
+	}
+	res, err := m.db.Query(ctx, q+` ORDER BY c.sort_order, x.category, x.position, l.sort_order, x.language, x.valid_from`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,10 +216,11 @@ func (m *Module) texts(ctx context.Context, entityType, entityID, language strin
 	return out, nil
 }
 
-func missing(cats []textservice.Category, items []textservice.Text) []textservice.Category {
+// missing: Pflichtkategorien ohne einen am Tag at gültigen Text.
+func missing(cats []textservice.Category, items []textservice.Text, at string) []textservice.Category {
 	has := map[string]bool{}
 	for _, t := range items {
-		if strings.TrimSpace(t.Content) != "" {
+		if strings.TrimSpace(t.Content) != "" && validAt(t, at) {
 			has[t.Category] = true
 		}
 	}
@@ -210,7 +243,14 @@ func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response,
 		return sdk.Response{}, err
 	}
 	out := textservice.ListResponse{}
-	if out.Items, err = m.texts(ctx, in.EntityType, in.EntityID, strings.TrimSpace(in.Language)); err != nil {
+	filter := ""
+	if strings.TrimSpace(in.EffectiveDate) != "" {
+		if filter, err = crud.ParseDate(in.EffectiveDate); err != nil {
+			return sdk.Response{}, err
+		}
+	}
+	at, _ := effective(ctx, filter)
+	if out.Items, err = m.texts(ctx, in.EntityType, in.EntityID, strings.TrimSpace(in.Language), filter); err != nil {
 		return sdk.Response{}, err
 	}
 	if out.Categories, err = m.allowed(ctx, in.EntityType, t); err != nil {
@@ -221,9 +261,9 @@ func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response,
 	}
 	all := out.Items
 	if in.Language != "" {
-		all, _ = m.texts(ctx, in.EntityType, in.EntityID, "")
+		all, _ = m.texts(ctx, in.EntityType, in.EntityID, "", filter)
 	}
-	out.Missing = missing(out.Categories, all)
+	out.Missing = missing(out.Categories, all, at)
 	_, werr := m.targetOf(ctx, in.EntityType, in.EntityID, true)
 	out.CanEdit = werr == nil
 	return sdk.Response{Payload: out}, nil
@@ -242,11 +282,28 @@ func (m *Module) checkAction(ctx context.Context, req sdk.Request) (sdk.Response
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	items, err := m.texts(ctx, in.EntityType, in.EntityID, "")
+	at, err := effective(ctx, in.EffectiveDate)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	return sdk.Response{Payload: textservice.CheckResponse{Missing: missing(cats, items)}}, nil
+	items, err := m.texts(ctx, in.EntityType, in.EntityID, "", "")
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	return sdk.Response{Payload: textservice.CheckResponse{Missing: missing(cats, items, at)}}, nil
+}
+
+// period: Zeitraum lesbar („unbegrenzt“, „ab 01.01.2027“, …).
+func period(from, to string) string {
+	switch {
+	case from == "" && to == "":
+		return "unbegrenzt"
+	case to == "":
+		return "ab " + from
+	case from == "":
+		return "bis " + to
+	}
+	return from + " – " + to
 }
 
 func now() string { return time.Now().UTC().Format(time.RFC3339) }
@@ -323,6 +380,16 @@ func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response,
 	if !known {
 		return sdk.Response{}, crud.Invalid("Sprachschlüssel %q gibt es nicht (Texte → Sprachen)", in.Language)
 	}
+	for _, p := range []*string{&in.ValidFrom, &in.ValidTo} {
+		if *p = strings.TrimSpace(*p); *p != "" {
+			if *p, err = crud.ParseDate(*p); err != nil {
+				return sdk.Response{}, err
+			}
+		}
+	}
+	if in.ValidFrom != "" && in.ValidTo != "" && in.ValidTo < in.ValidFrom {
+		return sdk.Response{}, crud.Invalid("Gültig bis liegt vor gültig ab")
+	}
 	in.Content = strings.TrimRight(in.Content, " \t\r\n")
 	if strings.TrimSpace(in.Content) == "" {
 		return sdk.Response{}, crud.Invalid("Text ist leer – zum Löschen „Entfernen“")
@@ -343,23 +410,26 @@ func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response,
 		n, _ := strconv.Atoi(crud.Str(res.Rows[0][0]))
 		in.Position = n
 	}
-	res, err := m.db.Query(ctx, `SELECT id FROM tag__text WHERE entity_type = ? AND entity_id = ? AND category = ? AND position = ? AND language = ? AND id <> ?`,
+	res, err := m.db.Query(ctx, `SELECT valid_from, valid_to FROM tag__text WHERE entity_type = ? AND entity_id = ? AND category = ? AND position = ? AND language = ? AND id <> ?`,
 		in.EntityType, in.EntityID, in.Category, in.Position, in.Language, in.ID)
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	if len(res.Rows) > 0 {
-		return sdk.Response{}, crud.Invalid("%s Position %d in Sprache %s gibt es schon – den vorhandenen Text ändern", cat.Name, in.Position, in.Language)
+	for _, r := range res.Rows {
+		if from, to := dateText(r[0]), dateText(r[1]); overlaps(in.ValidFrom, in.ValidTo, from, to) {
+			return sdk.Response{}, crud.Invalid("%s Position %d in Sprache %s gibt es schon für %s – den vorhandenen Text ändern oder den Zeitraum begrenzen",
+				cat.Name, in.Position, in.Language, period(from, to))
+		}
 	}
 	user := nullable(sdk.CallFromContext(ctx).UserID)
 	if in.ID == "" {
 		in.ID = crud.NewID()
 		_, err = m.db.Exec(ctx, `INSERT INTO tag__text (id, entity_type, entity_id, company_code, category, position, language, content,
-			created_at, created_by, changed_at, changed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, in.EntityType, in.EntityID,
-			nullable(t.cc), in.Category, in.Position, in.Language, in.Content, now(), user, now(), user)
+			valid_from, valid_to, created_at, created_by, changed_at, changed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, in.EntityType, in.EntityID,
+			nullable(t.cc), in.Category, in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), now(), user, now(), user)
 	} else {
-		_, err = m.db.Exec(ctx, `UPDATE tag__text SET position = ?, language = ?, content = ?, changed_at = ?, changed_by = ? WHERE id = ?`,
-			in.Position, in.Language, in.Content, now(), user, in.ID)
+		_, err = m.db.Exec(ctx, `UPDATE tag__text SET position = ?, language = ?, content = ?, valid_from = ?, valid_to = ?, changed_at = ?, changed_by = ? WHERE id = ?`,
+			in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), now(), user, in.ID)
 	}
 	if err != nil {
 		return sdk.Response{}, err

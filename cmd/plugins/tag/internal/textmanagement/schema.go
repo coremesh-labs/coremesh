@@ -5,7 +5,7 @@ package textmanagement
 //
 //	text_category ──< text_assignment   (Kategorie je Object und Buchungskreis, Pflicht/optional, Bedingung)
 //	      │
-//	      └──< text >── text_language   (Text je Datensatz, Kategorie, Position und Sprache)
+//	      └──< text >── text_language   (Text je Datensatz, Kategorie, Position, Sprache und Zeitraum)
 const schemaHCL = `
 # Textkategorie: einmal (SINGLE, Position 1) oder mehrfach (MULTIPLE) je Datensatz
 table "tag__text_category" {
@@ -91,6 +91,15 @@ table "tag__text" {
   column "position"     { type = bigint }
   column "language"     { type = text }
   column "content"      { type = text }
+  # gültig von – bis (leer = unbegrenzt); je Kategorie, Position und Sprache ohne Überschneidung
+  column "valid_from" {
+    type = date
+    null = true
+  }
+  column "valid_to" {
+    type = date
+    null = true
+  }
   column "created_at"   { type = text }
   column "created_by" {
     type = text
@@ -102,9 +111,8 @@ table "tag__text" {
     null = true
   }
   primary_key { columns = [column.id] }
-  index "tag__text_target" {
-    unique  = true
-    columns = [column.entity_type, column.entity_id, column.category, column.position, column.language]
+  index "tag__text_slot" {
+    columns = [column.entity_type, column.entity_id, column.category, column.position, column.language, column.valid_from]
   }
   foreign_key "tag__text_category_fk" {
     columns     = [column.category]

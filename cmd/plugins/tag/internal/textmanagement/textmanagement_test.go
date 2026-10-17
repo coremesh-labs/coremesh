@@ -288,3 +288,45 @@ func TestTextsDataPayload(t *testing.T) {
 		}
 	}
 }
+
+func TestTextValidity(t *testing.T) {
+	e := setup(t)
+	ctx := e.ctx
+	e.must("TextAssignment", "create", map[string]any{"entity_type": "Contract", "company_code": "*", "category": "DESCRIPTION", "mandatory": true})
+	d := func(content, from, to string) textservice.Text {
+		return textservice.Text{EntityType: "Contract", EntityID: "1000|MV-1", Language: "de", Category: "DESCRIPTION", Content: content, ValidFrom: from, ValidTo: to}
+	}
+	old, err := e.svc.Save(ctx, d("alt", "", "2026-12-31"))
+	if err != nil || old.ValidTo != "2026-12-31" || old.Position != 1 {
+		t.Fatalf("alt: %+v %v", old, err)
+	}
+	_, err = e.svc.Save(ctx, d("überschneidet", "2026-06-01", ""))
+	invalid(t, err, "Zeitraum überschneidet sich")
+	_, err = e.svc.Save(ctx, d("verkehrt", "2027-02-01", "2027-01-01"))
+	invalid(t, err, "bis vor ab")
+	if n, err := e.svc.Save(ctx, d("neu", "2027-01-01", "")); err != nil || n.Position != 1 || n.ValidFrom != "2027-01-01" {
+		t.Fatalf("neue Fassung: %+v %v", n, err)
+	}
+	at := func(date string) []textservice.Text {
+		l, err := e.svc.List(ctx, textservice.ListRequest{EntityType: "Contract", EntityID: "1000|MV-1", EffectiveDate: date})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return l.Items
+	}
+	if all := at(""); len(all) != 2 || all[0].Content != "alt" {
+		t.Fatalf("alle Fassungen: %+v", all)
+	}
+	if l := at("2027-03-01"); len(l) != 1 || l[0].Content != "neu" {
+		t.Fatalf("Stichtag 2027: %+v", l)
+	}
+	// Pflicht je Stichtag: Lücke nach Ende der alten Fassung, wenn die neue fehlt
+	if err := e.svc.Remove(ctx, textservice.RemoveRequest{ID: at("2027-03-01")[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	for date, want := range map[string]int{"2026-07-01": 0, "2027-03-01": 1} {
+		if c, err := e.svc.Check(ctx, textservice.CheckRequest{EntityType: "Contract", EntityID: "1000|MV-1", EffectiveDate: date}); err != nil || len(c.Missing) != want {
+			t.Fatalf("Pflicht am %s: %+v %v", date, c, err)
+		}
+	}
+}
