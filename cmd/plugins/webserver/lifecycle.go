@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -223,8 +224,12 @@ func locked(rec record) bool { b, _ := rec["_locked"].(bool); return b }
 // einem aktiven Konto).
 func recordActions(oc objectCtx, rec record) []metamodel.ActionConfig {
 	hidden, _ := rec["_hidden_actions"].([]any)
+	inactive := newEndBtn(oc, rec, "", "").Inactive
 	var out []metamodel.ActionConfig
 	for _, a := range oc.RecordActions() {
+		if a.Name == crud.ReactivateAction && !inactive { // nur bei inaktiven Datensätzen
+			continue
+		}
 		if !slices.ContainsFunc(hidden, func(h any) bool { return h == a.Name }) {
 			out = append(out, a)
 		}

@@ -95,6 +95,9 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 			o.Handle("expire", payloadOnly(e.Expire))
 		case metamodel.LifecycleStatus:
 			o.Handle("deactivate", payloadOnly(e.Deactivate))
+			if e.reactivatable() {
+				o.Handle(ReactivateAction, payloadOnly(e.Reactivate))
+			}
 		}
 	}
 }
@@ -170,9 +173,17 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"}))
 	case metamodel.LifecycleStatus:
 		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: e.Title + " inaktivieren?"}))
+		if e.reactivatable() {
+			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: ReactivateAction, Kind: metamodel.KindCustom, Label: "Wieder aktivieren", Record: true,
+				Confirm: e.Title + " wieder aktivieren?"})
+		}
 	}
 	return d
 }
+
+// ReactivateAction: Aktion „Wieder aktivieren“ der Objekte mit ja/nein-Status;
+// die Oberfläche zeigt sie nur bei inaktiven Datensätzen.
+const ReactivateAction = "reactivate"
 
 // formStateAction ist die Action des FormState-Hooks.
 const formStateAction = "formState"
