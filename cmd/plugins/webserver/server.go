@@ -652,7 +652,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 	if st != nil {
 		def = withExtra(applyFormState(oc.ActionDef, *st), st)
 		trigger = oc.ActionURL + "/" + act.Name + "/_form"
-		v.FormMessage, v.FormLinks, v.HideButtons = st.Message, appLinks(st.Links), st.HideButtons
+		v.FormMessage, v.FormLinks, v.HideButtons, v.FormButtons = st.Message, appLinks(st.Links), st.HideButtons, st.Buttons
 		if len(keys) > 0 && len(st.Extra) > 0 {
 			keys = append(slices.Clone(keys), extraKeys(st)...)
 		}
@@ -695,6 +695,19 @@ func (s *server) actionState(r *http.Request, oc objectCtx, act *metamodel.Actio
 		return nil
 	}
 	return &st
+}
+
+// formButton: Knopf der Maske mit dem Wert (nil = gibt es nicht).
+func formButton(st *metamodel.FormState, value string) *metamodel.FormButton {
+	if st == nil {
+		return nil
+	}
+	for i := range st.Buttons {
+		if st.Buttons[i].Value == value {
+			return &st.Buttons[i]
+		}
+	}
+	return nil
 }
 
 // applyFormState: Felder nach der Maske – ausgeblendete entfallen, Pflicht und
@@ -809,12 +822,28 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	// Ohne Formular: bestätigte Aktion ohne Felder oder Knopf im Aktionsabschnitt
 	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“.
 	direct := len(act.Fields) == 0 && (act.Confirm != "" || r.PostForm.Get("_button") != "")
+	// Knopf der Maske (FormState.Buttons): Wert als button im Payload; ohne Prüfung
+	// (NoValidate) kommen keine Eingaben mit.
+	pressed := strings.TrimSpace(r.PostForm.Get("_submit"))
+	var st *metamodel.FormState
+	if !direct || pressed != "" {
+		st = s.actionState(r, oc, act, id, formValues(oc.ActionDef, r.PostForm))
+	}
+	if pressed != "" {
+		btn := formButton(st, pressed)
+		if btn == nil {
+			s.fail(w, r, fmt.Errorf("%w: Knopf %q passt nicht zum Stand – bitte neu laden", sdk.ErrInvalidArgument, pressed))
+			return
+		}
+		direct = direct || btn.NoValidate
+	}
 	data, raw, errs := map[string]any{}, map[string]string{}, map[string]string{}
 	if !direct {
 		def := actionDef(oc.ActionDef, act.Fields)
-		// Zusatzfelder der Maske (FormState.Extra) gehören zum Formular.
-		if st := s.actionState(r, oc, act, id, formValues(oc.ActionDef, r.PostForm)); st != nil && len(st.Extra) > 0 {
-			def = withExtra(def, st)
+		// Maske beim Absenden wie beim Anzeigen: ausgeblendete Felder entfallen, Pflicht
+		// laut Maske; Zusatzfelder (FormState.Extra) gehören zum Formular.
+		if st != nil {
+			def = withExtra(applyFormState(def, *st), st)
 		}
 		data, raw, errs = parseFields(def, r.PostForm)
 		readFiles(r, def, data, errs)
@@ -833,6 +862,9 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]any{"data": data}
 	if id != "" {
 		payload["id"] = id
+	}
+	if pressed != "" {
+		payload["button"] = pressed
 	}
 	resp, err := s.call(r, oc.Object, act.Name, payload)
 	if inline {

@@ -234,6 +234,9 @@ var funcs = template.FuncMap{
 	"domID":      domID,
 	"endBtn":     newEndBtn,
 	"numeric":    func(s string) bool { return numericRe.MatchString(s) },
+	"hasOption": func(opts []metamodel.Option, v string) bool {
+		return slices.ContainsFunc(opts, func(o metamodel.Option) bool { return o.Value == v })
+	},
 	// Mehrfachauswahl: Wert in der Komma-Liste, sichtbare Zeilen der Liste.
 	"inList":     func(v, list string) bool { return v != "" && slices.Contains(strings.Split(list, ","), v) },
 	"selectSize": func(opts []metamodel.Option) int { return min(max(len(opts), 2), 8) },

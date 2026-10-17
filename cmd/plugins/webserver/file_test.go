@@ -132,6 +132,26 @@ func TestActionFormState(t *testing.T) {
 	if d := h.find("pick").Payload.(map[string]any)["data"].(map[string]any); d["x_name"] != "Neu GmbH" || d["x_kind"] != "P" {
 		t.Fatalf("Zusatzfelder: %v", d)
 	}
+	// Knöpfe der Maske: Pflicht-Auswahl ohne Vorauswahl, Absenden mit Wert, „Überspringen“ ohne Eingaben
+	b = do(s, "GET", "/action/crm/CustomerContact/pick?id=kb", nil, true).Body.String()
+	mustContain(t, b, `<option value="" selected disabled>– bitte wählen –</option>`, `<button type="submit" name="_submit" value="SELECTED" class="btn primary"`,
+		`hx-vals='{"_id": "kb", "_submit": "SKIPPED"}' hx-target="#modal"`, `hx-confirm="Wirklich?">Überspringen</button>`)
+	if strings.Contains(b, ">Wählen …</button>") {
+		t.Fatalf("Knopf der Aktion trotz Knöpfen der Maske:\n%s", b)
+	}
+	b = do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kb"}, "_submit": {"SELECTED"}}, true).Body.String()
+	mustContain(t, b, `<option value="" selected disabled>`) // Pflicht fehlt: Formular erneut
+	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kb"}, "_submit": {"SKIPPED"}, "choice": {"A"}}, true)
+	if p := h.find("pick").Payload.(map[string]any); p["button"] != "SKIPPED" || len(p["data"].(map[string]any)) != 0 {
+		t.Fatalf("Überspringen: %v", p)
+	}
+	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kb"}, "_submit": {"SELECTED"}, "choice": {"A"}}, true)
+	if p := h.find("pick").Payload.(map[string]any); p["button"] != "SELECTED" || p["data"].(map[string]any)["choice"] != "A" {
+		t.Fatalf("Übernehmen: %v", p)
+	}
+	if w := do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kb"}, "_submit": {"BAD"}}, true); !strings.Contains(w.Body.String(), "passt nicht zum Stand") {
+		t.Fatalf("falscher Knopf: %d %s", w.Code, w.Body.String())
+	}
 	if got := visibleButtons([]inlineButton{{Name: "back"}, {Name: "create"}}, []string{"create"}); len(got) != 1 || got[0].Name != "back" {
 		t.Fatalf("Knöpfe: %v", got)
 	}

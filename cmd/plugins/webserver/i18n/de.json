@@ -69,6 +69,7 @@
   "core.error.no_permission_action": "Keine Berechtigung für %s.%s",
   "core.error.not_in_module": "%s gehört nicht zu Modul %s",
   "core.error.unavailable": "%s ist derzeit nicht verfügbar",
+  "core.form.choose": "– bitte wählen –",
   "core.form.multiple": "Mehrfachauswahl mit Strg bzw. ⌘; keine Auswahl = alle",
   "core.form.title": "%s – %s",
   "core.home.empty": "Noch keine Module registriert oder keine Berechtigung.",

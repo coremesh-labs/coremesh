@@ -369,6 +369,22 @@ type FormState struct {
 	// HideButtons: Knöpfe des Aktionsabschnitts (SectionDefinition.Buttons), die
 	// zu diesem Stand nicht passen.
 	HideButtons []string `json:"hide_buttons,omitempty"`
+	// Buttons (seit webserver 0.38.0): Knöpfe zum Absenden, die die Maske selbst
+	// bestimmt – statt des einen Knopfs mit dem Namen der Aktion, z. B. je
+	// Option eines Workflow-Schritts „Partner übernehmen“, „GP anlegen“, „Ohne
+	// Partner weiter“. Der gedrückte Knopf kommt als button im Payload an.
+	Buttons []FormButton `json:"buttons,omitempty"`
+}
+
+// FormButton ist ein Knopf zum Absenden (FormState.Buttons).
+type FormButton struct {
+	Value   string `json:"value"`             // kommt als button im Payload an
+	Label   string `json:"label"`
+	Primary bool   `json:"primary,omitempty"` // Hauptknopf (hervorgehoben)
+	// NoValidate: ohne Eingaben absenden – keine Pflichtprüfung, data bleibt leer
+	// (z. B. „Überspringen“, „Anlegen“).
+	NoValidate bool   `json:"no_validate,omitempty"`
+	Confirm    string `json:"confirm,omitempty"` // Sicherheitsabfrage
 }
 
 // FormLink ist ein Link im Formular.
