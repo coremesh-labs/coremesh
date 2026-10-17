@@ -272,3 +272,12 @@ tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--su
 .field input, .field select, .field textarea { max-width: 100%; min-width: 0; }
 .action-section form footer { position: sticky; bottom: 0; z-index: 3; flex-wrap: wrap; padding: .5rem 0;
        background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--bg)); border-top: 1px solid var(--border); }
+/* Fehlermeldungen (seit 0.38.2): kräftiges Rot, Meldung als Kasten mit rotem Rand – gut lesbar
+   auch im dunklen Modus */
+:root { --danger: #b91c1c; --danger-bg: #fee2e2; --danger-text: #991b1b; }
+@media (prefers-color-scheme: dark) { :root { --danger: #f87171; --danger-bg: #3f0d0d; --danger-text: #fecaca; } }
+.form-error { color: var(--danger-text); background: var(--danger-bg); border-left: 4px solid var(--danger);
+              padding: .55rem .8rem; border-radius: var(--radius); font-weight: 600; margin: 0 0 .9rem; }
+.field .error { color: var(--danger); font-weight: 600; }
+.field.invalid input, .field.invalid select, .field.invalid textarea { border-width: 2px; }
+.toast.error { color: var(--danger-text); background: var(--danger-bg); border-left-width: 6px; font-weight: 600; }
