@@ -17,7 +17,7 @@ import (
 
 // Schnittstelle für andere Module:
 //
-//	Ai.run     {request, input (Base64), content_type?, text?, context? (Zeilen), company_code?, keep?}
+//	Ai.run     {request, input (Base64), content_type?, text?, context? (Zeilen), company_code?, keep?, defaults?}
 //	           (text und eine Datei als input zusammen: Text im Auftrag, Datei als Anhang)
 //	           → {log_id, status, message, result (OBJECT: Struktur), text (TEXT), notes}
 //	Ai.form    {request, result, defaults? {"name.feld": Wert}, company_code?} → {fields [FieldDefinition], values}
@@ -37,6 +37,8 @@ type runRequest struct {
 	Context     any    `json:"context"`
 	CompanyCode string `json:"company_code"`
 	Keep        bool   `json:"keep"`
+	// Vorgaben „name.feld“ → Wert (wie bei form/create): schränken Auswahllisten ein
+	Defaults map[string]string `json:"defaults"`
 }
 
 type runResult struct {
@@ -146,7 +148,7 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 	var root *sNode
 	var schema map[string]any
 	if rq.Kind == kindObject {
-		root, err = m.structure(ctx, rq.Code, in.CompanyCode)
+		root, err = m.structure(ctx, rq.Code, in.CompanyCode, in.Defaults)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +364,7 @@ func (m *Module) structIn(ctx context.Context, req sdk.Request) (*sNode, structI
 	if rq.Kind != kindObject {
 		return nil, in, crud.Invalid("KI-Anfrage %s ist keine Objekt-Anfrage", rq.Code)
 	}
-	root, err := m.structure(ctx, rq.Code, in.CompanyCode)
+	root, err := m.structure(ctx, rq.Code, in.CompanyCode, in.Defaults)
 	return root, in, err
 }
 
@@ -511,7 +513,7 @@ func (m *Module) showSchemaAction(ctx context.Context, req sdk.Request) (sdk.Res
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	root, err := m.structure(ctx, code, "")
+	root, err := m.structure(ctx, code, "", nil)
 	if err != nil {
 		return sdk.Response{}, err
 	}
