@@ -75,6 +75,9 @@ func (d ObjectDefinition) Localize(t Translations, locale string) ObjectDefiniti
 	out.Fields = make([]FieldDefinition, len(d.Fields))
 	for i, f := range d.Fields {
 		f.Label = t.Lookup(locale, f.LabelKey, f.Label)
+		if f.Short != "" {
+			f.Short = t.Lookup(locale, f.ShortKey, f.Short)
+		}
 		if f.Group != "" {
 			f.Group = t.Lookup(locale, f.GroupKey, f.Group)
 		}
@@ -126,6 +129,7 @@ var reservedModules = map[string]bool{"i18n": true, "user": true}
 //	<modul>.navigation.<gruppe>                  Gruppe in der Navigation (ModuleObject.Section)
 //	<modul>.<Object>.title                       Object
 //	<modul>.<Object>.fields.<feld>               Feld
+//	<modul>.<Object>.fields.<feld>.short         Spaltenüberschrift (FieldDefinition.Short)
 //	<modul>.<Object>.options.<feld>.<wert>       Auswahlwert
 //	<modul>.<Object>.actions.<action>[.confirm]  Action
 //	<modul>.<Object>.sections.<abschnitt>        Abschnitt der Detailansicht
@@ -145,6 +149,9 @@ func WithKeys(module string, d ObjectDefinition) ObjectDefinition {
 	d.Fields = slices.Clone(d.Fields)
 	for i, f := range d.Fields {
 		f.LabelKey = orKey(f.LabelKey, p+".fields."+f.Key)
+		if f.Short != "" {
+			f.ShortKey = orKey(f.ShortKey, p+".fields."+f.Key+".short")
+		}
 		if f.Group != "" {
 			f.GroupKey = orKey(f.GroupKey, p+".groups."+slug(f.Group))
 		}

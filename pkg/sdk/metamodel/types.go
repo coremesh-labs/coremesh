@@ -80,9 +80,13 @@ type AuthAction struct {
 
 // FieldDefinition beschreibt ein Feld (Tabellenspalte, Formularfeld).
 type FieldDefinition struct {
-	Key      string    `json:"key"`                 // z. B. "company_name"
-	Label    string    `json:"label"`               // z. B. "Firmenname"
-	LabelKey string    `json:"label_key,omitempty"` // Übersetzungsschlüssel, z. B. "businesspartner.BusinessPartner.fields.name1"
+	Key      string `json:"key"`                 // z. B. "company_name"
+	Label    string `json:"label"`               // z. B. "Firmenname"
+	LabelKey string `json:"label_key,omitempty"` // Übersetzungsschlüssel, z. B. "businesspartner.BusinessPartner.fields.name1"
+	// Short: Spaltenüberschrift in Listen, wenn Label zu lang ist (Label bleibt
+	// Tooltip und Formulartext); leer = Label ohne Erläuterung in Klammern.
+	Short    string    `json:"short,omitempty"`
+	ShortKey string    `json:"short_key,omitempty"` // Übersetzungsschlüssel, z. B. "…fields.name1.short"
 	Type     FieldType `json:"type"`                // siehe FieldType
 	Required bool      `json:"required"`            // Pflichtfeld im Formular
 	Listable bool      `json:"listable"`            // in der Übersichtstabelle anzeigen
@@ -397,7 +401,7 @@ type FormState struct {
 
 // FormButton ist ein Knopf zum Absenden (FormState.Buttons).
 type FormButton struct {
-	Value   string `json:"value"`             // kommt als button im Payload an
+	Value   string `json:"value"` // kommt als button im Payload an
 	Label   string `json:"label"`
 	Primary bool   `json:"primary,omitempty"` // Hauptknopf (hervorgehoben)
 	// NoValidate: ohne Eingaben absenden – keine Pflichtprüfung, data bleibt leer

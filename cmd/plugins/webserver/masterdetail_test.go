@@ -612,6 +612,23 @@ func TestRelationFilter(t *testing.T) {
 	}
 }
 
+// TestColumnShort: Spaltenüberschrift aus Short, das lange Label als Tooltip.
+func TestColumnShort(t *testing.T) {
+	old := mdDefs["CustomerContact"]
+	t.Cleanup(func() { mdDefs["CustomerContact"] = old })
+	d := old
+	d.Fields = slices.Clone(old.Fields)
+	for i, f := range d.Fields {
+		if f.Key == "value" {
+			d.Fields[i].Label, d.Fields[i].Short = "Wert: Adresse, Nummer; bei Web: URL", "Wert"
+		}
+	}
+	mdDefs["CustomerContact"] = d
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustContain(t, b, `<th title="Wert: Adresse, Nummer; bei Web: URL">Wert</th>`)
+}
+
 // TestDisplayColumnsAndSections: „Spalte ausblenden“ wirkt nur in Listen und
 // Unterzeilen (Detail und Formular behalten das Feld), „Abschnitt ausblenden“
 // nimmt den Abschnitt aus dem Detail und seine Felder aus dem Formular.
