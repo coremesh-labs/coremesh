@@ -2,6 +2,7 @@
   "admin.CompanyCode.fields.code": "Buchungskreis",
   "admin.CompanyCode.fields.description": "Beschreibung",
   "admin.CompanyCode.fields.partner_id": "Geschäftspartner (Name und Anschrift in Ausgaben, z. B. Kopf- und Fußzeile)",
+  "admin.CompanyCode.fields.partner_id.short": "Partner",
   "admin.CompanyCode.title": "Buchungskreise",
   "admin.DisplayRule.actions.deactivate.confirm": "Darstellungsregel inaktivieren?",
   "admin.DisplayRule.fields.active": "Aktiv",

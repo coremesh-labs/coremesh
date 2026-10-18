@@ -2,6 +2,7 @@
   "admin.CompanyCode.fields.code": "Company code",
   "admin.CompanyCode.fields.description": "Description",
   "admin.CompanyCode.fields.partner_id": "Business partner (name and address in outputs, e.g. header and footer)",
+  "admin.CompanyCode.fields.partner_id.short": "Partner",
   "admin.CompanyCode.title": "Company codes",
   "admin.DisplayRule.actions.deactivate.confirm": "Deactivate display rule?",
   "admin.DisplayRule.fields.active": "Active",

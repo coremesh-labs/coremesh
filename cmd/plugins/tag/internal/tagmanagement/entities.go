@@ -83,12 +83,12 @@ func (m *Module) tagType() *crud.Entity {
 			{Key: "data_type", Label: "Datentyp", Type: tSelect, Required: true, Listable: true, Immutable: true, Options: dataTypes},
 			{Key: "value_mode", Label: "Werte", Type: tSelect, Required: true, Listable: true, Immutable: true, Options: valueModes},
 			{Key: "ref_object", Label: "Verweis auf Object (nur Verweis, z. B. RentalObject)", Type: tText, Immutable: true},
-			{Key: "translation_key", Label: "Übersetzungsschlüssel", Type: tText},
+			{Key: "translation_key", Label: "Übersetzungsschlüssel", Short: "Schlüssel", Type: tText},
 			{Key: "description", Label: "Beschreibung", Type: tArea},
 			{Key: "status", Label: "Status", Type: tSelect, Listable: true, ReadOnly: true, Options: statuses},
 			{Key: "pattern", Label: "Prüfmuster (regulärer Ausdruck, ganzer Wert; nur Text)", Type: tText, Group: "Prüfung"},
 			{Key: "pattern_hint", Label: "Hinweis bei falschem Wert (z. B. 11 Ziffern)", Type: tText, Group: "Prüfung"},
-			{Key: "protected", Label: "Geschützt: Werte nur mit Recht „Werte geschützter Tags sehen/ändern“", Type: tBool, Listable: true, Group: "Prüfung"},
+			{Key: "protected", Label: "Geschützt: Werte nur mit Recht „Werte geschützter Tags sehen/ändern“", Short: "Geschützt", Type: tBool, Listable: true, Group: "Prüfung"},
 		},
 		// Geschützte Tags (z. B. Steuer-ID): Rechte TagType.readValue/changeValue,
 		// einschränkbar nach Tag-Code.
@@ -141,7 +141,7 @@ func (m *Module) valueOption() *crud.Entity {
 			crud.Field{Key: "tag_type_code", Label: "Tag", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refTagType},
 			crud.Field{Key: "code", Label: "Code (Wert)", Type: tText, Required: true, Listable: true, Immutable: true},
 			crud.Field{Key: "label", Label: "Bezeichnung", Type: tText, Required: true, Listable: true},
-			crud.Field{Key: "translation_key", Label: "Übersetzungsschlüssel", Type: tText},
+			crud.Field{Key: "translation_key", Label: "Übersetzungsschlüssel", Short: "Schlüssel", Type: tText},
 			crud.Field{Key: "sort_order", Label: "Reihenfolge", Type: tNumber, Listable: true},
 		),
 		Validate: func(ctx context.Context, rec, _ crud.Record) error {
@@ -174,7 +174,7 @@ func (m *Module) tagSet() *crud.Entity {
 		Fields: crud.WithTimeSlice(
 			crud.Field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			crud.Field{Key: "name", Label: "Name", Type: tText, Required: true, Listable: true},
-			crud.Field{Key: "translation_key", Label: "Übersetzungsschlüssel", Type: tText},
+			crud.Field{Key: "translation_key", Label: "Übersetzungsschlüssel", Short: "Schlüssel", Type: tText},
 			crud.Field{Key: "description", Label: "Beschreibung", Type: tArea},
 		),
 		Sections: []metamodel.SectionDefinition{
@@ -272,13 +272,13 @@ func (m *Module) setAssignment() *crud.Entity {
 		Order: "entity_type, company_code, tag_set_code, valid_from", Filters: []string{"entity_type", "company_code", "tag_set_code"},
 		Fields: crud.WithTimeSlice(
 			crud.Field{Key: "entity_type", Label: "Objekttyp (Object, z. B. BusinessPartner)", Type: tText, Required: true, Listable: true, Immutable: true},
-			crud.Field{Key: "company_code", Label: "Buchungskreis (* = alle)", Type: tText, Required: true, Listable: true, Immutable: true,
+			crud.Field{Key: "company_code", Label: "Buchungskreis (* = alle)", Short: "BuKr", Type: tText, Required: true, Listable: true, Immutable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
 			crud.Field{Key: "tag_set_code", Label: "Tag Set", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refTagSet},
 			crud.Field{Key: "condition_field", Label: "Nur wenn Feld (optional, z. B. contract_type)", Type: tText, Listable: true},
-			crud.Field{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
+			crud.Field{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Short: "Werte", Type: tText, Listable: true},
 			crud.Field{Key: "condition_field_2", Label: "Und Feld (optional, z. B. roles)", Type: tText, Listable: true},
-			crud.Field{Key: "condition_values_2", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
+			crud.Field{Key: "condition_values_2", Label: "… einen dieser Werte hat (kommagetrennt)", Short: "Werte", Type: tText, Listable: true},
 		),
 		Validate: func(ctx context.Context, rec, old crud.Record) error {
 			if err := m.checkCondition(ctx, rec, "condition_field", "condition_values"); err != nil {

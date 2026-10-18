@@ -75,8 +75,8 @@ func (m *Module) partnerGroupCatalog() *entity {
 		Fields: []field{
 			{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
-			{Key: "range_key", Label: "Intervallschlüssel im Nummernkreis BusinessPartner (leer = Code)", Type: tText, Listable: true},
-			{Key: "is_default", Label: "Standardgruppe (neue Partner ohne Gruppe, Übernahme alter Partner)", Type: tBool, Listable: true},
+			{Key: "range_key", Label: "Intervallschlüssel im Nummernkreis BusinessPartner (leer = Code)", Short: "Nummernkreis", Type: tText, Listable: true},
+			{Key: "is_default", Label: "Standardgruppe (neue Partner ohne Gruppe, Übernahme alter Partner)", Short: "Standard", Type: tBool, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, _ record) error {
 			rec["code"] = strings.ToUpper(strings.TrimSpace(str(rec["code"])))

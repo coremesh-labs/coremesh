@@ -28,6 +28,9 @@ func texts(t *testing.T) map[string]string {
 		add(o.TitleKey, o.Title)
 		for _, f := range o.Fields {
 			add(f.LabelKey, f.Label)
+			if f.ShortKey != "" {
+				add(f.ShortKey, f.Short)
+			}
 			for _, opt := range f.Options {
 				add(opt.LabelKey, opt.Label)
 			}

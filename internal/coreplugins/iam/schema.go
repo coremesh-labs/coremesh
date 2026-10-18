@@ -487,7 +487,7 @@ var (
 		Fields: []metamodel.FieldDefinition{
 			{Key: "code", Label: "Buchungskreis", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeText, Listable: true, Editable: true},
-			{Key: "partner_id", Label: "Geschäftspartner (Name und Anschrift in Ausgaben, z. B. Kopf- und Fußzeile)", Type: metamodel.TypeText,
+			{Key: "partner_id", Label: "Geschäftspartner (Name und Anschrift in Ausgaben, z. B. Kopf- und Fußzeile)", Short: "Partner", Type: metamodel.TypeText,
 				Listable: true, Editable: true, Lookup: &metamodel.Lookup{Object: "BusinessPartner", ValueField: "id", LabelFields: []string{"name1", "name2"}}},
 		},
 		Actions: crud("Buchungskreis"),

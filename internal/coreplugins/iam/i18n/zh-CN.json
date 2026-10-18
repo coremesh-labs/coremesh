@@ -2,6 +2,7 @@
   "admin.CompanyCode.fields.code": "公司代码",
   "admin.CompanyCode.fields.description": "描述",
   "admin.CompanyCode.fields.partner_id": "业务伙伴（输出中的名称和地址，如页眉页脚）",
+  "admin.CompanyCode.fields.partner_id.short": "伙伴",
   "admin.CompanyCode.title": "公司代码",
   "admin.DisplayRule.actions.deactivate.confirm": "停用该显示规则？",
   "admin.DisplayRule.fields.active": "有效",

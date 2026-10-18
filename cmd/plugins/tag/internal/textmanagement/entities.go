@@ -76,7 +76,7 @@ func (m *Module) language() *crud.Entity {
 		Object: "TextLanguage", Title: "Sprachen", Icon: "icon-globe", Table: "tag__text_language", Section: "Einstellungen",
 		Keys: []string{"code"}, Order: "sort_order, code", StatusField: "is_active", TitleField: "name", Search: []string{"code", "name"},
 		Fields: []crud.Field{
-			{Key: "code", Label: "Sprachschlüssel (z. B. de, en, zh-CN)", Type: tText, Required: true, Listable: true, Immutable: true},
+			{Key: "code", Label: "Sprachschlüssel (z. B. de, en, zh-CN)", Short: "Sprache", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "name", Label: "Bezeichnung", Type: tText, Required: true, Listable: true},
 			{Key: "sort_order", Label: "Reihenfolge", Type: tNumber, Listable: true},
 			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
@@ -103,12 +103,12 @@ func (m *Module) assignment() *crud.Entity {
 		Filters: []string{"entity_type", "company_code", "category"},
 		Fields: []crud.Field{
 			{Key: "entity_type", Label: "Objekttyp (Object, z. B. Contract, RentObject)", Type: tText, Required: true, Listable: true, Immutable: true},
-			{Key: "company_code", Label: "Buchungskreis (* = alle)", Type: tText, Required: true, Listable: true, Immutable: true,
+			{Key: "company_code", Label: "Buchungskreis (* = alle)", Short: "BuKr", Type: tText, Required: true, Listable: true, Immutable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
-			{Key: "category", Label: "Textkategorie", Type: tText, Required: true, Listable: true, Immutable: true, Lookup: refCategory},
+			{Key: "category", Label: "Textkategorie", Short: "Kategorie", Type: tText, Required: true, Listable: true, Immutable: true, Lookup: refCategory},
 			{Key: "mandatory", Label: "Pflicht", Type: tBool, Listable: true},
 			{Key: "condition_field", Label: "Nur wenn Feld (optional, z. B. contract_type)", Type: tText, Listable: true},
-			{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Type: tText, Listable: true},
+			{Key: "condition_values", Label: "… einen dieser Werte hat (kommagetrennt)", Short: "Werte", Type: tText, Listable: true},
 			{Key: "sort_order", Label: "Reihenfolge", Type: tNumber, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, old crud.Record) error {
