@@ -35,7 +35,7 @@
         <option value="false" {{if eq $v "false"}}selected{{end}}>{{t "core.app.no"}}</option></select>
       {{else if .Select}}
       <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
-        {{range .Choices}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+        {{range .Choices}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}</select>
       {{else if .Search}}
       <span class="lookup">
         <input type="text" name="{{.Key}}" value="{{$v}}" size="10" autocomplete="off"

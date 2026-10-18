@@ -18,7 +18,7 @@
   {{else}}<p class="empty">{{t "core.docs.empty"}}</p>{{end}}
   {{if .CanEdit}}
   <form class="doc-form" hx-post="{{.URL}}" hx-target="closest .doc-list" hx-swap="outerHTML">
-    <label>{{t "core.docs.type"}}<select name="doc_type" required>{{range .Types}}<option value="{{.Code}}" {{if eq .Code $.Form.DocType}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <label>{{t "core.docs.type"}}<select name="doc_type" required>{{range .Types}}<option value="{{.Code}}" {{if eq .Code $.Form.DocType}}selected{{end}}>{{codeLabel .Code .Name}}</option>{{end}}</select></label>
     <label>{{t "core.docs.title"}}<input name="title" value="{{.Form.Title}}" required></label>
     <label>{{t "core.docs.date"}}<input type="date" name="doc_date" value="{{.Form.DocDate}}"></label>
     <label>{{t "core.docs.location"}}<input name="location" value="{{.Form.Location}}" required placeholder="{{t "core.docs.location_hint"}}"></label>

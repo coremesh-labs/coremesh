@@ -20,7 +20,7 @@
     <label>{{t "core.tags.company_code"}}
       <select name="companyCode" hx-get="{{.URL}}" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
         <option value="">{{t "core.tags.global"}}</option>
-        {{range .CompanyCodes}}<option value="{{.Value}}" {{if eq .Value $.CompanyCode}}selected{{end}}>{{.Label}}</option>{{end}}
+        {{range .CompanyCodes}}<option value="{{.Value}}" {{if eq .Value $.CompanyCode}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}
       </select>
     </label>
   </div>
@@ -60,7 +60,7 @@
   <select name="v.{{$f.Code}}" {{if $ro}}disabled{{end}}
           hx-post="{{.Ed.URL}}/preview" hx-include="closest form" hx-trigger="change" hx-target="closest .tag-editor" hx-swap="outerHTML">
     <option value="">{{t "core.tags.choose"}}</option>
-    {{range $f.Options}}<option value="{{.Value}}" {{if eq .Value $f.Value}}selected{{end}}>{{.Label}}</option>{{end}}
+    {{range $f.Options}}<option value="{{.Value}}" {{if eq .Value $f.Value}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}
   </select>
   {{else if eq $f.DataType "CURRENCY"}}
   <span class="tag-money">
