@@ -122,5 +122,9 @@
   "businesspartner.module.description": "Partners with roles, addresses, communication, bank details and company code data",
   "businesspartner.module.title": "Business partners",
   "businesspartner.navigation.kataloge": "Catalogs",
-  "businesspartner.navigation.partnerdaten": "Partner data"
+  "businesspartner.navigation.partnerdaten": "Partner data",
+  "businesspartner.BusinessPartner.actions.partnerAccount": "Partner account …",
+  "businesspartner.BusinessPartner.fields.statement_company_code": "Company code (empty = all)",
+  "businesspartner.BusinessPartner.fields.statement_from": "From (empty = first item)",
+  "businesspartner.BusinessPartner.fields.statement_to": "To (empty = today)"
 }

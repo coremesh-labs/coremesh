@@ -122,5 +122,9 @@
   "businesspartner.module.description": "包含角色、地址、联系方式、银行账户和公司代码数据的业务伙伴",
   "businesspartner.module.title": "业务伙伴",
   "businesspartner.navigation.kataloge": "目录",
-  "businesspartner.navigation.partnerdaten": "伙伴数据"
+  "businesspartner.navigation.partnerdaten": "伙伴数据",
+  "businesspartner.BusinessPartner.actions.partnerAccount": "伙伴账户 …",
+  "businesspartner.BusinessPartner.fields.statement_company_code": "公司代码（空 = 全部）",
+  "businesspartner.BusinessPartner.fields.statement_from": "从（空 = 第一笔）",
+  "businesspartner.BusinessPartner.fields.statement_to": "至（空 = 今天）"
 }

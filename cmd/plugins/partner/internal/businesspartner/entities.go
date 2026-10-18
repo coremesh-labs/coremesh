@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/coremesh-labs/coremesh/pkg/sdk/crud"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
@@ -173,7 +174,7 @@ func (m *Module) businessPartner() *entity {
 		// Zeitscheibe seit 0.5.0 (Lebenszyklus timeslice): Ein Partner endet zu einem
 		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann
 		// er gelöscht werden (noch nicht umgesetzt).
-		Fields: withTimeSlice(
+		Fields: append(withTimeSlice(
 			// BP-Nummer: aus dem Nummernkreis der Partnergruppe (intern) oder eingegeben (extern)
 			field{Key: "id", Label: "BP-Nummer", Type: tText, Listable: true, Immutable: true},
 			field{Key: "group_code", Label: "Partnergruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
@@ -191,7 +192,8 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "roles", Label: "Rollen (heute)", Type: tText, ReadOnly: true, Virtual: true},
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
-		),
+		), partnerAccountFields...),
+		Actions:   []crud.Action{m.partnerAccountAction()},
 		Prepare:   m.preparePartner,
 		FormState: m.partnerFormState,
 		Decorate:  m.decoratePerson,
