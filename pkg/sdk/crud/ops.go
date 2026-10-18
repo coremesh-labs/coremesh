@@ -71,6 +71,7 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 	if err := e.WithLabels(ctx, recs...); err != nil {
 		return sdk.Response{}, err
 	}
+	e.hideMerge(recs)
 	items := make([]any, len(recs))
 	for i, r := range recs {
 		ac.filter(r)
@@ -167,6 +168,11 @@ func (e *Entity) Get(ctx context.Context, payload any) (sdk.Response, error) {
 	}
 	if err := e.WithLabels(ctx, rec); err != nil {
 		return sdk.Response{}, err
+	}
+	if e.mergeable() {
+		if prev, err := e.previousSlice(ctx, rec); err != nil || prev == nil || !e.sameSlice(prev, rec) {
+			rec["_hidden_actions"] = addHidden(rec["_hidden_actions"], MergeAction)
+		}
 	}
 	ac.filter(rec)
 	return sdk.Response{Payload: rec}, nil

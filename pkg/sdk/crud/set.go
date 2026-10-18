@@ -93,6 +93,9 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		switch e.Lifecycle().Kind() {
 		case metamodel.LifecycleTimeSlice:
 			o.Handle("expire", payloadOnly(e.Expire))
+			if e.mergeable() {
+				o.Handle(MergeAction, payloadOnly(e.MergeSlice))
+			}
 		case metamodel.LifecycleStatus:
 			o.Handle("deactivate", payloadOnly(e.Deactivate))
 			if e.reactivatable() {
@@ -171,6 +174,9 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 	switch d.Lifecycle.Kind() {
 	case metamodel.LifecycleTimeSlice:
 		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "expire", Kind: metamodel.KindExpire, Label: "Beenden …"}))
+		if e.mergeable() {
+			d.Actions = append(d.Actions, e.mergeActionConfig())
+		}
 	case metamodel.LifecycleStatus:
 		d.Actions = append(d.Actions, e.endAction(metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: e.Title + " inaktivieren?"}))
 		if e.reactivatable() {
