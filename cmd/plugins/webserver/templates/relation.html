@@ -21,7 +21,7 @@
 {{if .Rows}}
 <table class="data sub">
   <thead>
-    <tr>{{range .Columns}}<th title="{{.Label}}">{{shortLabel .Label}}</th>{{end}}<th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th></tr>
+    <tr>{{range .Columns}}<th title="{{.Label}}">{{columnLabel .}}</th>{{end}}<th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th></tr>
   </thead>
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}

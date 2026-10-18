@@ -36,6 +36,7 @@ type Record = map[string]any
 // Field ist eine Spalte (oder ein virtuelles Feld) einer Entity.
 type Field struct {
 	Key, Label string
+	Short      string // Spaltenüberschrift, wenn Label zu lang ist (metamodel.FieldDefinition.Short)
 	Type       metamodel.FieldType
 	Required   bool
 	Listable   bool

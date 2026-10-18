@@ -61,7 +61,7 @@
 <table class="data">
   <thead>
     <tr>
-      {{range listable .Def}}<th title="{{.Label}}">{{shortLabel .Label}}</th>{{end}}
+      {{range listable .Def}}<th title="{{.Label}}">{{columnLabel .}}</th>{{end}}
       <th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th>
     </tr>
   </thead>

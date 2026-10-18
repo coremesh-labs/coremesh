@@ -155,6 +155,14 @@ func selectCell(rec record, f metamodel.FieldDefinition) template.HTML {
 	return template.HTML(strings.Join(parts, ", "))
 }
 
+// columnLabel: Spaltenkopf eines Felds – Short, sonst shortLabel(Label).
+func columnLabel(f metamodel.FieldDefinition) string {
+	if f.Short != "" {
+		return f.Short
+	}
+	return shortLabel(f.Label)
+}
+
 // shortLabel: Spaltenkopf ohne Erläuterung in Klammern („Fällig am (leer = …)“ → „Fällig am“).
 func shortLabel(s string) string {
 	if i := strings.Index(s, " ("); i > 0 {
@@ -215,6 +223,7 @@ func (r *renderer) page(loc string, w io.Writer, fragment string, data any, page
 var funcs = template.FuncMap{
 	"listable":    listable,
 	"shortLabel":  shortLabel,
+	"columnLabel": columnLabel,
 	"codeLabel":   codeLabel,
 	"raw":         func(rec record, key string) string { return scalar(rec[key]) },
 	"locales":     func() []string { return metamodel.Locales },
