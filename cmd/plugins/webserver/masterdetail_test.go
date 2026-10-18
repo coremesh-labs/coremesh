@@ -590,6 +590,28 @@ func TestRelationMatch(t *testing.T) {
 	mustContain(t, b, `hx-get="/m/crm/CustomerContact/new?customer_id=Muster%20AG&amp;_lock=customer_id&amp;_view=refresh"`)
 }
 
+// TestRelationFilter: feste Abfragewerte (Relation.Filter) – der Bezug zum
+// Master bleibt erhalten.
+func TestRelationFilter(t *testing.T) {
+	old := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = old })
+	d := old
+	d.Sections = slices.Clone(old.Sections)
+	for i, sec := range d.Sections {
+		if sec.Relation != nil {
+			rel := *sec.Relation
+			rel.Filter = map[string]string{"kind_code": "EMAIL"}
+			d.Sections[i].Relation = &rel
+		}
+	}
+	mdDefs["Customer"] = d
+	s, h := newMDServer(t)
+	do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true)
+	if q := h.find("list").Payload.(map[string]any)["query"].(map[string]any); q["kind_code"] != "EMAIL" || q["customer_id"] != "c1" {
+		t.Fatalf("Abfrage: %v", q)
+	}
+}
+
 // TestDisplayColumnsAndSections: „Spalte ausblenden“ wirkt nur in Listen und
 // Unterzeilen (Detail und Formular behalten das Feld), „Abschnitt ausblenden“
 // nimmt den Abschnitt aus dem Detail und seine Felder aus dem Formular.

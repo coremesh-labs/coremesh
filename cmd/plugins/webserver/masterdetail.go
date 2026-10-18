@@ -201,6 +201,9 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := map[string]any{}
+	for k, v := range rel.Filter {
+		query[k] = v
+	}
 	for k, v := range link {
 		query[k] = v
 	}

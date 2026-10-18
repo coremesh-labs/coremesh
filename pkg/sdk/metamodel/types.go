@@ -208,6 +208,9 @@ type Relation struct {
 	// "building_id": "building_id"}). Gesetzt muss es ForeignKey enthalten; ohne
 	// Match erhält ForeignKey die id des Masters.
 	Match map[string]string `json:"match,omitempty"`
+	// Filter: feste Werte für die Abfrage des Unter-Objects (Feld → Wert), z. B.
+	// {"status": "INBOX"} – nur Datensätze in diesem Zustand; Felder aus Filters.
+	Filter map[string]string `json:"filter,omitempty"`
 }
 
 // FieldType bestimmt Darstellung und Eingabe eines Felds.
