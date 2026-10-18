@@ -321,7 +321,8 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, fmt.Errorf("%w: %s.%s ist kein Lookup-Feld", sdk.ErrNotFound, from, field))
 			return
 		}
-		l := *fields[i].Lookup
+		// Variante nach dem Wert eines anderen Formularfelds (Lookup.By)
+		l := *fields[i].Lookup.For(func(k string) string { return strings.TrimSpace(q.Get(k)) })
 		lk = &l
 		srcParams.Set("from", from)
 	}

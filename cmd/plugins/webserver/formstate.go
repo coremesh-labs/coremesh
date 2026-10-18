@@ -160,10 +160,14 @@ func (s *server) lookupLabels(r *http.Request, d metamodel.ObjectDefinition, val
 	}
 	for _, f := range d.Fields {
 		v := values[f.Key]
-		if f.Lookup == nil || v == "" || out[f.Key] != "" || len(f.Lookup.LabelFields) == 0 {
+		if f.Lookup == nil || v == "" || out[f.Key] != "" {
 			continue
 		}
-		tgt, err := s.targetDef(r, f.Lookup.Object)
+		lk := f.Lookup.For(func(k string) string { return values[k] })
+		if len(lk.LabelFields) == 0 {
+			continue
+		}
+		tgt, err := s.targetDef(r, lk.Object)
 		if err != nil {
 			continue
 		}
@@ -171,17 +175,17 @@ func (s *server) lookupLabels(r *http.Request, d metamodel.ObjectDefinition, val
 		if err != nil {
 			continue
 		}
-		resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": map[string]any{f.Lookup.ValueField: v}})
+		resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": map[string]any{lk.ValueField: v}})
 		if err != nil {
 			continue
 		}
 		recs, _ := records(resp.Payload)
 		for _, rec := range recs {
-			if scalar(rec[f.Lookup.ValueField]) != v {
+			if scalar(rec[lk.ValueField]) != v {
 				continue
 			}
 			var parts []string
-			for _, k := range f.Lookup.LabelFields {
+			for _, k := range lk.LabelFields {
 				if t := scalar(rec[k]); t != "" {
 					parts = append(parts, t)
 				}
