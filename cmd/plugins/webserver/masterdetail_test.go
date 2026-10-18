@@ -308,6 +308,7 @@ func TestRelationSection(t *testing.T) {
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
 		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`, // Typ A: Beenden …
+		`hx-get="/m/crm/Customer/c1/rel/contacts" hx-target="closest .relation"`, // „historische Einträge“ mit Modulpfad
 	)
 	mustNotContain(t, b, "/m/crm/ContactKind/MAIL/edit") // Kataloge (ValueField code): kein Bearbeiten-Link
 	if w := do(s, "GET", "/m/crm/Customer/c1/rel/gibtsnicht", nil, true); w.Code != 404 {

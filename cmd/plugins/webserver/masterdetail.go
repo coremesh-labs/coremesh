@@ -169,7 +169,10 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	sd := oc.Def.Sections[i]
 	rel := sd.Relation
 	mod := moduleFrom(r)
-	rv := relationView{Section: sectionView{Key: sd.Key, Title: sd.Title, URL: r.URL.Path}, ForeignKey: rel.ForeignKey,
+	// URL des Abschnitts mit Modulpräfix (r.URL.Path ist im Sub-Router ohne /m/{module} – „historische
+	// Einträge“ lud sonst eine Adresse ohne Modul und bekam 404)
+	rv := relationView{Section: sectionView{Key: sd.Key, Title: sd.Title, URL: moduleURL(mod.Name, oc.Object) + "/" + pathEscape(id) + "/rel/" + key},
+		ForeignKey: rel.ForeignKey,
 		LookupEdit: map[string]string{}, History: includeHistory(r)}
 
 	if _, ok := mod.object(rel.Object); !ok {
