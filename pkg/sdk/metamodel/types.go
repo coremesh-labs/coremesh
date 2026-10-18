@@ -127,6 +127,22 @@ type Lookup struct {
 	// Formulars ("company_code_id") oder ein Feld des Datensatzes, auf den ein
 	// Lookup-Feld des Formulars zeigt ("draft_id.company_code_id"), "=wert" ein fester Wert.
 	Filters map[string]string `json:"filters,omitempty"`
+	// By und Variants: Das Nachschlage-Object hängt vom Wert eines anderen Felds
+	// des Formulars ab (z. B. Objektart: Mietobjekt, Gebäude, Wirtschaftseinheit) –
+	// Variants[Wert von By] ersetzt diesen Lookup; ohne passende Variante gilt er selbst.
+	By       string            `json:"by,omitempty"`
+	Variants map[string]Lookup `json:"variants,omitempty"`
+}
+
+// For liefert den Lookup für die Formularwerte (Variante nach By, sonst l selbst).
+func (l *Lookup) For(values func(string) string) *Lookup {
+	if l == nil || l.By == "" || values == nil {
+		return l
+	}
+	if v, ok := l.Variants[values(l.By)]; ok {
+		return &v
+	}
+	return l
 }
 
 // SectionDefinition ist ein aufklappbarer Abschnitt der Detailansicht.
