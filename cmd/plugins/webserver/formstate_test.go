@@ -153,7 +153,7 @@ func TestHiddenRecordActions(t *testing.T) {
 	}
 }
 
-// TestLookupFilters: Verweisfelder in der Filterleiste zeigen Texte – kleine
+// TestLookupFilters: Verweisfelder in der Filterleiste zeigen Schlüssel und Texte – kleine
 // Ziele als Auswahl, große als Eingabe mit Auswahldialog und Text zum Wert.
 func TestLookupFilters(t *testing.T) {
 	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
@@ -161,8 +161,8 @@ func TestLookupFilters(t *testing.T) {
 	})
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/CustomerContact?kind_code=TEL", nil, true).Body.String()
-	mustContain(t, b, `<option value="MAIL" >E-Mail</option>`, `<option value="TEL" selected>Telefon</option>`,
-		`<option value="a1" >Zürich</option>`)
+	mustContain(t, b, `<option value="MAIL" >MAIL – E-Mail</option>`, `<option value="TEL" selected>TEL – Telefon</option>`,
+		`<option value="a1" >a1 – Zürich</option>`)
 
 	old := filterChoiceLimit
 	filterChoiceLimit = 1
@@ -170,7 +170,7 @@ func TestLookupFilters(t *testing.T) {
 	b = do(s, "GET", "/m/crm/CustomerContact?kind_code=TEL", nil, true).Body.String()
 	mustContain(t, b, `name="kind_code" value="TEL"`, `hx-get="/lookup?from=CustomerContact&field=kind_code"`,
 		`<span class="lookup-label" data-lookup-label="kind_code">Telefon</span>`,
-		`<option value="a1" >Zürich</option>`) // Adresse: ein Eintrag, weiter Auswahl
+		`<option value="a1" >a1 – Zürich</option>`) // Adresse: ein Eintrag, weiter Auswahl
 }
 
 // TestLookupFilterCompositeKey: Liefert das Lookup-Ziel den Datensatz nicht
@@ -193,5 +193,19 @@ func TestLookupFilterCompositeKey(t *testing.T) {
 	}
 	if q["city"] != "Telefon" {
 		t.Fatalf("Filter aus der Liste des Ziels: %v", q)
+	}
+}
+
+// TestCodeLabel: Schlüssel vor der Bezeichnung, außer bei technischen Schlüsseln.
+func TestCodeLabel(t *testing.T) {
+	for _, c := range [][3]string{
+		{"MV", "Wohnraummiete", "MV – Wohnraummiete"},
+		{"MV", "", "MV"},
+		{"1000", "1000 Leipzig", "1000 Leipzig"},
+		{"ca5eeea5c0ffee0123456789abcdef", "Dokument", "Dokument"},
+	} {
+		if got := codeLabel(c[0], c[1]); got != c[2] {
+			t.Errorf("codeLabel(%q, %q) = %q, erwartet %q", c[0], c[1], got, c[2])
+		}
 	}
 }
