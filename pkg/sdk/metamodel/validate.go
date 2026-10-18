@@ -175,6 +175,14 @@ func (d ObjectDefinition) Validate() error {
 					add("%s: relation.match: ungültiges Feld %q → %q", where, child, master)
 				}
 			}
+			for k := range r.Filter {
+				if !keyRe.MatchString(k) {
+					add("%s: relation.filter: ungültiges Feld %q", where, k)
+				}
+				if _, ok := r.Match[k]; ok || k == r.ForeignKey {
+					add("%s: relation.filter: Feld %q kommt schon aus dem Master", where, k)
+				}
+			}
 			for _, k := range r.Columns {
 				if !keyRe.MatchString(k) {
 					add("%s: relation: ungültige Spalte %q", where, k)
