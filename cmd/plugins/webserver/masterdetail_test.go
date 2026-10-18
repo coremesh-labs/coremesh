@@ -302,12 +302,12 @@ func TestRelationSection(t *testing.T) {
 		t.Fatalf("Filter auf den Master: %v", p)
 	}
 	mustContain(t, b,
-		`<th title="Art">Art</th><th title="Adresse">Adresse</th><th title="Wert">Wert</th>`,  // Columns der Relation, ohne Fremdschlüssel
-		`<td title="E-Mail">MAIL&#8288;<span class="peek" hx-get="/peek/ContactKind/MAIL?vf=`, // Schlüssel, Text als Tooltip, Kopfdaten-Vorschau
-		`hx-get="/m/crm/Address/a1/edit?view=refresh"`,                                        // verknüpfte Adresse bearbeiten
+		`<th title="Art"><span class="th-label">Art</span></th><th title="Adresse"><span class="th-label">Adresse</span></th><th title="Wert"><span class="th-label">Wert</span></th>`, // Columns der Relation, ohne Fremdschlüssel
+		`<td title="E-Mail">MAIL&#8288;<span class="peek" hx-get="/peek/ContactKind/MAIL?vf=`,                                                                                          // Schlüssel, Text als Tooltip, Kopfdaten-Vorschau
+		`hx-get="/m/crm/Address/a1/edit?view=refresh"`, // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
-		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`, // Typ A: Beenden …
+		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`,                    // Typ A: Beenden …
 		`hx-get="/m/crm/Customer/c1/rel/contacts" hx-target="closest .relation"`, // „historische Einträge“ mit Modulpfad
 	)
 	mustNotContain(t, b, "/m/crm/ContactKind/MAIL/edit") // Kataloge (ValueField code): kein Bearbeiten-Link
@@ -626,7 +626,7 @@ func TestColumnShort(t *testing.T) {
 	mdDefs["CustomerContact"] = d
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
-	mustContain(t, b, `<th title="Wert: Adresse, Nummer; bei Web: URL">Wert</th>`)
+	mustContain(t, b, `<th title="Wert: Adresse, Nummer; bei Web: URL"><span class="th-label">Wert</span></th>`)
 }
 
 // TestDisplayColumnsAndSections: „Spalte ausblenden“ wirkt nur in Listen und
@@ -646,7 +646,7 @@ func TestDisplayColumnsAndSections(t *testing.T) {
 	mustContain(t, rel, "E-Mail") // Detail: Spalte ausgeblendet, Feld bleibt
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
 	mustNotContain(t, b, `<th title="Art">`, "E-Mail")
-	mustContain(t, b, `<th title="Wert">Wert</th>`, "info@muster.ch")
+	mustContain(t, b, `<th title="Wert"><span class="th-label">Wert</span></th>`, "info@muster.ch")
 
 	detail := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
 	mustNotContain(t, detail, "Archiv", "geheim")

@@ -28,7 +28,7 @@ func (m *Module) salutationCatalog() *entity {
 			{Key: "description", Label: "Anrede (z. B. Herr, Frau, Firma)", Type: tText, Required: true, Listable: true},
 			{Key: "letter_text", Label: "Briefanrede ({name1} = Nachname/Firma, {name2} = Vorname)", Type: tText, Required: true, Listable: true},
 			{Key: "person_type", Label: "Für Art (leer = alle)", Type: tSelect, Listable: true, Options: personTypeOptions},
-			{Key: "gender", Label: "Für Geschlecht (leer = alle; Vorschlag)", Type: tSelect, Listable: true, Options: genderOptions},
+			{Key: "gender", Label: "Für Geschlecht (leer = alle; Vorschlag)", Short: "Geschlecht", Type: tSelect, Listable: true, Options: genderOptions},
 			{Key: "sort_order", Label: "Reihenfolge", Type: metamodel.TypeNumber},
 			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
 		},

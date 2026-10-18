@@ -42,6 +42,9 @@ table.data { width: 100%; border-collapse: separate; border-spacing: 0; backgrou
 table.data tbody tr:last-child td { border-bottom: 0; }
 table.data th, table.data td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--border); }
 table.data th { font-size: .85rem; color: var(--muted); font-weight: 600; }
+/* Spaltenkopf höchstens so breit wie nötig: lange Köpfe brechen (mit Silbentrennung) um,
+   statt eine Spalte mit kurzen Werten breit zu machen; der ganze Text steht im Tooltip. */
+table.data th .th-label { display: inline-block; max-width: 9rem; hyphens: auto; overflow-wrap: break-word; vertical-align: bottom; }
 table.data td.actions { text-align: right; white-space: nowrap; }
 table.data td.actions > * { margin-left: .75rem; }
 /* Zeilenmenü: mehr als zwei Aktionen klappen unter „Aktionen ▾“ auf (untereinander, rechtsbündig) */

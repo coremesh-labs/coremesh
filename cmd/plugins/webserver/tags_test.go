@@ -79,7 +79,7 @@ func TestTagEditorRender(t *testing.T) {
 	b := do(s, "GET", "/tags/Partner/p%2F1?effectiveDate=2026-10-06", nil, true).Body.String()
 	mustContain(t, b,
 		`<legend>Risiko</legend>`,
-		`<option value="HIGH" selected>HIGH – Hoch</option>`,                                  // Auswahlwert
+		`<option value="HIGH" selected>HIGH – Hoch</option>`,                           // Auswahlwert
 		`name="v.LIMIT.amount" value="5000.00"`, `name="v.LIMIT.currency" value="CHF"`, // Betrag + Währung
 		`<small class="badge">BK 1000</small>`,           // Geltungsbereich Buchungskreis
 		`<small class="badge inactive">veraltet</small>`, // veralteter Tag: nur lesbar

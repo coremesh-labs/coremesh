@@ -820,6 +820,9 @@ func TestTranslationsComplete(t *testing.T) {
 		want[o.TitleKey] = true
 		for _, f := range o.Fields {
 			want[f.LabelKey] = true
+			if f.ShortKey != "" {
+				want[f.ShortKey] = true
+			}
 			for _, op := range f.Options {
 				want[op.LabelKey] = true
 			}

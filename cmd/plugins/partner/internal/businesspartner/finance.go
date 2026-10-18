@@ -66,7 +66,7 @@ func (m *Module) partnerRole() *entity {
 		Keys: []string{"bp_id", "role_code", "valid_from"}, TimeSlice: true, Order: "bp_id, role_code, valid_from",
 		Filters: []string{"bp_id", "role_code"},
 		Fields: withTimeSlice(
-			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
+			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Short: "Partner", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
 			field{Key: "role_code", Label: "Rolle", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refRoleType},
 			// Nur beim Anlegen: Buchungskreise der Finanzrolle, eine Zeile je
 			// Buchungskreis "BUKRS[;Abstimmkonto[;Zahlungsbedingung]]" – oder
@@ -197,14 +197,14 @@ func (m *Module) partnerCompanyCode() *entity {
 		Keys: []string{"bp_id", "company_code", "role_code"}, Order: "bp_id, company_code, role_code",
 		Filters: []string{"bp_id", "company_code", "role_code"},
 		Fields: []field{
-			{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
-			{Key: "company_code", Label: "Buchungskreis", Type: tText, Required: true, Listable: true, Immutable: true,
+			{Key: "bp_id", Label: "Geschäftspartner (ID)", Short: "Partner", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
+			{Key: "company_code", Label: "Buchungskreis", Short: "BuKr", Type: tText, Required: true, Listable: true, Immutable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
-			{Key: "role_code", Label: "Finanzrolle", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refRoleType},
+			{Key: "role_code", Label: "Finanzrolle", Short: "Rolle", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refRoleType},
 			{Key: "reconciliation_account", Label: "Abstimmkonto", Type: tText, Required: true, Listable: true},
 			{Key: "payment_terms", Label: "Zahlungsbedingung", Type: tText, Listable: true},
 			{Key: "dunning_block", Label: "Mahnsperre", Type: tBool, Listable: true},
-			{Key: "posting_block", Label: "Buchungssperre", Type: tBool, Listable: true},
+			{Key: "posting_block", Label: "Buchungssperre", Short: "Gesperrt", Type: tBool, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, old record) error {
 			if old != nil {

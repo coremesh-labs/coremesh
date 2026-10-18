@@ -256,6 +256,9 @@ func texts(d metamodel.DescribeResponse) map[string]string {
 		out[o.TitleKey] = o.Title
 		for _, f := range o.Fields {
 			out[f.LabelKey] = f.Label
+			if f.ShortKey != "" {
+				out[f.ShortKey] = f.Short
+			}
 			if f.GroupKey != "" {
 				out[f.GroupKey] = f.Group
 			}

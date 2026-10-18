@@ -3,9 +3,9 @@ package numrange
 import (
 	"embed"
 
-	api "github.com/coremesh-labs/coremesh/pkg/sdk/numrange"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/module"
+	api "github.com/coremesh-labs/coremesh/pkg/sdk/numrange"
 )
 
 // schemaHCL: Objekte (von den Modulen angemeldet), Intervalle (vom
@@ -251,9 +251,9 @@ var (
 			{Key: "id", Label: "ID", Type: metamodel.TypeText},
 			{Key: "object", Label: "Objekt", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
 				Lookup: &metamodel.Lookup{Object: "NumberRangeObject", ValueField: "object", LabelFields: []string{"description"}}},
-			{Key: "company_code", Label: "Buchungskreis (* = alle)", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+			{Key: "company_code", Label: "Buchungskreis (* = alle)", Short: "BuKr", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
 				Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
-			{Key: "range_key", Label: "Intervallschlüssel", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
+			{Key: "range_key", Label: "Intervallschlüssel", Short: "Intervall", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "year", Label: "Jahr (0 = ohne)", Type: metamodel.TypeNumber, Listable: true, Editable: true},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeText, Listable: true, Editable: true},
 			{Key: "from_number", Label: "von", Type: metamodel.TypeNumber, Required: true, Listable: true, Editable: true, Group: "Intervall"},
@@ -291,8 +291,8 @@ var (
 		Fields: []metamodel.FieldDefinition{
 			{Key: "number", Label: "Nummer", Type: metamodel.TypeText, Listable: true},
 			{Key: "object", Label: "Objekt", Type: metamodel.TypeText, Listable: true},
-			{Key: "company_code", Label: "Buchungskreis", Type: metamodel.TypeText, Listable: true},
-			{Key: "range_key", Label: "Intervallschlüssel", Type: metamodel.TypeText, Listable: true},
+			{Key: "company_code", Label: "Buchungskreis", Short: "BuKr", Type: metamodel.TypeText, Listable: true},
+			{Key: "range_key", Label: "Intervallschlüssel", Short: "Intervall", Type: metamodel.TypeText, Listable: true},
 			{Key: "year", Label: "Jahr", Type: metamodel.TypeNumber},
 			{Key: "value", Label: "Laufende Nummer", Type: metamodel.TypeNumber},
 			{Key: "interval_id", Label: "Intervall", Type: metamodel.TypeText},

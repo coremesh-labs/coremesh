@@ -51,7 +51,7 @@ func (m *Module) addressRoleCatalog() *entity {
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
-			field{Key: "is_main", Label: "Hauptanschrift", Type: tBool, Listable: true},
+			field{Key: "is_main", Label: "Hauptanschrift", Short: "Haupt", Type: tBool, Listable: true},
 		),
 		// Nur eine Adressrolle darf die Hauptanschrift kennzeichnen.
 		Validate: func(ctx context.Context, rec, _ record) error {
@@ -82,7 +82,7 @@ func (m *Module) commTypeCatalog() *entity {
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
 			field{Key: "category_code", Label: "Kategorie", Type: tText, Required: true, Listable: true, Ref: refCommCat},
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
-			field{Key: "is_main", Label: "Haupttyp der Kategorie", Type: tBool, Listable: true},
+			field{Key: "is_main", Label: "Haupttyp der Kategorie", Short: "Haupt", Type: tBool, Listable: true},
 		),
 		// Pro Kategorie höchstens ein Haupt-Kommunikationstyp.
 		Validate: func(ctx context.Context, rec, _ record) error {
@@ -179,7 +179,7 @@ func (m *Module) businessPartner() *entity {
 		Fields: append(withTimeSlice(
 			// BP-Nummer: aus dem Nummernkreis der Partnergruppe (intern) oder eingegeben (extern)
 			field{Key: "id", Label: "BP-Nummer", Type: tText, Listable: true, Immutable: true},
-			field{Key: "group_code", Label: "Partnergruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
+			field{Key: "group_code", Label: "Partnergruppe", Short: "Gruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
 				Lookup: &metamodel.Lookup{Object: "PartnerGroup", ValueField: "code", LabelFields: []string{"description"}}},
 			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: personTypeOptions, Trigger: true},
 			field{Key: "salutation_code", Label: "Anrede (leer = Vorschlag nach Art und Geschlecht)", Type: tText,
@@ -253,9 +253,9 @@ func (m *Module) partnerAddress() *entity {
 		Filters: []string{"bp_id", "address_id", "address_role_code"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
-			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
+			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Short: "Partner", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
 			field{Key: "address_id", Label: "Adresse (ID)", Type: tText, Required: true, Listable: true, Ref: refAddress},
-			field{Key: "address_role_code", Label: "Adressrolle", Type: tText, Required: true, Listable: true, Ref: refAddressRole},
+			field{Key: "address_role_code", Label: "Adressrolle", Short: "Rolle", Type: tText, Required: true, Listable: true, Ref: refAddressRole},
 			field{Key: "is_default", Label: "Standard", Type: tBool, Listable: true},
 		),
 	}
@@ -268,8 +268,8 @@ func (m *Module) partnerContact() *entity {
 		Filters: []string{"bp_id", "comm_type_code"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
-			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
-			field{Key: "comm_type_code", Label: "Kommunikationstyp", Type: tText, Required: true, Listable: true, Ref: refCommType},
+			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Short: "Partner", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
+			field{Key: "comm_type_code", Label: "Kommunikationstyp", Short: "Typ", Type: tText, Required: true, Listable: true, Ref: refCommType},
 			field{Key: "value", Label: "Wert", Type: tText, Required: true, Listable: true},
 			field{Key: "is_default", Label: "Standard", Type: tBool, Listable: true},
 		),
@@ -293,7 +293,7 @@ func (m *Module) partnerBankDetail() *entity {
 		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true, Order: "bp_id, valid_from", Filters: []string{"bp_id"},
 		Fields: withTimeSlice(
 			field{Key: "id", Label: "ID", Type: tText, ReadOnly: true},
-			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
+			field{Key: "bp_id", Label: "Geschäftspartner (ID)", Short: "Partner", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refBP},
 			field{Key: "iban", Label: "IBAN", Type: tText, Required: true, Listable: true},
 			field{Key: "bic", Label: "BIC", Type: tText, Listable: true},
 			field{Key: "bank_name", Label: "Bank", Type: tText, Listable: true},
