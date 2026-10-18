@@ -24,6 +24,7 @@
   "businesspartner.BusinessPartner.sections.bank": "Bank details",
   "businesspartner.BusinessPartner.sections.buchungskreise": "Company code data",
   "businesspartner.BusinessPartner.sections.dokumente": "Documents",
+  "businesspartner.BusinessPartner.sections.texte": "Texts",
   "businesspartner.BusinessPartner.sections.gueltigkeit": "Validity",
   "businesspartner.BusinessPartner.sections.kommunikation": "Communication",
   "businesspartner.BusinessPartner.sections.merkmale": "Attributes",

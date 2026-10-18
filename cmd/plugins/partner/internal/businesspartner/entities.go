@@ -170,6 +170,8 @@ func (m *Module) businessPartner() *entity {
 			// und Buchungskreis. Fehlt das Plugin, zeigt der Abschnitt einen Hinweis.
 			{Key: "merkmale", Title: "Merkmale", Tags: true},
 			{Key: "dokumente", Title: "Dokumente", Collapsed: true, Documents: true},
+			// Texte aus dem Textmanagement (Plugin tag), z. B. Stellung der Unterschrift im Brief.
+			{Key: "texte", Title: "Texte", Collapsed: true, Texts: true},
 		},
 		// Zeitscheibe seit 0.5.0 (Lebenszyklus timeslice): Ein Partner endet zu einem
 		// Enddatum. Ab dann läuft die gesetzliche Aufbewahrungsfrist; danach kann
