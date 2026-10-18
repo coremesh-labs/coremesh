@@ -6,6 +6,8 @@
   "core.action.list": "概览",
   "core.action.reactivate": "重新启用",
   "core.action.reactivate.confirm": "重新启用此记录？",
+  "core.action.mergeSlice": "与上一时间段合并",
+  "core.action.mergeSlice.confirm": "此时间段与上一时间段的值相同。是否合并？",
   "core.action.update": "编辑",
   "core.app.actions": "操作",
   "core.app.back": "返回",

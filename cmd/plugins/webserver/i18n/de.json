@@ -6,6 +6,8 @@
   "core.action.list": "Übersicht",
   "core.action.reactivate": "Wieder aktivieren",
   "core.action.reactivate.confirm": "Datensatz wieder aktivieren?",
+  "core.action.mergeSlice": "Mit vorheriger Zeitscheibe zusammenfassen",
+  "core.action.mergeSlice.confirm": "Diese Zeitscheibe hat dieselben Werte wie die vorherige. Zusammenfassen?",
   "core.action.update": "Bearbeiten",
   "core.app.actions": "Aktionen",
   "core.app.back": "Zurück",

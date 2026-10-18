@@ -6,6 +6,8 @@
   "core.action.list": "Overview",
   "core.action.reactivate": "Reactivate",
   "core.action.reactivate.confirm": "Reactivate this record?",
+  "core.action.mergeSlice": "Merge with previous period",
+  "core.action.mergeSlice.confirm": "This period has the same values as the previous one. Merge?",
   "core.action.update": "Edit",
   "core.app.actions": "Actions",
   "core.app.back": "Back",
