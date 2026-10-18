@@ -11,7 +11,7 @@ import (
 	"github.com/coremesh-labs/coremesh/cmd/plugins/partner/internal/businesspartner"
 )
 
-const version = "0.14.2"
+const version = "0.15.0"
 
 func main() {
 	plugin.Main(module.NewPlugin(

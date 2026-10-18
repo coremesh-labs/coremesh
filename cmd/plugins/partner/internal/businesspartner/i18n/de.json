@@ -122,5 +122,9 @@
   "businesspartner.module.description": "Partner mit Rollen, Adressen, Kommunikation, Bankverbindungen und Buchungskreisdaten",
   "businesspartner.module.title": "Geschäftspartner",
   "businesspartner.navigation.kataloge": "Kataloge",
-  "businesspartner.navigation.partnerdaten": "Partnerdaten"
+  "businesspartner.navigation.partnerdaten": "Partnerdaten",
+  "businesspartner.BusinessPartner.actions.partnerAccount": "Partnerkonto …",
+  "businesspartner.BusinessPartner.fields.statement_company_code": "Buchungskreis (leer = alle)",
+  "businesspartner.BusinessPartner.fields.statement_from": "Von (leer = erster Posten)",
+  "businesspartner.BusinessPartner.fields.statement_to": "Bis (leer = heute)"
 }

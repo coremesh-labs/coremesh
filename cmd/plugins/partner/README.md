@@ -314,3 +314,11 @@ Dependency Injection und DBSchema.Init.
   Lieferanten bzw. Kunden aus dem Hauptbuch (`GLAccountCompany`); bei keinem oder mehreren bleibt es
   Pflichtangabe.
 
+
+## Partnerkonto (seit 0.15.0)
+
+Aktion „Partnerkonto …“ am Geschäftspartner: alle Debitoren- und Kreditorenposten
+des Partners mit laufendem Saldo, vorneweg je Vertrag der Stand (ausgeglichen
+bzw. Soll-/Haben-Saldo). Eingaben: Buchungskreis, Von, Bis (alle optional).
+Gerechnet wird im GuV-Modul (profit-loss, `LedgerReport.partnerAccount`); ist es
+nicht gestartet, meldet die Aktion das.
