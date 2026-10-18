@@ -93,7 +93,7 @@ func (s *server) lookupChoices(r *http.Request, oc objectCtx, ff *filterField, q
 				parts = append(parts, t)
 			}
 		}
-		choices = append(choices, metamodel.Option{Value: v, Label: codeLabel(v, strings.Join(parts, " "))})
+		choices = append(choices, metamodel.Option{Value: v, Label: strings.Join(parts, " ")})
 	}
 	// Gewählter Wert außerhalb der Auswahl (z. B. anderer Buchungskreis): bleibt wählbar.
 	if v := strings.TrimSpace(q.Get(ff.Key)); v != "" && !slices.ContainsFunc(choices, func(o metamodel.Option) bool { return o.Value == v }) {
@@ -106,14 +106,14 @@ func (s *server) lookupChoices(r *http.Request, oc objectCtx, ff *filterField, q
 	ff.Choices, ff.Search, ff.Select = choices, false, true
 }
 
-// codeLabel: Auswahltext „Schlüssel – Bezeichnung“, damit der Schlüssel
-// sichtbar bleibt. Technische Schlüssel (lang, Hash, UUID) und Bezeichnungen,
+// codeLabel: Auswahltext „Schlüssel – Bezeichnung“ für alle Auswahlfelder
+// (Template-Funktion), damit der Schlüssel sichtbar bleibt. Technische Schlüssel (lang, Hash, UUID) und Bezeichnungen,
 // die den Schlüssel schon enthalten, bleiben unverändert.
 func codeLabel(code, label string) string {
 	switch {
-	case label == "":
+	case label == "" || label == code:
 		return code
-	case len(code) > codeLabelMax || strings.ContainsAny(code, " \t") || strings.Contains(label, code):
+	case code == "" || len(code) > codeLabelMax || strings.ContainsAny(code, " \t") || strings.Contains(label, code):
 		return label
 	}
 	return code + " – " + label

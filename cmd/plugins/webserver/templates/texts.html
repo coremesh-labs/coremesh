@@ -22,7 +22,7 @@
   {{if and .CanEdit .Categories}}
   <form class="text-form" hx-post="{{.URL}}" hx-target="closest .text-list" hx-swap="outerHTML">
     {{with .Form.ID}}<input type="hidden" name="id" value="{{.}}">{{end}}
-    <label>{{t "core.texts.category"}}<select name="category" required {{if .Form.ID}}disabled{{end}}>{{range .Categories}}<option value="{{.Code}}" {{if eq .Code $.Form.Category}}selected{{end}}>{{.Name}}{{if .Mandatory}} *{{end}}</option>{{end}}</select></label>
+    <label>{{t "core.texts.category"}}<select name="category" required {{if .Form.ID}}disabled{{end}}>{{range .Categories}}<option value="{{.Code}}" {{if eq .Code $.Form.Category}}selected{{end}}>{{codeLabel .Code .Name}}{{if .Mandatory}} *{{end}}</option>{{end}}</select></label>
     <label>{{t "core.texts.position"}}<input type="number" name="position" min="1" value="{{if .Form.Position}}{{.Form.Position}}{{end}}" placeholder="{{t "core.texts.position_hint"}}"></label>
     <label>{{t "core.texts.language"}}<select name="language" required>{{range .Languages}}<option value="{{.Code}}" {{if eq .Code $.Form.Language}}selected{{end}}>{{.Name}} ({{.Code}})</option>{{end}}</select></label>
     <label>{{t "core.texts.valid_from"}}<input type="date" name="valid_from" value="{{.Form.ValidFrom}}"></label>

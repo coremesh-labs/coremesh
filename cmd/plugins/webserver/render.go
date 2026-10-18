@@ -215,6 +215,7 @@ func (r *renderer) page(loc string, w io.Writer, fragment string, data any, page
 var funcs = template.FuncMap{
 	"listable":    listable,
 	"shortLabel":  shortLabel,
+	"codeLabel":   codeLabel,
 	"raw":         func(rec record, key string) string { return scalar(rec[key]) },
 	"locales":     func() []string { return metamodel.Locales },
 	"tagFieldCtx": func(ed *tagEditor, f tagField) tagFieldCtx { return tagFieldCtx{Ed: ed, F: f} },

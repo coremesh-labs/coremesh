@@ -137,7 +137,7 @@ func TestListFilters(t *testing.T) {
 	})
 	s, h := newMDServer(t)
 	b := do(s, "GET", "/m/crm/CustomerContact?kind_code=MAIL&q=muster", nil, true).Body.String()
-	mustContain(t, b, `class="list-filters"`, `name="q" value="muster"`, `<option value="MAIL" selected>E-Mail</option>`,
+	mustContain(t, b, `class="list-filters"`, `name="q" value="muster"`, `<option value="MAIL" selected>MAIL – E-Mail</option>`,
 		`hx-get="/m/crm/CustomerContact?kind_code=MAIL&amp;q=muster"`, ">Filter zurücksetzen<")
 	q := h.find("list").Payload.(map[string]any)["query"].(map[string]any)
 	if q["kind_code"] != "MAIL" || q["q"] != "muster" {

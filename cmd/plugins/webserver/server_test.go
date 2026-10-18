@@ -288,7 +288,7 @@ func TestNewFormGeneratesFields(t *testing.T) {
 		`<input type="email" name="email"`,
 		`<input type="number" name="employees"`, `step="any"`,
 		`<input type="checkbox" name="active"`,
-		`<select name="kind"`, `<option value="supplier"`, `>Lieferant</option>`,
+		`<select name="kind"`, `<option value="supplier"`, `>supplier – Lieferant</option>`,
 	)
 	mustNotContain(t, b, `name="created_at"`) // nicht editierbar → nicht im Neu-Formular
 
@@ -517,7 +517,7 @@ func TestReport(t *testing.T) {
 	if d, _ := h.find("compute").Payload.(map[string]any)["data"].(map[string]any); d["kinds"] != "MV,SP" {
 		t.Errorf("Mehrfachauswahl: %v", d["kinds"])
 	}
-	mustContain(t, w.Body.String(), `<option value="MV" selected>Miete</option>`, `<option value="GM" >Gewerbe</option>`, `<option value="SP" selected>`)
+	mustContain(t, w.Body.String(), `<option value="MV" selected>MV – Miete</option>`, `<option value="GM" >GM – Gewerbe</option>`, `<option value="SP" selected>`)
 	if w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"XX"}}, false); w.Code != 422 {
 		t.Errorf("unbekannter Wert: %d", w.Code)
 	}
