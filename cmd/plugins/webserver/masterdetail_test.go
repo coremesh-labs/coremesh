@@ -614,3 +614,29 @@ func TestDisplayColumnsAndSections(t *testing.T) {
 	mustContain(t, detail, "Kontakte")
 	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String(), `name="note"`)
 }
+
+// Zeilenmenü: bis zu zwei Aktionen stehen direkt in der Zeile, mehr klappen
+// unter „Aktionen ▾“ auf.
+func TestRelationRowMenu(t *testing.T) {
+	orig := mdDefs["CustomerContact"]
+	defer func() { mdDefs["CustomerContact"] = orig }()
+	withActions := func(n int) {
+		d := orig
+		d.Actions = slices.Clone(orig.Actions)
+		for i := 1; i <= n; i++ {
+			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: fmt.Sprintf("act%d", i), Kind: metamodel.KindCustom, Label: fmt.Sprintf("Aktion %d", i), Record: true})
+		}
+		mdDefs["CustomerContact"] = d
+	}
+	withActions(2)
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustContain(t, b, `>Aktion 1</a>`, `>Aktion 2</a>`)
+	mustNotContain(t, b, `class="row-menu"`)
+
+	withActions(3)
+	s, _ = newMDServer(t)
+	b = do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustContain(t, b, `<details class="row-menu"><summary class="link">Aktionen ▾</summary>`, `>Aktion 3</a>`,
+		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`)
+}
