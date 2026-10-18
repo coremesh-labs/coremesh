@@ -166,7 +166,8 @@ fieldset.tag-set legend { font-weight: 600; padding: 0 .35rem; }
 .peek:hover .peek-card, .peek:focus-within .peek-card { display: block; }
 .peek-head { display: flex; flex-direction: column; margin-bottom: .4rem; }
 .peek-head strong { font-size: 1rem; }
-.peek-fields { display: grid; grid-template-columns: auto 1fr; gap: .2rem .8rem; margin: 0 0 .5rem; }
+/* Wertspalte mit Mindestbreite: lange Feldnamen brechen um, statt die Werte auf ein Zeichen zu drücken */
+.peek-fields { display: grid; grid-template-columns: minmax(0, max-content) minmax(8rem, 1fr); gap: .2rem .8rem; margin: 0 0 .5rem; }
 .peek-fields dt { color: var(--muted); }
 .peek-fields dd { margin: 0; }
 .peek-link { font-weight: 600; }
