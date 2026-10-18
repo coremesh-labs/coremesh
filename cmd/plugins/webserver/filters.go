@@ -93,11 +93,7 @@ func (s *server) lookupChoices(r *http.Request, oc objectCtx, ff *filterField, q
 				parts = append(parts, t)
 			}
 		}
-		label := strings.Join(parts, " ")
-		if label == "" {
-			label = v
-		}
-		choices = append(choices, metamodel.Option{Value: v, Label: label})
+		choices = append(choices, metamodel.Option{Value: v, Label: codeLabel(v, strings.Join(parts, " "))})
 	}
 	// Gewählter Wert außerhalb der Auswahl (z. B. anderer Buchungskreis): bleibt wählbar.
 	if v := strings.TrimSpace(q.Get(ff.Key)); v != "" && !slices.ContainsFunc(choices, func(o metamodel.Option) bool { return o.Value == v }) {
@@ -109,3 +105,19 @@ func (s *server) lookupChoices(r *http.Request, oc objectCtx, ff *filterField, q
 	}
 	ff.Choices, ff.Search, ff.Select = choices, false, true
 }
+
+// codeLabel: Auswahltext „Schlüssel – Bezeichnung“, damit der Schlüssel
+// sichtbar bleibt. Technische Schlüssel (lang, Hash, UUID) und Bezeichnungen,
+// die den Schlüssel schon enthalten, bleiben unverändert.
+func codeLabel(code, label string) string {
+	switch {
+	case label == "":
+		return code
+	case len(code) > codeLabelMax || strings.ContainsAny(code, " \t") || strings.Contains(label, code):
+		return label
+	}
+	return code + " – " + label
+}
+
+// codeLabelMax: längster Schlüssel, der in Auswahltexten erscheint.
+const codeLabelMax = 20
