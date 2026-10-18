@@ -3,6 +3,7 @@
   GET /m/{module}/{object}/{id}/rel/{section}.
   Daten: relationView {Child, Section, ForeignKey, Columns, Rows, AddURL, LookupEdit, Message}.
   Blöcke: relation, relation-toolbar, relation-row.
+  Mehr als zwei Aktionen einer Zeile stehen im aufklappbaren Menü „Aktionen ▾“.
 
   Hinzufügen/Bearbeiten öffnen die normalen Formulare des Unter-Objects im
   Dialog – mit festem Fremdschlüssel (_lock) und _view=refresh. Nach dem
@@ -25,7 +26,7 @@
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
     <tr{{with .Rel.DetailURL}} class="open-row" hx-get="{{.}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
-        hx-trigger="click[!event.target.closest('a,button,input,select,label,.peek,.info')]"{{end}}>
+        hx-trigger="click[!event.target.closest('a,button,input,select,label,summary,.row-menu,.peek,.info')]"{{end}}>
       {{range $f := .Rel.Columns}}
       <td title="{{cellTitle $.Row $f}}">{{cell $.Row $f}}{{template "peek-icon" (peekFor $.Row $f)}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
         <a class="inline-edit" href="{{.}}/{{pathEscape $v}}/edit" hx-get="{{.}}/{{pathEscape $v}}/edit?view=refresh"
@@ -36,7 +37,11 @@
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
            hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>
         {{end}}
-        {{range recordActions .Rel.Child .Row}}{{template "record-action" (recordAction $.Rel.Child.ActionURL $.ID . "link")}}{{end}}{{end}}
+        {{$acts := recordActions .Rel.Child .Row}}{{if gt (len $acts) 2}}
+        <details class="row-menu"><summary class="link">{{t "core.app.actions"}} ▾</summary>
+          <div class="row-menu-items">{{range $acts}}{{template "record-action" (recordAction $.Rel.Child.ActionURL $.ID . "link")}}{{end}}</div>
+        </details>
+        {{- else}}{{range $acts}}{{template "record-action" (recordAction $.Rel.Child.ActionURL $.ID . "link")}}{{end}}{{end}}{{end}}
         {{template "end-button" (endBtn .Rel.Child .Row "refresh" "link danger")}}
       </td>
     </tr>

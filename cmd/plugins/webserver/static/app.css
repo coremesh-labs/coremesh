@@ -44,6 +44,14 @@ table.data th, table.data td { text-align: left; padding: .6rem .8rem; border-bo
 table.data th { font-size: .85rem; color: var(--muted); font-weight: 600; }
 table.data td.actions { text-align: right; white-space: nowrap; }
 table.data td.actions > * { margin-left: .75rem; }
+/* Zeilenmenü: mehr als zwei Aktionen klappen unter „Aktionen ▾“ auf (untereinander, rechtsbündig) */
+details.row-menu { display: inline-block; vertical-align: top; text-align: right; }
+details.row-menu > summary { list-style: none; color: var(--accent); }
+details.row-menu > summary::-webkit-details-marker { display: none; }
+details.row-menu[open] > summary { font-weight: 600; }
+.row-menu-items { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; margin-top: .35rem; }
+.row-menu-items > * { margin: 0; white-space: nowrap; }
+table.data td.actions button.link:not(.danger) { color: var(--accent); } /* Aktionen mit Rückfrage wie Links */
 .empty { color: var(--muted); }
 dl.fields { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1.5rem;
             background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
