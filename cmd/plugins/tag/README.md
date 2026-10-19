@@ -379,6 +379,9 @@ zuordnen genügt, dann erscheinen die Felder.
    blendet Felder ein oder aus, REQUIRES setzt `*`. Die Regeln leben also nur im Server, nicht
    doppelt in JavaScript.
 6. **Speichern** mit „Gültig ab“ → `POST /tags/{…}` → `Tags.set`.
+   Liegt „Gültig ab“ vor dem ersten Wert (bzw. in einer Lücke vor dem nächsten), gilt seit 0.5.4:
+   gleicher Wert → die folgende Zeitscheibe beginnt früher; anderer Wert → eigene Zeitscheibe bis
+   zum Vortag der folgenden. Eine laufende Zeitscheibe mit späteren bleibt gesperrt.
    - Ausgeblendete Felder werden als `null` gesendet und damit beendet.
    - Veraltete Tags werden nicht gesendet.
    - Ein Komma im Betrag wird zum Punkt, Währungen werden großgeschrieben.

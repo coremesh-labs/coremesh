@@ -12,7 +12,7 @@ import (
 	"github.com/coremesh-labs/coremesh/cmd/plugins/tag/internal/textmanagement"
 )
 
-const version = "0.5.3"
+const version = "0.5.4"
 
 func main() {
 	plugin.Main(module.NewPlugin(

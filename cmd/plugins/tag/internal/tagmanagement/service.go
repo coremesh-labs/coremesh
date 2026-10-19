@@ -687,6 +687,11 @@ func (m *Module) writeSlice(ctx context.Context, in tagservice.SetRequest, p *pl
 		return err
 	}
 	if len(future.Rows) > 0 {
+		if _, ok := p.cur[code]; !ok && p.changes[code] != nil {
+			// Vor dem ersten (bzw. nächsten) Wert ohne laufende Zeitscheibe: bis dahin
+			// eintragen – gleicher Wert verlängert die Zeitscheibe nach vorn.
+			return m.writeBefore(ctx, in, p, scope, code)
+		}
 		from, _ := crud.ParseDate(future.Rows[0][0])
 		return crud.Invalid("%s hat ab %s bereits eine künftige Zeitscheibe – Stichtag danach wählen", code, from)
 	}
@@ -714,6 +719,30 @@ func (m *Module) writeSlice(ctx context.Context, in tagservice.SetRequest, p *pl
 		id = cur.ID // dieselbe Zuordnung, neue Zeitscheibe
 	}
 	return m.writeValue(ctx, "INSERT", id, in, scope, code, p.changes[code], p.at, until)
+}
+
+// writeBefore: Wert ab p.at, wenn dort keine Zeitscheibe gilt, aber eine
+// spätere folgt (z. B. „Gültig ab“ versehentlich heute statt seit Beginn).
+// Gleicher Wert: Die folgende Zeitscheibe beginnt schon ab p.at. Anderer Wert:
+// neue Zeitscheibe bis zum Vortag der folgenden.
+func (m *Module) writeBefore(ctx context.Context, in tagservice.SetRequest, p *plan, scope, code string) error {
+	res, err := m.db.Query(ctx, `SELECT `+assignmentCols+` FROM tag__tag_assignments WHERE target_entity_type = ? AND target_entity_id = ? AND company_code = ?
+		AND tag_type_code = ? AND valid_from > ? ORDER BY valid_from LIMIT 1`, in.EntityType, in.EntityID, scope, code, p.at)
+	if err != nil {
+		return err
+	}
+	if len(res.Rows) == 0 {
+		return fmt.Errorf("%s: folgende Zeitscheibe nicht gefunden", code)
+	}
+	a := scanAssignment(res.Rows[0])
+	id, next, s := a.ID, a.ValidFrom, p.changes[code]
+	if text(a.Value) == text(s.value()) {
+		_, err := m.db.Exec(ctx, `UPDATE tag__tag_assignments SET valid_from = ?, changed_at = ?, changed_by = ? WHERE id = ? AND valid_from = ?`,
+			p.at, time.Now().UTC().Format(time.RFC3339), nilIfEmpty(sdk.CallFromContext(ctx).UserID), id, next)
+		return err
+	}
+	end, _ := time.Parse(time.DateOnly, next)
+	return m.writeValue(ctx, "INSERT", id, in, scope, code, s, p.at, end.AddDate(0, 0, -1).Format(time.DateOnly))
 }
 
 func (m *Module) writeValue(ctx context.Context, op, id string, in tagservice.SetRequest, scope, code string, s *stored, from, to string) error {
