@@ -171,6 +171,13 @@ console script:export --out=skripte.yaml [--codes=SALDEN,PRUEF]
 console script:import --file=skripte.yaml [--dry-run=true]
 ```
 
+Ausführen von der Konsole – Parameter direkt mit Präfix `p_`:
+
+```bash
+console handle Script.run --id=SALDEN --p_kontotyp=BALANCE_SHEET
+console handle Report.run --id=SALDEN_KONTO --p_kontotyp=REVENUE
+```
+
 ```yaml
 format: coremesh.scripts
 version: 1

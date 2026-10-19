@@ -175,8 +175,8 @@ func (m *Module) runAction(ctx context.Context, req sdk.Request) (sdk.Response, 
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	if in.Data == nil {
-		in.Data = map[string]any{}
+	if in.Data == nil { // Konsole: Parameter direkt im Payload
+		in.Data, _ = req.Payload.(map[string]any)
 	}
 	params, err := paramValues(ctx, defs, in.Data)
 	if err != nil {
@@ -211,6 +211,11 @@ func resultPayload(v any) map[string]any {
 		_, hasTable := x["table"]
 		_, hasRows := x["rows"]
 		_, hasDl := x["download"]
+		if hasRows && !hasMsg {
+			if l, ok := x["rows"].([]any); ok {
+				x["message"] = fmt.Sprintf("%d Zeilen", len(l))
+			}
+		}
 		if !hasMsg && !hasTable && !hasRows && !hasDl {
 			b, _ := json.MarshalIndent(x, "", "  ")
 			return map[string]any{"message": string(b)}

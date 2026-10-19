@@ -54,6 +54,19 @@ return {message: "Ergebnis " + rows.length, rows: rows, columns: ["id", "betrag"
 	}
 }
 
+func TestColumnOrderFromScript(t *testing.T) {
+	e := setup(t)
+	e.script("ORDER", `return [{zeta: 1, alpha: 2, mitte: 3}];`, nil)
+	out, err := e.run("ORDER", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cols := out["table"].(map[string]any)["columns"]
+	if !strings.Contains(fmt.Sprint(cols), "zeta") || strings.Index(fmt.Sprint(cols), "zeta") > strings.Index(fmt.Sprint(cols), "alpha") {
+		t.Fatalf("Spalten: %v", cols)
+	}
+}
+
 func TestSyntaxErrorAndPatterns(t *testing.T) {
 	e := setup(t)
 	if _, err := e.call(scriptObject, "create", map[string]any{"data": map[string]any{"code": "KAPUTT", "name": "x", "source": "return (1 +;"}}); err == nil ||

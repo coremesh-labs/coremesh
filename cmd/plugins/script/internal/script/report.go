@@ -100,8 +100,8 @@ func (m *Module) reportRunAction(ctx context.Context, req sdk.Request) (sdk.Resp
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	if in.Data == nil {
-		in.Data = map[string]any{}
+	if in.Data == nil { // Konsole: Parameter direkt im Payload
+		in.Data, _ = req.Payload.(map[string]any)
 	}
 	params, err := paramValues(ctx, defs, in.Data)
 	if err != nil {
@@ -168,15 +168,21 @@ func (m *Module) reportSource(ctx context.Context, rep *reportRow, params map[st
 			return nil, nil, res.Log, fmt.Errorf("Skript %s: %v", s.Code, err)
 		}
 		v := res.Value
+		var cols []string
 		if mm, ok := v.(map[string]any); ok {
 			v = mm["rows"]
+			if cl, ok := mm["columns"].([]any); ok {
+				for _, c := range cl {
+					cols = append(cols, crud.Str(c))
+				}
+			}
 		}
 		list, ok := v.([]any)
 		if !ok && v != nil {
 			return nil, nil, res.Log, crud.Invalid("Skript %s: return muss Zeilen liefern (Array von Objekten oder {rows: […]})", s.Code)
 		}
 		rows, err := asRecords(list)
-		return rows, nil, res.Log, err
+		return rows, cols, res.Log, err
 	}
 	payload, err := fillPayload(rep.Payload, params, crud.KeyDate(ctx))
 	if err != nil {

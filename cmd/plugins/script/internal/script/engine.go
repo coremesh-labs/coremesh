@@ -150,6 +150,11 @@ func (m *Module) execute(ctx context.Context, s *scriptRow, in runInput) (*runRe
 	if err != nil {
 		return out, r.describe(err, timeout)
 	}
+	if in.Trigger == trigRun || in.Trigger == trigReport {
+		if v, err = r.withColumns(v); err != nil {
+			return out, r.describe(err, timeout)
+		}
+	}
 	if out.Value, err = r.export(v); err != nil {
 		return out, err
 	}
@@ -160,6 +165,22 @@ func (m *Module) execute(ctx context.Context, s *scriptRow, in runInput) (*runRe
 		}
 	}
 	return out, nil
+}
+
+// withColumns ergänzt Zeilen ohne Spalten um die Felder der ersten Zeile in
+// der Reihenfolge des Skripts (in Go ginge sie mit den Objekten verloren):
+// [{…}] → {rows, columns}, {rows} → {rows, columns}.
+func (r *runner) withColumns(v goja.Value) (goja.Value, error) {
+	fn, err := r.vm.RunString(`(function (v) {
+  function keys(rows) { var f = rows.length ? rows[0] : null; return f && typeof f === "object" && !Array.isArray(f) ? Object.keys(f) : undefined; }
+  if (Array.isArray(v)) { var c = keys(v); return c ? {rows: v, columns: c} : v; }
+  if (v && typeof v === "object" && Array.isArray(v.rows) && !v.columns) { var k = keys(v.rows); if (k) v.columns = k; }
+  return v; })`)
+	if err != nil {
+		return nil, err
+	}
+	f, _ := goja.AssertFunction(fn)
+	return f(goja.Undefined(), v)
 }
 
 // describe macht aus einem Laufzeitfehler eine lesbare Meldung mit Zeile.
