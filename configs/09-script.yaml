@@ -1,0 +1,16 @@
+# Skripte und Berichte (externes Plugin, eigenes Go-Modul unter cmd/plugins/script):
+# JavaScript (goja) über die Objects aller Module – Maske „Ausführen …“, Bindungen als
+# Event-Handler (SystemEvent) und Hook-Abonnent – und eigene Berichte.
+plugins:
+  script:
+    version: 0.1.0
+    ingress: true                    # Abos nach dem Speichern im Hintergrund erneuern (eigene Systemanfrage)
+    databases:
+      main: { access: write }        # Tabellen script__* via DBSchema.Init
+    settings:
+      modules:
+        script:
+          max_read_rows: 100000      # Zeilen je ReadObject bzw. Bericht
+          max_calls: 10000           # Aufrufe je Lauf
+          max_timeout_sec: 600       # obere Grenze für das Zeitlimit eines Skripts
+          log_bytes: 65536           # Ausgaben von log() je Lauf
