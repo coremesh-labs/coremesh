@@ -425,6 +425,20 @@ func TestHistoryAndEffectiveDate(t *testing.T) {
 	if ids, _ := e.svc.Find(e.ctx, tagservice.FindRequest{EntityType: "BusinessPartner", Tag: "RISK", Value: tagservice.Option("HIGH"), EffectiveDate: "2027-06-01"}); len(ids) != 0 {
 		t.Fatalf("Suche 2027: %v", ids)
 	}
+	// Vor dem ersten Wert: gleicher Wert verlängert nach vorn, anderer Wert bis zum Vortag.
+	if err := set("2025-01-01", map[string]*tagservice.Value{"RISK": tagservice.Option("HIGH"), "AUDIT_DATE": tagservice.Date("2026-03-01"), "CREDIT_LIMIT": tagservice.Money("5000", "CHF")}); err != nil {
+		t.Fatal(err)
+	}
+	if h, _ := e.svc.History(e.ctx, tagservice.GetRequest{EntityType: "BusinessPartner", EntityID: "bp1"}, "AUDIT_DATE"); len(h) != 1 || h[0].ValidFrom != "2025-01-01" {
+		t.Fatalf("nach vorn verlängert: %+v", h)
+	}
+	if err := set("2024-01-01", map[string]*tagservice.Value{"RISK": tagservice.Option("HIGH"), "AUDIT_DATE": tagservice.Date("2023-12-01"), "CREDIT_LIMIT": tagservice.Money("5000", "CHF")}); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := e.svc.History(e.ctx, tagservice.GetRequest{EntityType: "BusinessPartner", EntityID: "bp1"}, "AUDIT_DATE")
+	if len(h) != 2 || h[0].ValidFrom != "2024-01-01" || h[0].ValidTo != "2024-12-31" || h[1].ValidFrom != "2025-01-01" || h[0].ID != h[1].ID {
+		t.Fatalf("davor eigener Wert: %+v", h)
+	}
 }
 
 func TestCompanyCodeScopeAndAccess(t *testing.T) {
