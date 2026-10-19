@@ -56,7 +56,7 @@ plugins:
 	cd cmd/plugins/tag && go build -o ../../../$(BIN_DIR)/plugins/ta/tag-0.5.4-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/document && go build -o ../../../$(BIN_DIR)/plugins/do/document-0.2.1-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/ai && go build -o ../../../$(BIN_DIR)/plugins/ai/ai-0.4.1-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/script && go build -o ../../../$(BIN_DIR)/plugins/sc/script-0.2.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/script && go build -o ../../../$(BIN_DIR)/plugins/sc/script-0.2.1-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:
 	go test ./...

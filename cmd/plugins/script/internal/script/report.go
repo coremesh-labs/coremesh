@@ -75,6 +75,7 @@ func (m *Module) reportFormState(ctx context.Context, req metamodel.FormStateReq
 	if err != nil {
 		return st, err
 	}
+	m.onlyParams(reportObject, &st)
 	paramForm(ctx, params, &st, req.Values)
 	st.Message = firstOf(m.text(ctx, `SELECT description FROM script__report WHERE code = ?`, code), "Erstellt den Bericht mit diesen Eingaben.")
 	return st, nil
