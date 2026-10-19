@@ -50,13 +50,13 @@ plugins:
 	@# Namenskonvention des Resolvers: <dir>/<xx>/<name>-<version>-<os>-<arch>[.exe]
 	go build -o $(BIN_DIR)/plugins/he/hello-0.3.0-$(GOOS)-$(GOARCH)$(EXT) ./examples/plugins/hello
 	@# Eigenes Go-Modul: im Modulverzeichnis bauen
-	cd cmd/plugins/webserver && go build -o ../../../$(BIN_DIR)/plugins/we/webserver-0.40.4-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/webserver && go build -o ../../../$(BIN_DIR)/plugins/we/webserver-0.40.5-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/console && go build -o ../../../$(BIN_DIR)/plugins/co/console-0.3.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.15.2-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/tag && go build -o ../../../$(BIN_DIR)/plugins/ta/tag-0.5.3-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/document && go build -o ../../../$(BIN_DIR)/plugins/do/document-0.2.1-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/ai && go build -o ../../../$(BIN_DIR)/plugins/ai/ai-0.4.1-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/script && go build -o ../../../$(BIN_DIR)/plugins/sc/script-0.1.0-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/script && go build -o ../../../$(BIN_DIR)/plugins/sc/script-0.2.0-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:
 	go test ./...

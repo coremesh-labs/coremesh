@@ -163,7 +163,7 @@ func (m *Module) paramEntity(object, table, owner, ownerLabel string, ref *crud.
 			{Key: "label", Label: "Beschriftung in der Maske", Short: "Beschriftung", Type: tText, Required: true, Listable: true},
 			{Key: "type", Label: "Typ", Type: tSel, Required: true, Listable: true, Options: paramTypes, Trigger: true},
 			{Key: "required", Label: "Pflicht", Type: tBool, Listable: true},
-			{Key: "default_value", Label: "Vorbelegung (Datum leer = Stichtag)", Short: "Vorbelegung", Type: tText, Listable: true},
+			{Key: "default_value", Label: "Vorbelegung (Pflichtdatum leer = Stichtag)", Short: "Vorbelegung", Type: tText, Listable: true},
 			{Key: "options", Label: "Auswahlwerte (je Zeile WERT=Text)", Type: tArea, ShowIf: &metamodel.Condition{Field: "type", Values: []string{"SELECT"}}},
 			{Key: "lookup_object", Label: "Auswahl aus Object (z. B. CompanyCode)", Short: "Auswahl aus", Type: tText, Listable: true,
 				ShowIf: &metamodel.Condition{Field: "type", Values: []string{"TEXT"}}},
@@ -340,9 +340,11 @@ func (m *Module) reportEntity() *crud.Entity {
 				Ref: refScript, ShowIf: isScript, RequiredIf: isScript},
 			{Key: "group_by", Label: "Gruppieren nach (Felder, Komma-Liste)", Short: "Gruppen", Type: tText, Listable: true},
 			{Key: "sort_by", Label: "Sortieren nach (Felder, Komma-Liste; -feld = absteigend)", Type: tText},
+			{Key: "section_by", Label: "Abschnitte je (Feld; Zwischenüberschrift und -summe je Wert, z. B. Gebäude)", Short: "Abschnitte", Type: tText},
+			{Key: "subtitle", Label: "Untertitel (Platzhalter {parameter}, z. B. Zeitraum {von} – {bis})", Type: tText},
 			{Key: "row_limit", Label: "Höchstens Zeilen (leer = alle)", Type: tNum},
 			{Key: "totals", Label: "Summenzeile", Type: tBool},
-			{Key: "template", Label: "Vorlage (Modul Vorlagen; leer = Tabelle und CSV)", Short: "Vorlage", Type: tText, Listable: true,
+			{Key: "template", Label: "Vorlage (Modul Vorlagen, z. B. BERICHT für PDF; CSV gibt es immer dazu)", Short: "Vorlage", Type: tText, Listable: true,
 				Lookup: &metamodel.Lookup{Object: "TemplateDefinition", ValueField: "code", LabelFields: []string{"name"}, Columns: []string{"code", "language", "name"}}},
 			{Key: "template_language", Label: "Sprache der Vorlage (leer = de)", Type: tText},
 			{Key: "company_param", Label: "Parameter mit dem Buchungskreis (für die Vorlage; leer = company_code)", Type: tText},
@@ -351,9 +353,9 @@ func (m *Module) reportEntity() *crud.Entity {
 		Sections: []metamodel.SectionDefinition{
 			{Key: "bericht", Title: "Bericht", Fields: []string{"code", "name", "description", "is_active"}},
 			{Key: "quelle", Title: "Datenquelle", Fields: []string{"source_kind", "source_object", "source_action", "source_payload", "stream", "result_path", "source_script"}},
-			{Key: "aufbau", Title: "Aufbau und Ausgabe", Fields: []string{"group_by", "sort_by", "row_limit", "totals", "template", "template_language", "company_param"}},
+			{Key: "aufbau", Title: "Aufbau und Ausgabe", Fields: []string{"group_by", "sort_by", "section_by", "row_limit", "totals", "subtitle", "template", "template_language", "company_param"}},
 			{Key: "spalten", Title: "Spalten", Relation: &metamodel.Relation{Object: reportColObject, ForeignKey: "report",
-				Columns: []string{"position", "field", "label", "aggregate", "format"}}},
+				Columns: []string{"position", "field", "label", "aggregate", "format", "width"}}},
 			{Key: "parameter", Title: "Parameter", Relation: &metamodel.Relation{Object: reportParamObject, ForeignKey: "report",
 				Columns: []string{"position", "name", "label", "type", "required", "default_value", "lookup_object"}}},
 			{Key: "protokoll", Title: "Protokoll", Collapsed: true, Relation: &metamodel.Relation{Object: runObject, ForeignKey: "report",
@@ -388,7 +390,7 @@ func (m *Module) reportEntity() *crud.Entity {
 			if toInt(rec["row_limit"]) == 0 {
 				rec["row_limit"] = nil
 			}
-			for _, k := range []string{"group_by", "sort_by", "template", "template_language", "company_param"} {
+			for _, k := range []string{"group_by", "sort_by", "section_by", "subtitle", "template", "template_language", "company_param"} {
 				rec[k] = nilIfEmpty(crud.Str(rec[k]))
 			}
 			return nil
@@ -411,6 +413,7 @@ func (m *Module) reportColumnEntity() *crud.Entity {
 			{Key: "label", Label: "Überschrift (leer = Feld)", Short: "Überschrift", Type: tText, Listable: true},
 			{Key: "aggregate", Label: "Verdichtung (bei Gruppen und in der Summenzeile)", Short: "Verdichtung", Type: tSel, Listable: true, Options: aggregates},
 			{Key: "format", Label: "Format", Type: tSel, Listable: true, Options: formats},
+			{Key: "width", Label: "Breite im PDF (relativ; leer = Text 3, Zahl 1)", Short: "Breite", Type: tNum, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, _ crud.Record) error {
 			if !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.]*$`).MatchString(strings.TrimSpace(crud.Str(rec["field"]))) {
@@ -421,6 +424,11 @@ func (m *Module) reportColumnEntity() *crud.Entity {
 				return err
 			}
 			rec["label"] = nilIfEmpty(crud.Str(rec["label"]))
+			if w, ok := toFloat(rec["width"]); ok && w < 0 {
+				return crud.Invalid("Breite: nicht negativ")
+			} else if !ok || w == 0 {
+				rec["width"] = nil
+			}
 			return checkOption(rec, "format", "Format", formats, "TEXT")
 		},
 	}

@@ -182,6 +182,14 @@ table "script__report" {
   column "company_param" {
     type = text` + opt + `
   }
+  # Feld der Abschnitte (Zwischenüberschrift und -summe je Wert), seit 0.2.0
+  column "section_by" {
+    type = text` + opt + `
+  }
+  # Untertitel mit Platzhaltern {parameter}, seit 0.2.0
+  column "subtitle" {
+    type = text` + opt + `
+  }
   column "is_active" {
     type    = boolean
     default = true
@@ -206,6 +214,10 @@ table "script__report_column" {
   column "format" {
     type    = text
     default = "TEXT"
+  }
+  # relative Breite (PDF), seit 0.2.0
+  column "width" {
+    type = double` + opt + `
   }
   primary_key { columns = [column.report, column.position] }
   foreign_key "script__report_column_report_fk" {

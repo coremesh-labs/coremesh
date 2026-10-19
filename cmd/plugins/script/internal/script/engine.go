@@ -108,6 +108,7 @@ type runner struct {
 	cut      bool
 	parse    goja.Callable
 	strfy    goja.Callable
+	included map[string]bool
 }
 
 var errInterrupted = errors.New("abgebrochen")
@@ -172,7 +173,7 @@ func (m *Module) execute(ctx context.Context, s *scriptRow, in runInput) (*runRe
 // [{…}] → {rows, columns}, {rows} → {rows, columns}.
 func (r *runner) withColumns(v goja.Value) (goja.Value, error) {
 	fn, err := r.vm.RunString(`(function (v) {
-  function keys(rows) { var f = rows.length ? rows[0] : null; return f && typeof f === "object" && !Array.isArray(f) ? Object.keys(f) : undefined; }
+  function keys(rows) { var f = rows.length ? rows[0] : null; return f && typeof f === "object" && !Array.isArray(f) ? Object.keys(f).filter(function (k) { return k.charAt(0) !== "_"; }) : undefined; }
   if (Array.isArray(v)) { var c = keys(v); return c ? {rows: v, columns: c} : v; }
   if (v && typeof v === "object" && Array.isArray(v.rows) && !v.columns) { var k = keys(v.rows); if (k) v.columns = k; }
   return v; })`)
@@ -248,6 +249,35 @@ func (r *runner) throw(err error) {
 
 // --- Globale Werte und Funktionen ---------------------------------------------------
 
+// includeFn: include("CODE") führt den Quelltext eines anderen (aktiven)
+// Skripts im globalen Bereich aus – seine Funktionen stehen danach bereit
+// (Bibliothek, z. B. Kopfdaten für Vorlagen). Es gelten die erlaubten Aufrufe
+// des ausführenden Skripts; jedes Skript wird höchstens einmal eingebunden.
+func (r *runner) includeFn(code string) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if r.included == nil {
+		r.included = map[string]bool{r.script.Code: true}
+	}
+	if r.included[code] {
+		return
+	}
+	r.included[code] = true
+	s, err := r.m.loadScript(r.ctx, code)
+	if err != nil {
+		r.throw(err)
+	}
+	if !s.Active {
+		r.throw(crud.Invalid("include: Skript %s ist inaktiv", code))
+	}
+	prog, err := goja.Compile(code, s.Source, false)
+	if err != nil {
+		r.throw(fmt.Errorf("include %s: %v", code, err))
+	}
+	if _, err := r.vm.RunProgram(prog); err != nil {
+		panic(err)
+	}
+}
+
 func (r *runner) globals(in runInput) error {
 	vm := r.vm
 	call := sdk.CallFromContext(r.ctx)
@@ -268,6 +298,7 @@ func (r *runner) globals(in runInput) error {
 	}
 	set("AccessObject", r.accessObject)
 	set("ReadObject", r.readObject)
+	set("include", r.includeFn)
 	set("CallTemplate", r.callTemplate)
 	set("log", r.logFn)
 	set("keyDate", func() string { return crud.KeyDate(r.ctx) })

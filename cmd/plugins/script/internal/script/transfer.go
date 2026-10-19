@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -88,17 +89,20 @@ type reportTransfer struct {
 	Template     string           `yaml:"template,omitempty"`
 	Language     string           `yaml:"template_language,omitempty"`
 	CompanyParam string           `yaml:"company_param,omitempty"`
+	SectionBy    string           `yaml:"section_by,omitempty"`
+	Subtitle     string           `yaml:"subtitle,omitempty"`
 	Active       bool             `yaml:"active"`
 	Columns      []columnTransfer `yaml:"columns,omitempty"`
 	Parameters   []paramTransfer  `yaml:"parameters,omitempty"`
 }
 
 type columnTransfer struct {
-	Position  int64  `yaml:"position"`
-	Field     string `yaml:"field"`
-	Label     string `yaml:"label,omitempty"`
-	Aggregate string `yaml:"aggregate,omitempty"`
-	Format    string `yaml:"format,omitempty"`
+	Position  int64   `yaml:"position"`
+	Field     string  `yaml:"field"`
+	Label     string  `yaml:"label,omitempty"`
+	Aggregate string  `yaml:"aggregate,omitempty"`
+	Format    string  `yaml:"format,omitempty"`
+	Width     float64 `yaml:"width,omitempty"`
 }
 
 // transferIn: Payload aus der Maske ({data: {…}}) oder der Konsole (Parameter direkt).
@@ -149,7 +153,7 @@ func (m *Module) exportAction(ctx context.Context, req sdk.Request) (sdk.Respons
 		f.Scripts = append(f.Scripts, s)
 	}
 	res, err = m.db.Query(ctx, `SELECT code, name, description, source_kind, source_object, source_action, source_payload, stream, result_path, source_script,
-		group_by, sort_by, row_limit, totals, template, template_language, company_param, is_active FROM script__report ORDER BY code`)
+		group_by, sort_by, row_limit, totals, template, template_language, company_param, is_active, section_by, subtitle FROM script__report ORDER BY code`)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -157,16 +161,17 @@ func (m *Module) exportAction(ctx context.Context, req sdk.Request) (sdk.Respons
 		s := func(i int) string { return crud.Str(r[i]) }
 		rep := reportTransfer{Code: s(0), Name: s(1), Description: s(2), SourceKind: s(3), SourceObject: s(4), SourceAction: s(5), Payload: s(6),
 			Stream: crud.AsBool(r[7]), ResultPath: s(8), SourceScript: s(9), GroupBy: s(10), SortBy: s(11), RowLimit: toInt(r[12]), Totals: crud.AsBool(r[13]),
-			Template: s(14), Language: s(15), CompanyParam: s(16), Active: crud.AsBool(r[17])}
+			Template: s(14), Language: s(15), CompanyParam: s(16), Active: crud.AsBool(r[17]), SectionBy: s(18), Subtitle: s(19)}
 		if !want(rep.Code) {
 			continue
 		}
-		cols, err := m.db.Query(ctx, `SELECT position, field, label, aggregate, format FROM script__report_column WHERE report = ? ORDER BY position`, rep.Code)
+		cols, err := m.db.Query(ctx, `SELECT position, field, label, aggregate, format, width FROM script__report_column WHERE report = ? ORDER BY position`, rep.Code)
 		if err != nil {
 			return sdk.Response{}, err
 		}
 		for _, c := range cols.Rows {
-			rep.Columns = append(rep.Columns, columnTransfer{Position: toInt(c[0]), Field: crud.Str(c[1]), Label: crud.Str(c[2]), Aggregate: crud.Str(c[3]), Format: crud.Str(c[4])})
+			w, _ := toFloat(c[5])
+			rep.Columns = append(rep.Columns, columnTransfer{Position: toInt(c[0]), Field: crud.Str(c[1]), Label: crud.Str(c[2]), Aggregate: crud.Str(c[3]), Format: crud.Str(c[4]), Width: w})
 		}
 		if rep.Parameters, err = m.exportParams(ctx, "script__report_parameter", "report", rep.Code); err != nil {
 			return sdk.Response{}, err
@@ -240,14 +245,14 @@ func (m *Module) importAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	if err != nil && !errors.Is(err, errDryRun) {
 		return sdk.Response{}, err
 	}
-	msg := fmt.Sprintf("%d neu, %d geändert (Skripte, Berichte, Parameter, Spalten, Bindungen)", stats.created, stats.updated)
+	msg := fmt.Sprintf("%d neu, %d geändert, %d unverändert (Skripte, Berichte, Parameter, Spalten, Bindungen)", stats.created, stats.updated, stats.unchanged)
 	if dry {
 		msg = "Prüfung ohne Fehler – " + msg + " – nichts gespeichert"
 	}
-	return sdk.Response{Payload: map[string]any{"message": msg, "created": stats.created, "updated": stats.updated}}, nil
+	return sdk.Response{Payload: map[string]any{"message": msg, "created": stats.created, "updated": stats.updated, "unchanged": stats.unchanged}}, nil
 }
 
-type importStats struct{ created, updated int }
+type importStats struct{ created, updated, unchanged int }
 
 // upsert legt einen Datensatz an oder ändert ihn (über die Entity: dieselben Prüfungen wie in der Maske).
 func (m *Module) upsert(ctx context.Context, object string, data map[string]any, active bool, st *importStats) (string, error) {
@@ -256,17 +261,21 @@ func (m *Module) upsert(ctx context.Context, object string, data map[string]any,
 		return "", fmt.Errorf("upsert: %s hat keinen fachlichen Schlüssel", object)
 	}
 	id := e.RecordID(data)
-	if _, err := e.Load(ctx, e.KeyOf(data)); err == nil {
-		upd := map[string]any{}
+	if old, err := e.Load(ctx, e.KeyOf(data)); err == nil {
+		upd, changed := map[string]any{}, false
 		for k, v := range data {
 			if !e.Field(k).Immutable && !containsStr(e.Keys, k) {
 				upd[k] = v
+				changed = changed || !sameValue(old[k], v)
 			}
 		}
-		if _, err := e.Update(ctx, map[string]any{"id": id, "data": upd}); err != nil {
+		if !changed {
+			st.unchanged++
+		} else if _, err := e.Update(ctx, map[string]any{"id": id, "data": upd}); err != nil {
 			return "", err
+		} else {
+			st.updated++
 		}
-		st.updated++
 	} else if errors.Is(err, sdk.ErrNotFound) {
 		if _, err := e.Create(ctx, map[string]any{"data": data}); err != nil {
 			return "", err
@@ -276,6 +285,30 @@ func (m *Module) upsert(ctx context.Context, object string, data map[string]any,
 		return "", err
 	}
 	return id, m.setActive(ctx, object, id, active)
+}
+
+// sameValue: gespeicherter Wert und Wert der Datei gleich (leer, nil, false und
+// 0 gelten als gleich; Zahlen nach Wert; Texte ohne Leerraum am Rand).
+func sameValue(a, b any) bool {
+	norm := func(v any) string {
+		switch x := v.(type) {
+		case nil:
+			return ""
+		case bool:
+			if !x {
+				return ""
+			}
+			return "true"
+		}
+		if f, ok := toFloat(v); ok {
+			if f == 0 {
+				return ""
+			}
+			return strconv.FormatFloat(f, 'g', -1, 64)
+		}
+		return strings.TrimSpace(cell(v))
+	}
+	return norm(a) == norm(b)
 }
 
 func (m *Module) setActive(ctx context.Context, object, id string, active bool) error {
@@ -348,16 +381,24 @@ func (m *Module) importBinding(ctx context.Context, script string, b bindingTran
 	var id string
 	if len(res.Rows) > 0 {
 		id = crud.Str(res.Rows[0][0])
-		upd := map[string]any{}
+		old, err := e.Load(ctx, mustKey(e, id))
+		if err != nil {
+			return err
+		}
+		upd, changed := map[string]any{}, false
 		for k, v := range data {
 			if k != "script" {
 				upd[k] = v
+				changed = changed || !sameValue(old[k], v)
 			}
 		}
-		if _, err := e.Update(ctx, map[string]any{"id": id, "data": upd}); err != nil {
+		if !changed {
+			st.unchanged++
+		} else if _, err := e.Update(ctx, map[string]any{"id": id, "data": upd}); err != nil {
 			return err
+		} else {
+			st.updated++
 		}
-		st.updated++
 	} else {
 		resp, err := e.Create(ctx, map[string]any{"data": data})
 		if err != nil {
@@ -378,13 +419,13 @@ func (m *Module) importReport(ctx context.Context, r reportTransfer, st *importS
 	data := map[string]any{"code": r.Code, "name": r.Name, "description": r.Description, "source_kind": r.SourceKind, "source_object": r.SourceObject,
 		"source_action": r.SourceAction, "source_payload": r.Payload, "stream": r.Stream, "result_path": r.ResultPath, "source_script": r.SourceScript,
 		"group_by": r.GroupBy, "sort_by": r.SortBy, "row_limit": r.RowLimit, "totals": r.Totals, "template": r.Template,
-		"template_language": r.Language, "company_param": r.CompanyParam}
+		"template_language": r.Language, "company_param": r.CompanyParam, "section_by": r.SectionBy, "subtitle": r.Subtitle}
 	if _, err := m.upsert(ctx, reportObject, data, r.Active, st); err != nil {
 		return err
 	}
 	for _, c := range r.Columns {
 		if _, err := m.upsert(ctx, reportColObject, map[string]any{"report": strings.ToUpper(r.Code), "position": c.Position, "field": c.Field,
-			"label": c.Label, "aggregate": c.Aggregate, "format": c.Format}, true, st); err != nil {
+			"label": c.Label, "aggregate": c.Aggregate, "format": c.Format, "width": c.Width}, true, st); err != nil {
 			return fmt.Errorf("Spalte %d: %w", c.Position, err)
 		}
 	}

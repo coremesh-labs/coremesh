@@ -65,7 +65,7 @@ func paramForm(ctx context.Context, params []paramRow, st *metamodel.FormState, 
 			continue
 		}
 		def := p.Default
-		if def == "" && p.Type == "DATE" {
+		if def == "" && p.Type == "DATE" && p.Required {
 			def = crud.KeyDate(ctx)
 		}
 		if def != "" {
@@ -86,7 +86,7 @@ func paramValues(ctx context.Context, params []paramRow, data map[string]any) (m
 		s := strings.TrimSpace(crud.Str(raw))
 		if !ok || (s == "" && p.Type != "BOOLEAN") {
 			s = p.Default
-			if s == "" && p.Type == "DATE" {
+			if s == "" && p.Type == "DATE" && p.Required {
 				s = crud.KeyDate(ctx)
 			}
 		}

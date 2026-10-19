@@ -295,8 +295,9 @@ type view struct {
 	Result any
 	// ResultTable: Tabelle im Ergebnis einer Aktion ({"table": {"columns", "rows"}}).
 	ResultTable *resultTable
-	// Download: Datei im Ergebnis ({"download": Content}), Link zum Speichern.
-	Download *download
+	// Downloads: Dateien im Ergebnis ({"download": Content} und/oder
+	// {"downloads": [Content, …]}), je ein Link zum Speichern.
+	Downloads []*download
 	// Report: Seite eines Berichts (Object ohne Übersicht) – Maske und Ergebnis auf einer Seite.
 	Report  bool
 	Message string
@@ -466,14 +467,34 @@ type download struct {
 	FileName string
 }
 
-// downloadOf liest {"download": {"content" (Base64), "content_type", "file_name"}} aus dem Ergebnis.
-func downloadOf(payload any) *download {
+// downloadsOf liest {"download": {"content" (Base64), "content_type", "file_name"}}
+// und die Liste {"downloads": […]} (seit 0.40.5, z. B. PDF und CSV) aus dem Ergebnis.
+func downloadsOf(payload any) []*download {
 	m, ok := payload.(map[string]any)
-	if !ok || m["download"] == nil {
+	if !ok {
+		return nil
+	}
+	var out []*download
+	if d := downloadOf(m["download"]); d != nil {
+		out = append(out, d)
+	}
+	if l, ok := m["downloads"].([]any); ok {
+		for _, x := range l {
+			if d := downloadOf(x); d != nil {
+				out = append(out, d)
+			}
+		}
+	}
+	return out
+}
+
+// downloadOf: eine Datei {"content" (Base64), "content_type", "file_name"}.
+func downloadOf(v any) *download {
+	if v == nil {
 		return nil
 	}
 	var c metamodel.Content
-	if err := sdk.Decode(m["download"], &c); err != nil || c.Content == "" || c.FileName == "" {
+	if err := sdk.Decode(v, &c); err != nil || c.Content == "" || c.FileName == "" {
 		return nil
 	}
 	if _, err := base64.StdEncoding.DecodeString(c.Content); err != nil {

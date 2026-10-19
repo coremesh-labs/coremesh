@@ -97,8 +97,65 @@ func TestReportStreamScriptTemplate(t *testing.T) {
 	if fmt.Sprint(data["totals"]) != "map[konto:Summe saldo:180,00]" || len(data["rows"].([]any)) != 2 {
 		t.Fatalf("Daten der Vorlage: %v", data)
 	}
-	if out["download"].(map[string]any)["file_name"] != "bericht.pdf" {
-		t.Fatalf("Datei: %v", out["download"])
+	dl := out["downloads"].([]any)
+	if len(dl) != 2 || dl[0].(map[string]any)["file_name"] != "bericht.pdf" || dl[1].(map[string]any)["file_name"] != "skript.csv" {
+		t.Fatalf("Dateien: %v", out["downloads"])
+	}
+}
+
+func TestReportSectionsAndScriptColumns(t *testing.T) {
+	e := setup(t)
+	e.script("HAUS", `return {subtitle: "Jahr " + params.jahr, rows: [
+  {haus: "B-Haus", name: "Zett", tage: 10},
+  {haus: "A-Haus", name: "Ypsilon", tage: 20, _style: "sum"},
+  {haus: "B-Haus", name: "Alpha", tage: 5}],
+  columns: [{field: "haus", label: "Gebäude"}, {field: "name", label: "Mieter", width: 4}, {field: "tage", label: "Tage", format: "integer", aggregate: "sum"}]};`, nil)
+	e.report(map[string]any{"code": "HAEUSER", "name": "Häuser", "source_kind": "SCRIPT", "source_script": "HAUS", "section_by": "haus", "sort_by": "name",
+		"totals": true, "template": "BERICHT"})
+	e.must(reportParamObject, "create", map[string]any{"data": map[string]any{"report": "HAEUSER", "name": "jahr", "label": "Jahr", "type": "NUMBER", "default_value": "2026"}})
+	e.must(reportParamObject, "create", map[string]any{"data": map[string]any{"report": "HAEUSER", "name": "company_code", "label": "Buchungskreis", "type": "TEXT", "default_value": "2000"}})
+	out, err := e.call(reportObject, "run", map[string]any{"id": "HAEUSER"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Abschnitte in der Reihenfolge des Skripts, darin sortiert, je Abschnitt die Zwischensumme
+	if got := strings.Join(rowsOf(t, out), "|"); got != "[B-Haus Alpha 5]|[B-Haus Zett 10]|[B-Haus Summe B-Haus 15]|[A-Haus Ypsilon 20]|[A-Haus Summe A-Haus 20]|[ Summe 35]" {
+		t.Fatalf("Zeilen: %s", got)
+	}
+	if fmt.Sprint(out["table"].(map[string]any)["columns"]) != "[Gebäude Mieter Tage]" {
+		t.Fatalf("Spalten: %v", out["table"])
+	}
+	data := e.h.find("Template", "render")[0]["data"].(map[string]any)
+	secs := data["sections"].([]any)
+	if data["subtitle"] != "Jahr 2026" || len(secs) != 2 || secs[1].(map[string]any)["label"] != "A-Haus" {
+		t.Fatalf("Vorlage: %v", data)
+	}
+	cols := data["columns"].([]any)
+	if c := cols[0].(map[string]any); c["section"] != true || c["share"] != "0.0000" {
+		t.Fatalf("Abschnittsspalte: %v", c)
+	}
+	if c := cols[1].(map[string]any); c["share"] != "0.8000" || cols[2].(map[string]any)["numeric"] != true {
+		t.Fatalf("Breiten: %v", cols)
+	}
+	if r := secs[1].(map[string]any)["rows"].([]any)[0].(map[string]any); r["_style"] != "SUM" {
+		t.Fatalf("Zeilenart: %v", r)
+	}
+
+	// Bibliothek über include, data für die Vorlage
+	e.script("LIB", `function kopf(cc) { return {code: cc, name: "Firma " + cc}; }`, nil)
+	e.script("MIT", `include("lib"); include("LIB"); return {rows: [{a: 1}], data: {company: kopf(params.company_code)}};`, nil)
+	e.report(map[string]any{"code": "MITLIB", "name": "Mit Bibliothek", "source_kind": "SCRIPT", "source_script": "MIT", "template": "BERICHT"})
+	e.must(reportParamObject, "create", map[string]any{"data": map[string]any{"report": "MITLIB", "name": "company_code", "label": "Buchungskreis", "type": "TEXT", "default_value": "2000"}})
+	if _, err := e.call(reportObject, "run", map[string]any{"id": "MITLIB"}); err != nil {
+		t.Fatal(err)
+	}
+	r := e.h.find("Template", "render")
+	if c := r[len(r)-1]["data"].(map[string]any)["company"]; fmt.Sprint(c) != "map[code:2000 name:Firma 2000]" {
+		t.Fatalf("company: %v", c)
+	}
+	e.script("FEHLT", `include("GIBTESNICHT"); return 1;`, nil)
+	if _, err := e.run("FEHLT", nil); err == nil || !strings.Contains(err.Error(), "GIBTESNICHT") {
+		t.Fatalf("include ohne Skript: %v", err)
 	}
 }
 
@@ -129,6 +186,9 @@ func TestExportImport(t *testing.T) {
 		}
 		if i == 0 && fmt.Sprint(res["created"]) != "6" {
 			t.Fatalf("Import: %v", res)
+		}
+		if i == 1 && (fmt.Sprint(res["updated"]) != "0" || fmt.Sprint(res["unchanged"]) != "6") {
+			t.Fatalf("zweiter Import: %v", res)
 		}
 	}
 	if b := f.must(bindingObject, "list", map[string]any{})["items"].([]any); len(b) != 1 {
