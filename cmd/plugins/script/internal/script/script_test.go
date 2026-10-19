@@ -32,6 +32,9 @@ return {message: "Ergebnis " + rows.length, rows: rows, columns: ["id", "betrag"
 	if len(st.Extra) != 2 || st.Extra[0].Key != "p_group" || st.Extra[1].Type != metamodel.TypeNumber || *st.Fields["p_group"].Value != "A" {
 		t.Fatalf("Maske: %+v %+v", st.Extra, st.Fields)
 	}
+	if v := st.Fields["source"].Visible; v == nil || *v {
+		t.Fatalf("Maske: Felder des Skripts sichtbar: %+v", st.Fields["source"])
+	}
 	if _, err := e.run("SUMME", map[string]any{}); err == nil || !strings.Contains(err.Error(), "Mindestens fehlt") {
 		t.Fatalf("Pflicht: %v", err)
 	}

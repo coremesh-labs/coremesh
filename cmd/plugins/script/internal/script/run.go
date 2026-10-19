@@ -42,6 +42,15 @@ func (m *Module) loadParams(ctx context.Context, table, owner, code string) ([]p
 }
 
 // paramForm: Felder der Parameter mit Vorbelegung (Datum ohne Vorbelegung = Stichtag).
+// onlyParams: Die Maske „Ausführen …“ zeigt nur die Parameter, nicht die
+// Felder des Skripts bzw. Berichts (eine Aktion ohne Feldliste zeigt sonst alle).
+func (m *Module) onlyParams(object string, st *metamodel.FormState) {
+	hidden := false
+	for _, f := range m.set.Entity(object).Fields {
+		st.Fields[f.Key] = metamodel.FieldState{Visible: &hidden}
+	}
+}
+
 func paramForm(ctx context.Context, params []paramRow, st *metamodel.FormState, values map[string]string) {
 	for _, p := range params {
 		f := metamodel.FieldDefinition{Key: paramPrefix + p.Name, Label: p.Label, Required: p.Required, Editable: true, Group: "Parameter"}
@@ -144,6 +153,7 @@ func (m *Module) scriptFormState(ctx context.Context, req metamodel.FormStateReq
 		if err != nil {
 			return st, err
 		}
+		m.onlyParams(scriptObject, &st)
 		paramForm(ctx, params, &st, req.Values)
 		st.Message = firstOf(m.text(ctx, `SELECT description FROM script__script WHERE code = ?`, code), "Führt das Skript mit diesen Eingaben aus.")
 	}
