@@ -33,11 +33,12 @@ kommen als Meldung zurück. Syntaxfehler weist schon das Speichern ab.
 
 | Global | Bedeutung |
 |---|---|
-| `params` | Werte der Parameter. Typen: Text, Zahl, Datum `JJJJ-MM-TT`, Ja/Nein, Auswahl. Ein Datum ohne Vorbelegung erhält den Stichtag. |
+| `params` | Werte der Parameter. Typen: Text, Zahl, Datum `JJJJ-MM-TT`, Ja/Nein, Auswahl. Ein Pflichtdatum ohne Vorbelegung erhält den Stichtag, ein freiwilliges bleibt leer (`null`). |
 | `event` | das SystemEvent `{object, action, company_code, entity_id, user_id, data, …}` (Bindung EVENT) |
 | `hook` | `{name, phase, data, messages}` mit `hook.error(id, text, field)`, `hook.warning(…)`, `hook.info(…)` (Bindung HOOK) |
 | `context` | `{script, trigger, detail, user_id, key_date}` |
 | `AccessObject(object, action, payload)` | Action eines Moduls; liefert die Antwort. Fehler sind Ausnahmen (`try/catch`). |
+| `include(code)` | Quelltext eines anderen aktiven Skripts im globalen Bereich ausführen (Bibliothek mit Funktionen, z. B. `KOPFDATEN`); es gelten die erlaubten Aufrufe des ausführenden Skripts, jedes Skript höchstens einmal (seit 0.2.0) |
 | `ReadObject(object, action, payload[, limit])` | Datenstrom (z. B. `JournalEntryItem.list`) als Liste von Objekten |
 | `ReadObject(object, action, payload, fn)` | dasselbe, `fn(row, index)` je Zeile; `return false` bricht ab |
 | `CallTemplate(template, data, {company_code, language, wait})` | Vorlage rechnen → `{message, job_number, download}` |
@@ -133,10 +134,10 @@ geordnet nach Priorität. Eine inaktive Bindung läuft nicht, ihr Abo läuft dan
 | Teil | Felder |
 |---|---|
 | Datenquelle Object | Object, Action (leer = `list`), Anfrage als JSON mit Platzhaltern `{parameter}` (ein Platzhalter allein behält den Typ; `{key_date}` = Stichtag), „Als Datenstrom lesen“, Pfad der Zeilen (leer = `items` bzw. `rows`). Die Datenquelle ist zugleich die Erlaubnis; die Berechtigung des Benutzers gilt trotzdem. |
-| Datenquelle Skript | Skript, das Zeilen liefert (`return [{…}]` oder `{rows: […]}`), mit den Parametern des Berichts |
-| Spalten | Feld (Punkte für eingebettete Werte), Überschrift, Verdichtung (keine, Summe, Anzahl, Minimum, Maximum, Durchschnitt), Format (Text, Zahl, ganze Zahl, Betrag, Betrag aus Cent, Datum). Ohne Spalten: alle Felder. |
-| Aufbau | Gruppieren nach, Sortieren nach (`-feld` absteigend), höchstens Zeilen, Summenzeile (über alle Zeilen der Quelle) |
-| Ausgabe | ohne Vorlage: Tabelle und CSV (Semikolon, deutsche Zahlen, UTF-8 mit BOM für Excel). Mit Vorlage: `Template.render` im Buchungskreis aus dem Parameter `company_code` (bzw. „Parameter mit dem Buchungskreis“) mit den Daten `{title, description, report, params, columns: [{field, label, format, aggregate}], rows (formatiert), values (roh), totals}` |
+| Datenquelle Skript | Skript, das Zeilen liefert (`return [{…}]` oder `{rows: […]}`), mit den Parametern des Berichts. Seit 0.2.0 auch `{rows, columns, title, subtitle, message, data}`: `columns` als Feldnamen oder `{field, label, format, aggregate, width}` (gelten, wenn der Bericht keine eigenen Spalten hat), `data` geht zusätzlich an die Vorlage (z. B. `company` für Kopf- und Fußzeile). In den Zeilen steuern `_style` (`HEAD`, `SUM`, `TOTAL`: fett bzw. mit Linie) und `_indent` (Einrückung) die Vorlage. |
+| Spalten | Feld (Punkte für eingebettete Werte), Überschrift, Verdichtung (keine, Summe, Anzahl, Minimum, Maximum, Durchschnitt), Format (Text, Zahl, ganze Zahl, Betrag, Betrag aus Cent, Datum), Breite im PDF (relativ; leer = Text 3, Zahl 1). Ohne Spalten: die des Skripts bzw. alle Felder. |
+| Aufbau | Gruppieren nach, Sortieren nach (`-feld` absteigend), Abschnitte je Feld (seit 0.2.0: Zwischenüberschrift je Wert in der Reihenfolge der Quelle, darin sortiert, mit Zwischensumme bei Summenzeile), höchstens Zeilen, Summenzeile (über alle Zeilen der Quelle), Untertitel mit Platzhaltern `{parameter}` |
+| Ausgabe | immer Tabelle und CSV (Semikolon, deutsche Zahlen, UTF-8 mit BOM für Excel). Mit Vorlage zusätzlich deren Datei (z. B. PDF; beide als Links): `Template.render` im Buchungskreis aus dem Parameter `company_code` (bzw. „Parameter mit dem Buchungskreis“) mit den Daten `{title, subtitle, description, report, params, columns: [{field, label, format, aggregate, numeric, section, share}], table_columns (ohne Abschnittsspalte), rows (formatiert, mit _style/_indent), values (roh), sections: [{label, rows, totals}], totals}` und `data` des Skripts. Die allgemeine Vorlage `BERICHT` (Modul template, PDF quer) zeigt das als Tabelle über die ganze Breite. |
 
 Beispiel „Salden je Konto“: Object `AccountBalance`, Anfrage
 `{"company_code": "{company_code}", "fiscal_year": "{year}"}` und diese Spalten:
@@ -163,7 +164,7 @@ Auf Wunsch lassen sich nur bestimmte Skripte und Berichte auswählen (Schlüssel
 - Bindungen nach Art, Event bzw. Hook und Phase.
 
 Der Import ist eine Transaktion. „Nur prüfen“ nimmt alles zurück. Er ist wiederholbar, ein zweiter
-Lauf ändert nichts. Nicht in der Datei stehende Parameter und Bindungen bleiben erhalten (kein
+Lauf ändert nichts (Meldung „… unverändert“). Nicht in der Datei stehende Parameter und Bindungen bleiben erhalten (kein
 Löschen).
 
 ```bash

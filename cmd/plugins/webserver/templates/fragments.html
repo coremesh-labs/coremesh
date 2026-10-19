@@ -26,8 +26,8 @@
 
 {{/* Ergebnis einer custom-Action: Meldung, Tabelle, Datei zum Speichern. */}}
 {{define "result-body"}}
-{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not (or .ResultTable .Download)}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
-{{with .Download}}<p class="result-download"><a class="btn" href="{{.URL}}" download="{{.FileName}}">{{t "core.app.download"}}: {{.FileName}}</a></p>{{end}}
+{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not (or .ResultTable .Downloads)}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
+{{with .Downloads}}<p class="result-download">{{range .}}<a class="btn" href="{{.URL}}" download="{{.FileName}}">{{t "core.app.download"}}: {{.FileName}}</a> {{end}}</p>{{end}}
 {{with .ResultTable}}<div class="result-table"><table class="data">
   <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
   <tbody>{{range .Rows}}<tr>{{range .}}<td{{if numeric .}} class="num"{{end}}>{{.}}</td>{{end}}</tr>{{end}}</tbody>

@@ -12,7 +12,7 @@ import (
 	"github.com/coremesh-labs/coremesh/cmd/plugins/script/internal/script"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	plugin.Main(module.NewPlugin(

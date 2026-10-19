@@ -633,6 +633,7 @@ abhängen:
   Beträge und Zahlen stehen rechtsbündig.
 - **Dateien im Ergebnis (seit 0.33.0):** `{"download": {"content" (Base64), "content_type",
   "file_name"}}` bietet einen Link zum Speichern an (z. B. CSV), ohne dass etwas gespeichert wird.
+  Seit 0.40.5 auch mehrere: `{"downloads": [Content, …]}` (z. B. PDF und CSV), je ein Link.
 - **Zusatzfelder der Maske (seit 0.35.0):** `FormState.Extra` liefert weitere Felder nur für das
   Formular einer Aktion (z. B. ein von der KI vorbelegtes Objekt, Gruppen je Unter-Objekt); sie
   werden wie die Felder der Aktion ausgewertet. `FormState.HideButtons` blendet Knöpfe des
