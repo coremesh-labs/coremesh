@@ -820,8 +820,10 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	id := r.PostForm.Get("_id")
 	// Aktion ohne Formular (Confirm ohne Fields): nur bestätigt, keine Eingaben.
 	// Ohne Formular: bestätigte Aktion ohne Felder oder Knopf im Aktionsabschnitt
-	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“.
-	direct := len(act.Fields) == 0 && (act.Confirm != "" || r.PostForm.Get("_button") != "")
+	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“. Ebenso eine
+	// Aktion am Datensatz ohne Felder und ohne Maske (z. B. „Rechnen“): der Schlüssel
+	// steht im Datensatz, nichts ist abzufragen.
+	direct := len(act.Fields) == 0 && (act.Confirm != "" || (act.Record && !act.FormState) || r.PostForm.Get("_button") != "")
 	// Knopf der Maske (FormState.Buttons): Wert als button im Payload; ohne Prüfung
 	// (NoValidate) kommen keine Eingaben mit.
 	pressed := strings.TrimSpace(r.PostForm.Get("_submit"))
