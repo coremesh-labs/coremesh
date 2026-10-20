@@ -128,6 +128,31 @@ func TestDirectRecordAction(t *testing.T) {
 	}
 }
 
+// TestDirectRecordActionNoConfirm: custom-Action am Datensatz ohne Fields, Confirm und
+// FormState (z. B. „Rechnen“) – Knopf ohne Sicherheitsabfrage, Ausführung ohne Formular
+// (nicht alle Felder des Objects abfragen).
+func TestDirectRecordActionNoConfirm(t *testing.T) {
+	orig := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = orig })
+	d := orig
+	d.Actions = append(slices.Clone(orig.Actions), metamodel.ActionConfig{Name: "lock", Kind: metamodel.KindCustom, Label: "Rechnen", Record: true})
+	mdDefs["Customer"] = d
+
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
+	mustContain(t, b, `hx-post="/action/crm/Customer/lock" hx-vals='{"_id": "c1"}'`, ">Rechnen</button>")
+	mustNotContain(t, b, `href="/action/crm/Customer/lock`, `hx-confirm=""`)
+
+	w := do(s, "POST", "/action/crm/Customer/lock", url.Values{"_id": {"c1"}}, true)
+	if w.Code != 200 {
+		t.Fatalf("Ausführung: %d %s", w.Code, w.Body.String())
+	}
+	p := h.find("lock").Payload.(map[string]any)
+	if p["id"] != "c1" || len(p["data"].(map[string]any)) != 0 {
+		t.Fatalf("Payload: %v", p)
+	}
+}
+
 // TestLockedRecord: "_locked" blendet Bearbeiten und Aktionen je Datensatz aus.
 func TestLockedRecord(t *testing.T) {
 	orig := mdDefs["Customer"]

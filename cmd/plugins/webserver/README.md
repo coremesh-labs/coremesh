@@ -166,6 +166,9 @@ Actions: []metamodel.ActionConfig{
 - `custom`-Actions mit `Confirm` und **ohne** `Fields` brauchen kein Formular: Detailansicht
   und Zeilen eingebetteter Tabellen zeigen einen Knopf, der nach der Sicherheitsabfrage
   direkt ausführt (z. B. „Buchen“ einer Vorerfassung, „Entfernen“ einer Position).
+  Seit 0.40.6 ebenso `Record`-Actions ohne `Fields`, `Confirm` und `FormState` – ohne
+  Sicherheitsabfrage (z. B. „Rechnen“ eines Abrechnungslaufs); der Datensatz liefert den
+  Schlüssel, nichts wird abgefragt.
 - `ActionConfig.Fields` beschränkt das Formular einer `custom`-Action auf diese Felder (in
   dieser Reihenfolge), sonst erscheinen alle editierbaren Felder. Ausgewertet werden beim
   Absenden ebenfalls nur diese Felder.

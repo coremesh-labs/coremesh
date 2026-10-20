@@ -670,12 +670,12 @@ func TestRelationRowMenu(t *testing.T) {
 	withActions(2)
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
-	mustContain(t, b, `>Aktion 1</a>`, `>Aktion 2</a>`)
+	mustContain(t, b, `>Aktion 1</button>`, `>Aktion 2</button>`)
 	mustNotContain(t, b, `class="row-menu"`)
 
 	withActions(3)
 	s, _ = newMDServer(t)
 	b = do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
-	mustContain(t, b, `<details class="row-menu"><summary class="link">Aktionen ▾</summary>`, `>Aktion 3</a>`,
+	mustContain(t, b, `<details class="row-menu"><summary class="link">Aktionen ▾</summary>`, `>Aktion 3</button>`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`)
 }
