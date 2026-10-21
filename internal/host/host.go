@@ -84,20 +84,17 @@ func (h *Host) Routes() []dispatcher.Route { return h.disp.Routes() }
 // ein Core-Plugin in der Konfiguration, läuft es mit Standardeinstellungen;
 // mit enabled: false wird es übersprungen.
 //
-// Reihenfolge: zuerst, wer DBSchema.CheckVersion anbietet (die anderen melden beim
-// Start ihr Schema an), dann alphabetisch.
+// Reihenfolge: zuerst die Schemaverwaltung (DBSchema.CheckVersion), dann der Catalog
+// (Catalog.Register) – die anderen melden beim Start Schema und Metamodell dort an –,
+// innerhalb dieser Stufen alphabetisch.
 func (h *Host) StartInternal(ctx context.Context, factories map[string]InternalFactory) error {
 	cores := map[string]sdk.Plugin{}
-	var first, rest []string
+	tiers := make([][]string, len(startFirst)+1)
 	for _, name := range sortedKeys(factories) {
 		cores[name] = factories[name](InternalDeps{DB: h.db, Catalog: h.disp.Catalog})
-		if offersSchema(ctx, cores[name]) {
-			first = append(first, name)
-		} else {
-			rest = append(rest, name)
-		}
+		tiers[startTier(ctx, cores[name])] = append(tiers[startTier(ctx, cores[name])], name)
 	}
-	for _, name := range append(first, rest...) {
+	for _, name := range slices.Concat(tiers...) {
 		pc, ok := h.cfg.Plugins[name]
 		if !ok {
 			pc = config.Plugin{Kind: config.KindInternal}
@@ -307,18 +304,27 @@ func capabilities(m sdk.Manifest) []string {
 	return out
 }
 
-// offersSchema: Das Plugin bietet DBSchema.CheckVersion an (Schemaverwaltung).
-func offersSchema(ctx context.Context, p sdk.Plugin) bool {
+// startFirst: Dienste, die Core-Plugins beim Start brauchen – ihre Anbieter starten
+// in dieser Reihenfolge vor allen anderen.
+var startFirst = []struct{ object, action string }{
+	{sdk.ObjectDBSchema, "CheckVersion"},
+	{sdk.ObjectCatalog, "Register"},
+}
+
+// startTier: Stufe des Plugins nach startFirst (len(startFirst) = alle anderen).
+func startTier(ctx context.Context, p sdk.Plugin) int {
 	m, err := p.Manifest(ctx)
 	if err != nil {
-		return false
+		return len(startFirst)
 	}
-	for _, c := range m.Capabilities {
-		if c.Object == sdk.ObjectDBSchema && slices.Contains(c.Actions, "CheckVersion") {
-			return true
+	for i, f := range startFirst {
+		for _, c := range m.Capabilities {
+			if c.Object == f.object && slices.Contains(c.Actions, f.action) {
+				return i
+			}
 		}
 	}
-	return false
+	return len(startFirst)
 }
 
 func sortedKeys[V any](m map[string]V) []string {
