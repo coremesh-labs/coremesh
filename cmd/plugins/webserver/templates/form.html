@@ -28,6 +28,7 @@
   {{with .Locked}}<input type="hidden" name="_lock" value="{{.}}">{{end}}
   {{with .Access}}<input type="hidden" name="_access" value="{{.}}">{{end}}
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  {{if eq .Mode "action"}}<input type="hidden" name="_action" value="{{.Action.Name}}">{{end}}
   {{if .FormStateURL}}<input type="hidden" name="_mode" value="{{.Mode}}">{{if eq .Mode "edit"}}<input type="hidden" name="_rid" value="{{.ID}}">{{end}}{{end}}
   {{template "form-body" .}}
   {{block "form-buttons" .}}
@@ -104,6 +105,7 @@
   {{if .HasFile}}enctype="multipart/form-data" hx-encoding="multipart/form-data"{{end}}>
   <input type="hidden" name="_inline" value="1">
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  <input type="hidden" name="_action" value="{{.Action.Name}}">
   {{template "form-body" .}}
   <footer>{{if .FormButtons}}{{template "form-state-buttons-inline" .}}{{else}}<button type="submit" class="btn primary">{{.SubmitLabel}}</button>{{end}}
     {{range .InlineButtons}}<button type="button" class="btn" hx-post="{{.URL}}" hx-vals='{"_id": "{{$.ActionID}}", "_inline": "1", "_button": "1"}'

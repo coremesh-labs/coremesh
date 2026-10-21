@@ -169,7 +169,9 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		if in.Mode == "action" && in.Action == "pick" && in.ID == "kx" {
 			v := "Muster AG"
 			st.Extra = []metamodel.FieldDefinition{{Key: "x_name", Label: "Name", Type: metamodel.TypeText, Required: true, Group: "Partner"},
-				{Key: "x_kind", Label: "Art", Type: metamodel.TypeSelect, Group: "Partner", Options: []metamodel.Option{{Value: "P", Label: "Person"}}}}
+				{Key: "x_kind", Label: "Art", Type: metamodel.TypeSelect, Group: "Partner", Options: []metamodel.Option{{Value: "P", Label: "Person"}}},
+				{Key: "x_contact", Label: "Kontaktart", Type: metamodel.TypeText, Group: "Partner",
+					Lookup: &metamodel.Lookup{Object: "ContactKind", ValueField: "code", LabelFields: []string{"description"}}}}
 			st.Fields["x_name"] = metamodel.FieldState{Value: &v}
 			return sdk.Response{Payload: st}, nil
 		}

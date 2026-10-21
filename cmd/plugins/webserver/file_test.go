@@ -128,6 +128,10 @@ func TestActionFormState(t *testing.T) {
 	// Zusatzfelder der Maske: angezeigt mit Wert, ausgewertet beim Absenden
 	b = do(s, "GET", "/action/crm/CustomerContact/pick?id=kx", nil, true).Body.String()
 	mustContain(t, b, `name="x_name" value="Muster AG"`, `<option value="P"`, "Partner")
+	// Auswahl eines Zusatzfelds (z. B. Parameter eines Berichts): über die Maske der Aktion
+	mustContain(t, b, `name="_action" value="pick"`, `hx-get="/lookup?from=CustomerContact&field=x_contact"`)
+	b = do(s, "GET", "/lookup?from=CustomerContact&field=x_contact&_action=pick&_id=kx", nil, true).Body.String()
+	mustContain(t, b, "_action=pick", "_id=kx")
 	do(s, "POST", "/action/crm/CustomerContact/pick", url.Values{"_id": {"kx"}, "x_name": {"Neu GmbH"}, "x_kind": {"P"}, "choice": {"A"}}, true)
 	if d := h.find("pick").Payload.(map[string]any)["data"].(map[string]any); d["x_name"] != "Neu GmbH" || d["x_kind"] != "P" {
 		t.Fatalf("Zusatzfelder: %v", d)
