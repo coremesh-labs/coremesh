@@ -130,7 +130,8 @@ func (m *Module) uniqueMain(ctx context.Context, table, keyCol, key, groupCol st
 func (m *Module) businessPartner() *entity {
 	return &entity{
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
-		Keys: []string{"id", "valid_from"}, TimeSlice: true, Order: "search_term, name1, valid_from",
+		Events: true, // seit 0.15.3: Änderungen melden (z. B. Suchtext im DMS)
+		Keys:   []string{"id", "valid_from"}, TimeSlice: true, Order: "search_term, name1, valid_from",
 		Search: []string{"name1", "name2", "search_term", "abbreviation"},
 		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
 		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
