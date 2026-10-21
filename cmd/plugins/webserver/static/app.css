@@ -279,7 +279,11 @@ tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--su
 .detail { max-width: 100cqw; }
 .detail dl.fields { grid-template-columns: max-content minmax(0, 1fr); }
 .detail dl.fields dd { min-width: 0; overflow-wrap: anywhere; }
-.detail table.data.sub td { white-space: normal; overflow-wrap: anywhere; }
+/* seit 0.40.8: Wörter bleiben ganz (breite Tabellen scrollen seitwärts), Beträge und Datum
+   ohne Umbruch, lange Texte (td.long) mindestens 14rem breit */
+.detail table.data.sub td { white-space: normal; overflow-wrap: break-word; }
+.detail table.data.sub td.num, .detail table.data.sub td.date { white-space: nowrap; }
+table.data.sub td.long { min-width: 14rem; }
 .form-grid > *, .field > * { min-width: 0; }
 .field input, .field select, .field textarea { max-width: 100%; min-width: 0; }
 .action-section form footer { position: sticky; bottom: 0; z-index: 3; flex-wrap: wrap; padding: .5rem 0;

@@ -911,5 +911,8 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
   und in der Kopfdaten-Vorschau), Spaltenköpfe ohne Erläuterung in Klammern (voller Text im Tooltip).
 - Auswahlwerte in Listen: kurze Texte ausgeschrieben, lange als Abkürzung (`Option.Short`, sonst Text
   vor der Klammer bzw. Schlüssel) mit ⓘ (voller Text im Tooltip).
+- Eingebettete Tabellen der Detailansicht (seit 0.40.8): Wörter bleiben ganz, zu breite Tabellen
+  scrollen seitwärts; Beträge (`td.num`, rechtsbündig) und Datum (`td.date`) ohne Umbruch, lange
+  Texte ab 20 Zeichen (`td.long`) mindestens 14rem breit.
 - Klick auf eine Zeile (auch auf ihren Schlüssel) öffnet den Datensatz; Links, Knöpfe und ⓘ behalten
   ihre Aktion.
