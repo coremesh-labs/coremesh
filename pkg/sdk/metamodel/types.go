@@ -114,6 +114,8 @@ type FieldDefinition struct {
 	// Binary: Dateifeld (TypeFile) mit beliebigem Inhalt (PDF, Bild) – die Aktion
 	// erhält ihn Base64-kodiert im Feld, Dateiname in <Feld>_name, MIME-Typ in <Feld>_type.
 	Binary bool `json:"binary,omitempty"`
+	// Wide: Eingabe über die ganze Breite der Maske (lange Texte, z. B. ein Dateiname).
+	Wide bool `json:"wide,omitempty"`
 }
 
 // Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object

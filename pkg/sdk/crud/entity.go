@@ -50,6 +50,7 @@ type Field struct {
 	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	ActionOnly bool
 	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
+	Wide       bool // Eingabe über die ganze Breite der Maske (metamodel.FieldDefinition.Wide)
 	Options    []metamodel.Option
 	Multiple   bool              // Mehrfachauswahl (TypeSelect): Komma-Liste (metamodel.FieldDefinition.Multiple)
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)
