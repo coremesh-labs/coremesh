@@ -1,0 +1,21 @@
+# Core-Plugin Datensicherung (Objects BackupSetting, BackupSnapshot): Snapshots der
+# Datenbank in einstellbarem Abstand – SQLite per VACUUM INTO (konsistent im laufenden
+# Betrieb), PostgreSQL per pg_dump (Custom-Format, wiederherstellen mit pg_restore).
+# Die Werte unten sind die Vorgaben beim ersten Start; danach gelten die Einstellungen
+# unter Datensicherung in der Weboberfläche (Verzeichnis, Abstand, nur bei
+# Änderungen, Verweildauer, Höchstanzahl, aktiv).
+plugins:
+  backup:
+    kind: internal
+    databases:
+      main: { access: write }        # Tabellen backup__* via DBSchema.Init
+    settings:
+      database: main
+      directory: data/snapshots      # relativ zum Arbeitsverzeichnis des Hosts oder absolut
+      interval_hours: 24
+      only_if_changed: true          # nur sichern, wenn seit dem letzten Snapshot etwas geändert wurde (ein Snapshot je Arbeitstag)
+      ignore_tables: "backup__*, webserver__sessions"   # ändern sich auch ohne Arbeit (Protokoll, Sitzungen)
+      keep_days: 30                  # Verweildauer in Tagen (0 = unbegrenzt); der jüngste bleibt immer
+      keep: 14                       # höchstens so viele Snapshots (0 = beliebig viele)
+      active: true
+      # pg_dump: /usr/bin/pg_dump    # nur PostgreSQL; leer = pg_dump im Suchpfad
