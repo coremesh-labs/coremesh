@@ -92,6 +92,10 @@ type Action struct {
 }
 
 // Entity beschreibt ein Business-Object.
+// LookupUser: Verweis auf den Benutzer (IAM) für Felder wie „Geändert von“, die die
+// Benutzer-ID speichern – die Oberfläche zeigt Benutzername und Namen (seit webserver 0.41.0).
+var LookupUser = &metamodel.Lookup{Object: "User", ValueField: "id", LabelFields: []string{"username", "display_name"}}
+
 type Entity struct {
 	Object, Title, Icon, Table string
 	Section                    string   // Gruppe in der Modul-Navigation

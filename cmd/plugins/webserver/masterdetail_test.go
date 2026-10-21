@@ -22,6 +22,16 @@ import (
 // mdHost ergänzt fakeHost um ein Master-Detail-Szenario im Modul crm:
 // Customer (Abschnitte, Relation "contacts") → CustomerContact (Lookup auf
 // ContactKind, Lookup auf Address mit Bearbeiten-Link) und Address.
+// mdNoAddressLabel: CustomerContact.list liefert keinen Text zur Adresse (WebServer holt ihn).
+var mdNoAddressLabel bool
+
+func contactLabels() map[string]any {
+	if mdNoAddressLabel {
+		return map[string]any{"kind_code": "E-Mail"}
+	}
+	return map[string]any{"kind_code": "E-Mail", "address_id": "Zürich"}
+}
+
 type mdHost struct {
 	*fakeHost
 }
@@ -160,7 +170,7 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{
 			"id": "k1", "customer_id": "c1", "kind_code": "MAIL", "address_id": "a1", "value": "info@muster.ch",
-			"_labels": map[string]any{"kind_code": "E-Mail", "address_id": "Zürich"}}}}}, nil
+			"_labels": contactLabels()}}}}, nil
 	case "CustomerContact.formState":
 		h.fakeHost.record(ctx, req)
 		var in metamodel.FormStateRequest
@@ -697,4 +707,13 @@ func TestCellClass(t *testing.T) {
 			t.Errorf("cellClass(%s, %q) = %q, erwartet %q", c.f.Type, c.v, got, c.want)
 		}
 	}
+}
+
+// TestLookupLabelsFromTarget: fehlt der Text eines Verweises, holt ihn der WebServer beim Ziel.
+func TestLookupLabelsFromTarget(t *testing.T) {
+	mdNoAddressLabel = true
+	defer func() { mdNoAddressLabel = false }()
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustContain(t, b, "Zürich") // aus Address.get
 }

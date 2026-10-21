@@ -268,7 +268,7 @@ func (m *Module) logEntity() *crud.Entity {
 			{Key: "tokens", Label: "Token", Type: tNum, ReadOnly: true},
 			{Key: "keep", Label: "Nicht löschen", Short: "Behalten", Type: tBool, Listable: true},
 			{Key: "created_at", Label: "Angelegt", Type: tText, Listable: true, ReadOnly: true},
-			{Key: "created_by", Label: "Angelegt von", Type: tText, ReadOnly: true},
+			{Key: "created_by", Label: "Angelegt von", Type: tText, ReadOnly: true, Lookup: crud.LookupUser},
 			{Key: "expires_on", Label: "Verfällt am", Type: tText, Listable: true, ReadOnly: true},
 			{Key: "input_type", Label: "Eingang (Inhaltstyp)", Type: tText, ReadOnly: true},
 			{Key: "context", Label: "Zusatzzeilen (Kontext)", Type: tArea, ReadOnly: true},

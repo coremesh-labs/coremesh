@@ -3,7 +3,7 @@
 # Event-Handler (SystemEvent) und Hook-Abonnent – und eigene Berichte.
 plugins:
   script:
-    version: 0.2.1
+    version: 0.2.2
     ingress: true                    # Abos nach dem Speichern im Hintergrund erneuern (eigene Systemanfrage)
     databases:
       main: { access: write }        # Tabellen script__* via DBSchema.Init

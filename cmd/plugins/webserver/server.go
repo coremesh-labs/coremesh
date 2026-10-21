@@ -282,6 +282,7 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 	}
 	filterBar := s.filterFields(r, oc, r.URL.Query())
 	if len(rows) > 0 {
+		s.fillLookupLabels(r, listableFields(oc.Def), rows...)
 		for _, row := range rows {
 			oc.applyListDisplay(row)
 		}
@@ -445,6 +446,7 @@ func (s *server) item(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.fillLookupLabels(r, oc.Def.Fields, rec)
 	oc.applyDisplay(rec)
 	oc.Def = withoutFields(oc.Def, accessOf(rec).hidden)
 	s.render(w, r, http.StatusOK, "detail", view{objectCtx: oc, Record: rec}, oc.Def.Title, oc.Object)
