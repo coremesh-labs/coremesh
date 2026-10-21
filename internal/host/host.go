@@ -83,8 +83,21 @@ func (h *Host) Routes() []dispatcher.Route { return h.disp.Routes() }
 // StartInternal startet alle bekannten Core-Plugins (kind: internal). Fehlt
 // ein Core-Plugin in der Konfiguration, läuft es mit Standardeinstellungen;
 // mit enabled: false wird es übersprungen.
+//
+// Reihenfolge: zuerst, wer DBSchema.CheckVersion anbietet (die anderen melden beim
+// Start ihr Schema an), dann alphabetisch.
 func (h *Host) StartInternal(ctx context.Context, factories map[string]InternalFactory) error {
+	cores := map[string]sdk.Plugin{}
+	var first, rest []string
 	for _, name := range sortedKeys(factories) {
+		cores[name] = factories[name](InternalDeps{DB: h.db, Catalog: h.disp.Catalog})
+		if offersSchema(ctx, cores[name]) {
+			first = append(first, name)
+		} else {
+			rest = append(rest, name)
+		}
+	}
+	for _, name := range append(first, rest...) {
 		pc, ok := h.cfg.Plugins[name]
 		if !ok {
 			pc = config.Plugin{Kind: config.KindInternal}
@@ -97,7 +110,7 @@ func (h *Host) StartInternal(ctx context.Context, factories map[string]InternalF
 			continue
 		}
 		svc := h.services(name, pc)
-		core := factories[name](InternalDeps{DB: h.db, Catalog: h.disp.Catalog})
+		core := cores[name]
 		p := &inProcess{Plugin: core, host: svc}
 		if err := h.activate(ctx, name, p, pc, svc); err != nil {
 			return fmt.Errorf("Core-Plugin %s: %w", name, err)
@@ -292,6 +305,20 @@ func capabilities(m sdk.Manifest) []string {
 		}
 	}
 	return out
+}
+
+// offersSchema: Das Plugin bietet DBSchema.CheckVersion an (Schemaverwaltung).
+func offersSchema(ctx context.Context, p sdk.Plugin) bool {
+	m, err := p.Manifest(ctx)
+	if err != nil {
+		return false
+	}
+	for _, c := range m.Capabilities {
+		if c.Object == sdk.ObjectDBSchema && slices.Contains(c.Actions, "CheckVersion") {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedKeys[V any](m map[string]V) []string {
