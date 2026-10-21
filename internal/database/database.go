@@ -110,6 +110,15 @@ func (m *Manager) Driver(name string) string {
 	return ""
 }
 
+// DSN liefert die Verbindungsangabe des Pools name ("" wenn unbekannt) – nur für
+// Core-Plugins, die die Datenbank als Ganzes behandeln (Sicherung).
+func (m *Manager) DSN(name string) string {
+	if p, ok := m.pools[name]; ok {
+		return p.cfg.DSN
+	}
+	return ""
+}
+
 func (m *Manager) pool(name string) (*pool, error) {
 	p, ok := m.pools[name]
 	if !ok {

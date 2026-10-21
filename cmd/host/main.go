@@ -28,6 +28,7 @@ import (
 	_ "modernc.org/sqlite"             // SQL-Treiber "sqlite"
 
 	"github.com/coremesh-labs/coremesh/internal/config"
+	"github.com/coremesh-labs/coremesh/internal/coreplugins/backup"
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/catalog"
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/dbschema"
 	"github.com/coremesh-labs/coremesh/internal/coreplugins/event"
@@ -102,6 +103,7 @@ func run() error {
 		iam.Name:      func(d host.InternalDeps) sdk.Plugin { return iam.New(d.DB) },
 		hook.Name:     func(d host.InternalDeps) sdk.Plugin { return hook.New(d.DB, d.Catalog) },
 		numrange.Name: func(d host.InternalDeps) sdk.Plugin { return numrange.New(d.DB) },
+		backup.Name:   func(d host.InternalDeps) sdk.Plugin { return backup.New(d.DB) },
 	}); err != nil {
 		return err
 	}
