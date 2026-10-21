@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -13,11 +14,24 @@ import (
 // je Anfrage, höchstens lookupLabelMax Werte je Feld. Angezeigt werden die LabelFields
 // des Lookups, getrennt durch „ · “ (z. B. „admin · Administrator“). Fehlt das Recht
 // oder das Ziel, bleibt der Schlüssel stehen.
+//
+// Listen zeigen bei Verweisen den Schlüssel (der Text steht im Tooltip) – außer das
+// Ziel hat eine technische ID (ObjectDefinition.TechnicalID, z. B. Benutzer): Dann
+// steht der Text in der Zelle (Marker "_text_cells").
 
 const lookupLabelMax = 50
 
+const textCellsKey = "_text_cells"
+
+// textCell: Zelle zeigt den Text des Verweises statt des Schlüssels.
+func textCell(rec record, key string) bool {
+	list, _ := rec[textCellsKey].([]any)
+	return slices.Contains(list, any(key)) && labelsOf(rec)[key] != ""
+}
+
 func (s *server) fillLookupLabels(r *http.Request, fields []metamodel.FieldDefinition, recs ...record) {
 	cache := map[string]string{} // Object|Wert → Text
+	tgts := map[string]*objectCtx{} // Object → Definition (nil = nicht lesbar)
 	for _, f := range fields {
 		if f.Lookup == nil || len(f.Lookup.LabelFields) == 0 || f.Lookup.By != "" {
 			continue
@@ -32,17 +46,28 @@ func (s *server) fillLookupLabels(r *http.Request, fields []metamodel.FieldDefin
 			seen[v] = true
 			values = append(values, v)
 		}
-		if len(values) == 0 || len(values) > lookupLabelMax {
+		if len(values) > lookupLabelMax || len(recs) == 0 {
 			continue
 		}
-		tgt, err := s.targetDef(r, f.Lookup.Object)
-		if err != nil {
+		tgt, ok := tgts[f.Lookup.Object]
+		if !ok {
+			if oc, err := s.targetDef(r, f.Lookup.Object); err == nil {
+				tgt = &oc
+			}
+			tgts[f.Lookup.Object] = tgt
+		}
+		if tgt == nil {
 			continue
+		}
+		if tgt.Def.TechnicalID {
+			for _, rec := range recs {
+				rec[textCellsKey] = addMarkers(rec[textCellsKey], map[string]bool{f.Key: true})
+			}
 		}
 		for _, v := range values {
 			ck := f.Lookup.Object + "|" + f.Lookup.ValueField + "|" + v
 			if _, ok := cache[ck]; !ok {
-				cache[ck] = s.lookupText(r, tgt, f.Lookup, v)
+				cache[ck] = s.lookupText(r, *tgt, f.Lookup, v)
 			}
 		}
 		for _, rec := range recs {

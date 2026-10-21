@@ -16,6 +16,9 @@ type ObjectDefinition struct {
 	// TitleField benennt das Feld, das einen Datensatz in Überschriften
 	// vertritt (z. B. "name1"). Optional.
 	TitleField string `json:"title_field,omitempty"`
+	// TechnicalID: Die ID ist technisch (z. B. Hash) und sagt dem Anwender nichts –
+	// Verweise darauf zeigen auch in Listen den Text (LabelFields) statt der ID.
+	TechnicalID bool `json:"technical_id,omitempty"`
 	// Sections gliedern die Detailansicht in aufklappbare Abschnitte: Felder
 	// des Objects oder eingebettete Unter-Objekte (Relation). Felder ohne
 	// Abschnitt erscheinen in einem vorangestellten Abschnitt „Allgemein“.

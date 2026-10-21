@@ -363,7 +363,7 @@ var crud = func(object string) []metamodel.ActionConfig {
 // Metamodelle für die generische Oberfläche (Catalog.Describe).
 var (
 	userDef = metamodel.ObjectDefinition{
-		Name: "User", Title: "Benutzer", Icon: "icon-user",
+		Name: "User", Title: "Benutzer", Icon: "icon-user", TechnicalID: true,
 		Fields: []metamodel.FieldDefinition{
 			{Key: "username", Label: "Benutzername", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "display_name", Label: "Name", Type: metamodel.TypeText, Listable: true, Editable: true},

@@ -389,6 +389,7 @@ metamodel.FieldDefinition{Key: "address_role_code", …,
 | `Relation` | Eingebettete Tabelle des Unter-Objects, gefiltert über `{"query": {<ForeignKey>: <id>}}` |
 | `Lookup` | Feld mit Schaltfläche „Auswählen …“, die den Auswahldialog öffnet |
 | `"_labels"` im Datensatz | Lesbarer Text statt des Schlüssels, in Tabellen, Details und Formularen. Das Modul liefert ihn. |
+| `TechnicalID` am Ziel-Object | Die ID ist technisch (z. B. Benutzer): Listen zeigen den Text statt der ID in der Zelle. Sonst zeigen Listen den Schlüssel und den Text im Tooltip. (seit 0.42.0) |
 
 Eine **n:m-Beziehung** ist eine Relation auf die Zwischentabelle, deren zweiter Schlüssel ein
 Lookup ist: `BusinessPartner` → `PartnerAddress` (Rolle, Zeitscheibe) → `PartnerAddressData`
