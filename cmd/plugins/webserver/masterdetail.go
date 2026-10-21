@@ -320,6 +320,24 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 			fields = src.Def.Fields
 		}
 		i := slices.IndexFunc(fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
+		// Zusatzfelder der Maske einer Aktion (FormState.Extra, z. B. Parameter
+		// eines Berichts): aus der Maske der Aktion (_action, _id des Formulars).
+		if name := q.Get("_action"); i < 0 && name != "" {
+			if act := src.custom(name); act != nil {
+				values := map[string]string{}
+				for k, v := range q {
+					if !strings.HasPrefix(k, "_") && len(v) > 0 {
+						values[k] = strings.TrimSpace(v[0])
+					}
+				}
+				if st := s.actionState(r, src, act, q.Get("_id"), values); st != nil {
+					fields = st.Extra
+					i = slices.IndexFunc(fields, func(f metamodel.FieldDefinition) bool { return f.Key == field && f.Lookup != nil })
+					srcParams.Set("_action", name)
+					srcParams.Set("_id", q.Get("_id"))
+				}
+			}
+		}
 		if i < 0 {
 			s.fail(w, r, fmt.Errorf("%w: %s.%s ist kein Lookup-Feld", sdk.ErrNotFound, from, field))
 			return

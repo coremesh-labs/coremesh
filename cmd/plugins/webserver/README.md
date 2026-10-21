@@ -430,6 +430,10 @@ Partner-Buchungskreisdaten, aber nur lesend über die Actions des Ziels.
 
 Ohne JavaScript bleibt das Lookup-Feld ein normales Textfeld für den Schlüssel.
 
+**Lookup eines Zusatzfelds (seit 0.40.7):** Felder aus `FormState.Extra` (z. B. die Parameter
+von „Ausführen …“ eines Berichts) stehen nicht im Metamodell. Das Formular einer Aktion trägt
+`_action` und `_id`; `/lookup` fragt damit die Maske der Aktion ab und nimmt das Feld aus `Extra`.
+
 **Lookup ohne Metamodell-Feld:** `GET /lookup?object=<Object>&field=<Eingabefeld>` sucht einen
 Datensatz eines beliebigen Objects, zum Beispiel für Verweis-Tags im TagEditor. Übernommen wird
 der fachliche Schlüssel `id`, angezeigt das `TitleField` des Ziels. `field` ist hier der Name des
