@@ -93,7 +93,7 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			if hiddenIn(rec, f.Key) {
 				return "—"
 			}
-			if f.Lookup != nil {
+			if f.Lookup != nil && !textCell(rec, f.Key) {
 				if v, ok := rec[f.Key]; ok && v != nil && scalar(v) != "" {
 					return template.HTML(template.HTMLEscapeString(scalar(v)))
 				}

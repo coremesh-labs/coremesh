@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -716,4 +717,23 @@ func TestLookupLabelsFromTarget(t *testing.T) {
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
 	mustContain(t, b, "Zürich") // aus Address.get
+}
+
+func TestLookupLabelsInList(t *testing.T) {
+	mdNoAddressLabel = true
+	defer func() { mdNoAddressLabel = false }()
+	s, _ := newMDServer(t)
+	cell := regexp.MustCompile(`<td title="Zürich">([^<&]*)`)
+	b := do(s, "GET", "/m/crm/CustomerContact", nil, true).Body.String()
+	if m := cell.FindStringSubmatch(b); m == nil || m[1] != "a1" {
+		t.Fatalf("Liste: Schlüssel mit Text im Tooltip erwartet: %v", m)
+	}
+	addr := mdDefs["Address"]
+	addr.TechnicalID = true
+	mdDefs["Address"] = addr
+	defer func() { addr.TechnicalID = false; mdDefs["Address"] = addr }()
+	b = do(s, "GET", "/m/crm/CustomerContact", nil, true).Body.String()
+	if m := cell.FindStringSubmatch(b); m == nil || m[1] != "Zürich" {
+		t.Fatalf("technische ID: Text in der Zelle erwartet: %v", m)
+	}
 }
