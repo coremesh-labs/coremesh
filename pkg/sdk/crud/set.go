@@ -149,7 +149,7 @@ func (e *Entity) Definition() metamodel.ObjectDefinition {
 			Key: f.Key, Label: f.Label, Short: f.Short, Type: f.Type, Required: f.Required,
 			Listable: f.Listable, Editable: !f.ReadOnly, Options: f.Options, Lookup: f.lookup(),
 			Group: f.Group, Trigger: f.Trigger, ShowIf: f.ShowIf, RequiredIf: f.RequiredIf, ActionOnly: f.ActionOnly, Binary: f.Binary,
-			Multiple: f.Multiple,
+			Multiple: f.Multiple, Wide: f.Wide,
 		})
 	}
 	d.Actions = []metamodel.ActionConfig{

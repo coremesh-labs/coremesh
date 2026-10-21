@@ -51,7 +51,7 @@
      Lookup: Eingabe des Schlüssels plus Auswahldialog (/lookup) und lesbarem Text. */}}
 {{define "field"}}
 {{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else}}
-<label class="field{{if .Error}} invalid{{end}}">
+<label class="field{{if .Error}} invalid{{end}}{{if .Field.Wide}} wide{{end}}">
   <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
   {{if and (eq .Type "select") .Field.Multiple}}
   <select name="{{.Field.Key}}" multiple size="{{selectSize .Field.Options}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>

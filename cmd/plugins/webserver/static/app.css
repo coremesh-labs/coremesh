@@ -297,3 +297,6 @@ table.data.sub td.long { min-width: 14rem; }
 .field .error { color: var(--danger); font-weight: 600; }
 .field.invalid input, .field.invalid select, .field.invalid textarea { border-width: 2px; }
 .toast.error { color: var(--danger-text); background: var(--danger-bg); border-left-width: 6px; font-weight: 600; }
+/* seit 0.40.9: breite Felder (FieldDefinition.Wide) über die ganze Zeile der Maske */
+.form-grid > .field.wide { grid-column: 1 / -1; }
+.form-grid > .field.wide input { max-width: min(100%, 60rem); }
