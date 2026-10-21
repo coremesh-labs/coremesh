@@ -103,6 +103,14 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			}
 			return template.HTML(template.HTMLEscapeString(displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))))
 		},
+		// cellClass (seit 0.40.8): Zellen eingebetteter Tabellen – Beträge rechtsbündig,
+		// Datum ohne Umbruch, lange Texte mit Mindestbreite statt Buchstabenturm.
+		"cellClass": func(rec record, f metamodel.FieldDefinition) string {
+			if hiddenIn(rec, f.Key) {
+				return ""
+			}
+			return cellClass(f, displayValueIn(rec, f, t("core.app.yes"), t("core.app.no")))
+		},
 		"cellTitle": func(rec record, f metamodel.FieldDefinition) string {
 			if hiddenIn(rec, f.Key) {
 				return ""
@@ -110,6 +118,27 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
 		},
 	}
+}
+
+// amountRe: Zahl oder Betrag mit Währung ("184.92 EUR", "-1.234,56").
+var amountRe = regexp.MustCompile(`^-?([0-9]{1,3}([.,' ][0-9]{3})+|[0-9]+)([.,][0-9]+)?( [A-Z]{3})?$`)
+
+// cellLongRunes: Texte ab dieser Länge (mit Leerzeichen) erhalten in eingebetteten
+// Tabellen eine Mindestbreite (CSS td.long).
+const cellLongRunes = 20
+
+func cellClass(f metamodel.FieldDefinition, v string) string {
+	switch {
+	case v == "":
+		return ""
+	case f.Type == metamodel.TypeDate:
+		return "date"
+	case amountRe.MatchString(v):
+		return "num"
+	case utf8.RuneCountInString(v) >= cellLongRunes && strings.Contains(v, " "):
+		return "long"
+	}
+	return ""
 }
 
 // cellMaxRunes: Auswahltexte bis zu dieser Länge stehen in Listen ausgeschrieben.

@@ -681,3 +681,20 @@ func TestRelationRowMenu(t *testing.T) {
 	mustContain(t, b, `<details class="row-menu"><summary class="link">Aktionen ▾</summary>`, `>Aktion 3</button>`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`)
 }
+
+// Seit 0.40.8: Zellen eingebetteter Tabellen nach Inhalt – Betrag, Datum, langer Text.
+func TestCellClass(t *testing.T) {
+	txt, date := metamodel.FieldDefinition{Type: metamodel.TypeText}, metamodel.FieldDefinition{Type: metamodel.TypeDate}
+	for _, c := range []struct {
+		f    metamodel.FieldDefinition
+		v    string
+		want string
+	}{
+		{txt, "184.92 EUR", "num"}, {txt, "-1.234,56", "num"}, {txt, "1", "num"}, {date, "2026-01-01", "date"},
+		{txt, "Umsatzsteuer 19 % auf 201,73", "long"}, {txt, "Entgelt / Prämie", ""}, {txt, "VA19", ""}, {txt, "", ""},
+	} {
+		if got := cellClass(c.f, c.v); got != c.want {
+			t.Errorf("cellClass(%s, %q) = %q, erwartet %q", c.f.Type, c.v, got, c.want)
+		}
+	}
+}
