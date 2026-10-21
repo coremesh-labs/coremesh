@@ -300,7 +300,7 @@ func (m *Module) runEntity() *crud.Entity {
 			{Key: "duration_ms", Label: "Dauer (ms)", Type: tNum, Listable: true, ReadOnly: true},
 			{Key: "keep", Label: "Nicht löschen", Short: "Behalten", Type: tBool, Listable: true},
 			{Key: "created_at", Label: "Gestartet", Type: tText, Listable: true, ReadOnly: true},
-			{Key: "created_by", Label: "Benutzer", Type: tText, ReadOnly: true},
+			{Key: "created_by", Label: "Benutzer", Type: tText, ReadOnly: true, Lookup: crud.LookupUser},
 			{Key: "expires_on", Label: "Verfällt am", Type: tText, ReadOnly: true},
 			{Key: "log", Label: "Ausgaben (log)", Type: tArea, ReadOnly: true},
 			{Key: "result", Label: "Ergebnis", Type: tArea, ReadOnly: true},

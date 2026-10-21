@@ -223,6 +223,7 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		child.applyListDisplay(row)
 	}
 	rv.Columns = relationColumns(withoutFields(child.Def, hiddenEverywhere(rv.Rows)), rel)
+	s.fillLookupLabels(r, rv.Columns, rv.Rows...)
 	for _, f := range rv.Columns {
 		if f.Lookup == nil {
 			continue
