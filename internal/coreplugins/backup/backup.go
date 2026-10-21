@@ -40,7 +40,7 @@ import (
 
 const (
 	Name    = "backup"
-	Version = "0.1.0"
+	Version = "0.1.1"
 
 	settingID   = "main"
 	tick        = time.Minute
@@ -225,9 +225,9 @@ func (p *Plugin) settingRecord(ctx context.Context) (map[string]any, error) {
 	}
 	abs, _ := filepath.Abs(st.Directory)
 	rec := map[string]any{"id": settingID, "directory": st.Directory, "directory_abs": abs, "interval_hours": st.IntervalHours,
-		"keep_count": st.Keep, "keep_days": st.KeepDays, "only_if_changed": st.OnlyChanges, "ignore_tables": st.IgnoreTables, "active": st.Active, "last_run_at": st.LastRunAt, "database": p.dbKind()}
+		"keep_count": st.Keep, "keep_days": st.KeepDays, "only_if_changed": st.OnlyChanges, "ignore_tables": st.IgnoreTables, "active": st.Active, "last_run_at": localTime(st.LastRunAt), "database": p.dbKind()}
 	if st.Active {
-		rec["next_run_at"] = ts(p.nextRun(st))
+		rec["next_run_at"] = localTime(ts(p.nextRun(st)))
 	}
 	var file, status, msg sql.NullString
 	if err := p.pool().QueryRowContext(ctx, `SELECT file_name, status, message FROM backup__snapshot ORDER BY created_at DESC LIMIT 1`).
@@ -716,13 +716,22 @@ func scanSnapshot(rows *sql.Rows) (map[string]any, error) {
 	if err := rows.Scan(&id, &file, &path, &at, &size, &dur, &trig, &user, &status, &msg); err != nil {
 		return nil, err
 	}
-	return map[string]any{"id": id, "setting_id": settingID, "file_name": file, "path": path, "created_at": at, "size_bytes": size,
+	return map[string]any{"id": id, "setting_id": settingID, "file_name": file, "path": path, "created_at": localTime(at), "size_bytes": size,
 		"size": sizeText(size), "duration_ms": dur, "trigger_kind": trig, "user_id": user.String, "status": status, "message": msg.String}, nil
 }
 
 // --- Hilfen -------------------------------------------------------------------------
 
 func ts(t time.Time) string { return t.UTC().Format(time.RFC3339) }
+
+// localTime: gespeicherte Zeit (UTC) zur Anzeige in Ortszeit, z. B. 22.10.2026 08:00.
+func localTime(s string) string {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return s
+	}
+	return t.Local().Format("02.01.2006 15:04")
+}
 
 func boolInt(b bool) int {
 	if b {
