@@ -99,6 +99,7 @@ var LookupUser = &metamodel.Lookup{Object: "User", ValueField: "id", LabelFields
 type Entity struct {
 	Object, Title, Icon, Table string
 	Section                    string   // Gruppe in der Modul-Navigation
+	Customizing                bool     // Einstellung: Sachbearbeiter lesen, Fachverantwortliche ändern (ModuleDefinition.Customizing)
 	Keys                       []string // Primärschlüssel; bei TimeSlice endet er mit valid_from
 	Surrogate                  bool     // Keys[0] = generierte id
 	TimeSlice                  bool     // valid_from/valid_to (Lebenszyklus timeslice)

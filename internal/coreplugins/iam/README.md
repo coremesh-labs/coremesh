@@ -84,6 +84,23 @@ FiscalPeriod.post@1000,2000 posting_period=1..12,13 ledger=0L
 Wer `permissions` mitschickt, ersetzt alle Berechtigungen der Rolle; das Formular
 schickt das Feld nicht.
 
+### Modulrollen (seit 0.11.0)
+
+„Modulrollen anlegen …“ in der Rollenübersicht (`Role.setupModuleRoles`, Felder `modules`
+– vorbelegt alle Module – und `company_codes`, Vorgabe `*`) legt je Modul zwei Rollen an bzw.
+ergänzt sie, abgeleitet aus dem Catalog:
+
+- **„<Modul> - Sachbearbeiter“**: alle Actions der Objects und Services des Moduls außer den
+  Einstellungen; Einstellungen nur lesen (`list`, `get`, `formState`).
+- **„<Modul> - Fachverantwortlicher“**: zusätzlich alle Actions der Einstellungen
+  (Kategorien, Arten, Kataloge, Kontenplan, Einrichtung).
+
+Einstellungen sind die Objects und Services in `ModuleDefinition.Customizing` (im Modul
+`crud.Entity.Customizing` bzw. `r.Object(…).Customizing()`). Beide Rollen lesen die Objects
+anderer Module, auf die Auswahlfelder und Abschnitte verweisen, und pflegen Merkmale, Texte
+und Dokumente, wenn das Modul diese Abschnitte hat. Vorhandene Berechtigungen bleiben
+unverändert, fehlende kommen hinzu – die Aktion lässt sich nach einem Release wiederholen.
+
 ### Berechtigungsfelder deklarieren
 
 Ein Modul macht seine Objects über das Metamodell berechtigungsfähig:

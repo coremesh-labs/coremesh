@@ -21,7 +21,7 @@ var (
 
 func (m *Module) salutationCatalog() *entity {
 	return &entity{
-		Object: "PartnerSalutation", Section: "Kataloge", Title: "Anreden", Icon: "icon-tag", Table: "partner__salutations",
+		Object: "PartnerSalutation", Customizing: true, Section: "Kataloge", Title: "Anreden", Icon: "icon-tag", Table: "partner__salutations",
 		Keys: []string{"code"}, Order: "sort_order, code", Search: []string{"code", "description"}, StatusField: "is_active", TitleField: "description",
 		Fields: []field{
 			{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},

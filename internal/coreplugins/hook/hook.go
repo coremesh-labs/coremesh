@@ -41,7 +41,7 @@ import (
 
 const (
 	Name    = "hook"
-	Version = "0.1.0"
+	Version = "0.1.1"
 )
 
 // Source liefert die aktuell aufrufbaren Routen (dispatcher.Catalog).

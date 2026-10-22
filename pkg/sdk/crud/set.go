@@ -58,7 +58,11 @@ func (s *Set) Register(r *module.Router, defaultSection string) {
 		if section == "" {
 			section = defaultSection
 		}
-		o := r.Object(e.Object).Section(section).Describe(e.Definition()).
+		o := r.Object(e.Object).Section(section)
+		if e.Customizing {
+			o.Customizing()
+		}
+		o.Describe(e.Definition()).
 			Handle("list", payloadOnly(e.List)).
 			Read("list", e.ReadList).
 			Handle("get", payloadOnly(e.Get))

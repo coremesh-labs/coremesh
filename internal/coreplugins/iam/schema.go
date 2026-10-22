@@ -380,14 +380,18 @@ var (
 			Label: "Inaktivieren", Confirm: "Benutzer inaktivieren? Er kann sich danach nicht mehr anmelden."}),
 	}
 	roleDef = metamodel.ObjectDefinition{
-		Name: "Role", Title: "Rollen", Icon: "icon-shield",
+		Name: "Role", Title: "Rollen", Icon: "icon-shield", FormState: formStateAction,
 		Fields: []metamodel.FieldDefinition{
 			{Key: "name", Label: "Name", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeText, Listable: true, Editable: true},
 			// Übersicht in Textform; gepflegt wird im Abschnitt Berechtigungen.
 			{Key: "permissions", Label: "Berechtigungen", Type: metamodel.TypeTextarea, Listable: true},
+			// nur im Formular „Modulrollen anlegen …“ (seit 0.11.0)
+			{Key: "modules", Label: "Module", Type: metamodel.TypeSelect, Multiple: true, Editable: true, ActionOnly: true, Required: true},
+			{Key: "company_codes", Label: "Buchungskreise neuer Berechtigungen (kommagetrennt, * = alle)", Type: metamodel.TypeText, Editable: true, ActionOnly: true},
 		},
-		Actions: crud("Rolle"),
+		Actions: append(crud("Rolle"), metamodel.ActionConfig{Name: setupModuleRolesAction, Kind: metamodel.KindCustom, Label: "Modulrollen anlegen …",
+			Fields: []string{"modules", "company_codes"}, FormState: true}),
 		Sections: []metamodel.SectionDefinition{
 			{Key: "berechtigungen", Title: "Berechtigungen", Relation: &metamodel.Relation{Object: "RoleAuth", ForeignKey: "role_id",
 				Columns: []string{"object", "action", "company_codes", "restrictions"}}},
@@ -509,6 +513,8 @@ var adminModule = metamodel.ModuleDefinition{
 		{Object: "DisplayRuleField", Section: "Darstellung"},
 		{Object: "CompanyCode", Section: "Organisation"},
 	},
+	// Modulrolle Sachbearbeiter der Administration: nur lesen.
+	Customizing: []string{"User", "Role", "RoleAuth", "RoleAuthValue", "DisplayRule", "DisplayRuleCondition", "DisplayRuleField", "CompanyCode"},
 }
 
 // Übersetzungen des Moduls admin (de, en, zh-CN) – Schlüssel nach der

@@ -238,7 +238,8 @@ type Handler func(ctx context.Context, req Request) (Response, error)
 
 // Handle meldet die Route <callback>.onHook im Router an.
 func Handle(r *module.Router, callback string, h Handler) {
-	r.Object(callback).Handle(CallbackAction, Func(h))
+	// Einstellung: Systemaufruf des Hooks, in Modulrollen nur für Fachverantwortliche.
+	r.Object(callback).Customizing().Handle(CallbackAction, Func(h))
 }
 
 // Func macht aus einem Handler eine Route (für Plugins ohne module.Router).

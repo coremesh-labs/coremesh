@@ -71,5 +71,8 @@
   "admin.module.title": "Administration",
   "admin.navigation.darstellung": "Darstellung",
   "admin.navigation.organisation": "Organisation",
-  "admin.navigation.zugriff": "Zugriff"
+  "admin.navigation.zugriff": "Zugriff",
+  "admin.Role.fields.modules": "Module",
+  "admin.Role.fields.company_codes": "Buchungskreise neuer Berechtigungen (kommagetrennt, * = alle)",
+  "admin.Role.actions.setupModuleRoles": "Modulrollen anlegen …"
 }

@@ -70,7 +70,7 @@ func (m *Module) defineNumbers(ctx context.Context) error {
 
 func (m *Module) partnerGroupCatalog() *entity {
 	return &entity{
-		Object: "PartnerGroup", Section: "Kataloge", Title: "Partnergruppen", Icon: "icon-tag", Table: "partner__groups",
+		Object: "PartnerGroup", Customizing: true, Section: "Kataloge", Title: "Partnergruppen", Icon: "icon-tag", Table: "partner__groups",
 		Keys: []string{"code"}, Order: "code", Search: []string{"code", "description"},
 		Fields: []field{
 			{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},

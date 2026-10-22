@@ -40,7 +40,7 @@ import (
 
 const (
 	Name    = "backup"
-	Version = "0.2.0"
+	Version = "0.2.1"
 
 	settingID   = "main"
 	tick        = time.Minute

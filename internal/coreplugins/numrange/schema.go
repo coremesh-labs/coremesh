@@ -315,6 +315,7 @@ var (
 			{Object: "NumberRangeObject", Section: "Nummernkreise"},
 			{Object: "NumberRangeLog", Section: "Protokoll"},
 		},
+		Customizing: []string{"NumberRange", "NumberRangeObject"},
 	}
 )
 

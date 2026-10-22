@@ -39,6 +39,7 @@ type ObjectRoutes struct {
 	r        *Router
 	name     string
 	section  string
+	custom   bool // Einstellung (ModuleDefinition.Customizing)
 	def      *metamodel.ObjectDefinition
 	actions  []string
 	handlers map[string]HandlerFunc
@@ -78,6 +79,13 @@ func (r *Router) Object(name string) *ObjectRoutes {
 // Section ordnet das Object in der Navigation des Moduls einer Gruppe zu.
 func (o *ObjectRoutes) Section(title string) *ObjectRoutes {
 	o.section = title
+	return o
+}
+
+// Customizing kennzeichnet das Object (bzw. den Service) als Einstellung –
+// Kategorien, Arten, Kataloge, Einrichtung (ModuleDefinition.Customizing).
+func (o *ObjectRoutes) Customizing() *ObjectRoutes {
+	o.custom = true
 	return o
 }
 
@@ -174,6 +182,9 @@ func (r *Router) definition(d Descriptor) metamodel.ModuleDefinition {
 			md.Objects = append(md.Objects, metamodel.ModuleObject{Object: o.name, Section: o.section})
 		} else {
 			md.Services = append(md.Services, o.name) // ohne Metamodell: nur JSON-API
+		}
+		if o.custom {
+			md.Customizing = append(md.Customizing, o.name)
 		}
 	}
 	md.Commands = r.commands

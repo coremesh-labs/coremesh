@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.10.2"
+	Version = "0.11.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -69,7 +69,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Capabilities: []sdk.Capability{
 			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted", "Display"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung, Darstellungsregeln"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
-			{Object: "Role", Actions: []string{"list", "get", "create", "update"}, Description: "Rollen und Berechtigungen"},
+			{Object: "Role", Actions: []string{"list", "get", "create", "update", formStateAction, setupModuleRolesAction}, Description: "Rollen und Berechtigungen, Modulrollen"},
 			{Object: "RoleAuth", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Berechtigungen je Rolle und Object.Action"},
 			{Object: "RoleAuthValue", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Erlaubte Feldwerte einer Berechtigung"},
 			{Object: "DisplayRule", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Darstellungsregeln"},
@@ -156,6 +156,10 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.roleSave(ctx, req.Payload, true)
 	case "Role.update":
 		return p.roleSave(ctx, req.Payload, false)
+	case "Role." + formStateAction:
+		return p.roleFormState(ctx, req.Payload)
+	case "Role." + setupModuleRolesAction:
+		return p.setupModuleRoles(ctx, req.Payload)
 
 	case "RoleAuth.list":
 		return p.roleAuthList(ctx, req.Payload)

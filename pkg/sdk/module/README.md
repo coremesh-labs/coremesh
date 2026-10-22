@@ -119,6 +119,12 @@ etwa `post` oder `reverse` mit `Record: true`).
   unter SQLite fehl: Der Lesestand der Transaktion veraltet (`SQLITE_BUSY_SNAPSHOT`).
 
 
+**Einstellungen (Customizing):** `crud.Entity.Customizing` bzw. `r.Object(X).Customizing()`
+kennzeichnet Kategorien, Arten, Kataloge, Kontenplan und Einrichtung. `Router.definition`
+trägt sie in `ModuleDefinition.Customizing` ein; iam leitet daraus die Modulrollen
+Sachbearbeiter (Einstellungen nur lesen) und Fachverantwortlicher ab. Tagesgeschäft (z. B.
+Einlesen) gehört deshalb nicht an ein Einstellungs-Object, sondern an ein eigenes.
+
 Masken: `Field.Group`, `Field.Trigger`, `Field.ShowIf`/`RequiredIf` und der Hook
 `Entity.FormState` (meldet die Action `formState` an); `Entity.Filters` und `Search`
 erscheinen als Filterleiste der Übersicht. Siehe WebServer-README, Abschnitt „Dynamische Masken“.

@@ -24,6 +24,10 @@ type ModuleDefinition struct {
 	// Services sind Objects des Moduls ohne Metamodell (z. B. Tags): nur über die
 	// JSON-API /api/v1/<Name>/<Object>/<Action> erreichbar, nicht in der Navigation.
 	Services []string `json:"services,omitempty"`
+	// Customizing sind die Objects und Services des Moduls, die Einstellungen sind
+	// (Kategorien, Arten, Kataloge, Kontenplan, Einrichtung). Modulrollen (iam):
+	// Sachbearbeiter lesen sie nur, Fachverantwortliche dürfen sie ändern.
+	Customizing []string `json:"customizing,omitempty"`
 	// Commands sind Konsolenbefehle des Moduls: `console <modul>:<befehl> --param=wert`
 	// ruft Object.Action mit den Parametern auf (z. B. ledger:load-coa).
 	Commands []CommandDefinition `json:"commands,omitempty"`
@@ -109,6 +113,11 @@ func (m ModuleDefinition) Validate(defined map[string]bool) error {
 			add("Modul %s: Service %q ungültig oder auch als Object eingetragen", m.Name, s)
 		}
 		seen[s] = true
+	}
+	for _, c := range m.Customizing {
+		if !seen[c] {
+			add("Modul %s: Einstellung %s ist kein Object oder Service des Moduls", m.Name, c)
+		}
 	}
 	cmds := map[string]bool{}
 	for _, c := range m.Commands {
