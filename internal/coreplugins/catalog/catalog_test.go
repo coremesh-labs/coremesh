@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -258,7 +259,7 @@ func TestModules(t *testing.T) {
 		t.Fatalf("doppelter Modulname: %v", err)
 	}
 	re := metamodel.ModuleDefinition{Name: "realestate", Title: "Immobilien",
-		Objects: []metamodel.ModuleObject{{Object: "Property", Section: "Bestand"}}}
+		Objects: []metamodel.ModuleObject{{Object: "Property", Section: "Bestand"}}, Customizing: []string{"Property"}}
 	if err := e.registerModules("realestate", "1.0.0", []metamodel.ObjectDefinition{prop}, re); err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +272,7 @@ func TestModules(t *testing.T) {
 	if len(mods) != 2 || mods[0].Name != "businesspartner" || mods[1].Name != "realestate" {
 		t.Fatalf("Module (nach Titel sortiert): %+v", mods)
 	}
-	if o := mods[1].Objects[0]; o.Title != "Liegenschaft" || o.Section != "Bestand" || !o.Available || mods[1].Plugin != "realestate" {
+	if o := mods[1].Objects[0]; o.Title != "Liegenschaft" || o.Section != "Bestand" || !o.Available || mods[1].Plugin != "realestate" || fmt.Sprint(mods[1].Customizing) != "[Property]" {
 		t.Fatalf("Modul-Object: %+v", mods[1])
 	}
 
