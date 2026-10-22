@@ -1,4 +1,6 @@
 {
+  "backup.BackupSetting.actions.compact": "Datenbank verdichten",
+  "backup.BackupSetting.actions.compact.confirm": "Freien Platz der Datenbank zurückgeben? Die Datenbank ist dabei kurz gesperrt.",
   "backup.BackupSetting.actions.run.confirm": "Jetzt einen Snapshot der Datenbank sichern?",
   "backup.BackupSetting.fields.active": "Automatisch sichern",
   "backup.BackupSetting.fields.database": "Datenbank",

@@ -1,7 +1,7 @@
 # Core-Plugin `backup` – Datensicherung
 
 Snapshots der Datenbank in einstellbarem Abstand, im laufenden Betrieb. Oberfläche:
-**Datensicherung** (`/m/backup`), dort auch **Jetzt sichern**.
+**Datensicherung** (`/m/backup`), dort auch **Jetzt sichern** und **Datenbank verdichten**.
 
 | Datenbank | Verfahren | Datei | Wiederherstellen |
 |---|---|---|---|
@@ -26,6 +26,14 @@ Vorgaben beim ersten Start aus `configs/02-backup-plugin.yaml`, danach gilt die 
 
 Gelöscht werden nur eigene, erfolgreiche Snapshots aus dem Protokoll; **der jüngste
 bleibt immer**, auch nach langer Pause. Fremde Dateien im Verzeichnis bleiben unberührt.
+
+## Datenbank verdichten (seit 0.2.0)
+
+SQLite gibt Platz gelöschter Daten (z. B. abgelaufene Druckaufträge) nicht an die Platte
+zurück, sondern verwendet ihn wieder. **Datenbank verdichten** baut die Datei neu (`VACUUM`)
+und leert danach den WAL; die Meldung nennt die Größe vorher und nachher. Die Datenbank ist
+dabei kurz gesperrt (Sekunden). PostgreSQL verwaltet freien Platz selbst (autovacuum) – dort
+meldet die Aktion nur einen Hinweis.
 
 ## Änderungen erkennen
 

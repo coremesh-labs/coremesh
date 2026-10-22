@@ -284,3 +284,29 @@ func TestPruneDays(t *testing.T) {
 		t.Fatalf("nach 30 Tagen: %d", n)
 	}
 }
+
+// TestCompact: freier Platz nach Löschen geht an das Dateisystem zurück, Daten bleiben.
+func TestCompact(t *testing.T) {
+	p := setup(t, map[string]any{"directory": t.TempDir()})
+	if _, err := p.pool().Exec(`CREATE TABLE ballast (v BLOB)`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 50; i++ {
+		if _, err := p.pool().Exec(`INSERT INTO ballast VALUES (randomblob(100000))`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := p.pool().Exec(`DELETE FROM ballast`); err != nil {
+		t.Fatal(err)
+	}
+	path := sqlitePath(p.db.DSN("main"))
+	before := fileSize(path) + fileSize(path+"-wal")
+	msg := must(t, p, "BackupSetting", "compact", map[string]any{"id": "main"}).Payload.(map[string]any)["message"].(string)
+	after := fileSize(path) + fileSize(path+"-wal")
+	if after >= before/2 || !strings.HasPrefix(msg, "Datenbank verdichtet: ") {
+		t.Fatalf("%d → %d: %s", before, after, msg)
+	}
+	if _, err := p.loadSetting(testCtx); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,4 +1,6 @@
 {
+  "backup.BackupSetting.actions.compact": "Compact database",
+  "backup.BackupSetting.actions.compact.confirm": "Return the database's free space? The database is locked briefly.",
   "backup.BackupSetting.actions.run.confirm": "Take a database snapshot now?",
   "backup.BackupSetting.fields.active": "Automatic snapshots",
   "backup.BackupSetting.fields.database": "Database",

@@ -145,6 +145,8 @@ var (
 			{Name: "get", Kind: metamodel.KindItem, Label: "Anzeigen"},
 			{Name: "update", Kind: metamodel.KindUpdate, Label: "Bearbeiten"},
 			{Name: "run", Kind: metamodel.KindCustom, Label: "Jetzt sichern", Record: true, Confirm: "Jetzt einen Snapshot der Datenbank sichern?"},
+			{Name: "compact", Kind: metamodel.KindCustom, Label: "Datenbank verdichten", Record: true,
+				Confirm: "Freien Platz der Datenbank zurückgeben? Die Datenbank ist dabei kurz gesperrt."},
 		},
 		Sections: []metamodel.SectionDefinition{
 			{Key: "snapshots", Title: "Snapshots", Relation: &metamodel.Relation{Object: "BackupSnapshot", ForeignKey: "setting_id",
