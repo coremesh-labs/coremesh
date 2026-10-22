@@ -30,7 +30,7 @@ func textCell(rec record, key string) bool {
 }
 
 func (s *server) fillLookupLabels(r *http.Request, fields []metamodel.FieldDefinition, recs ...record) {
-	cache := map[string]string{} // Object|Wert → Text
+	cache := map[string]string{}    // Object|Wert → Text
 	tgts := map[string]*objectCtx{} // Object → Definition (nil = nicht lesbar)
 	for _, f := range fields {
 		if f.Lookup == nil || len(f.Lookup.LabelFields) == 0 || f.Lookup.By != "" {
