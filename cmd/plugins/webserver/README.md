@@ -401,7 +401,7 @@ Lookup ist: `BusinessPartner` → `PartnerAddress` (Rolle, Zeitscheibe) → `Par
 | Aktion | Anfrage | Antwort |
 |---|---|---|
 | Abschnitt laden | `GET /m/{module}/{object}/{id}/rel/{section}` (`hx-trigger="load, coremesh-changed from:body"`) | Fragment `relation` |
-| Hinzufügen | `GET …/{child}/new?{fk}={id}&_lock={fk}&_view=refresh` | Formular im Dialog; der Fremdschlüssel geht als verstecktes Feld fest mit. Die Leiste mit dem Knopf klebt unter dem Seitenkopf (seit 0.44.0), auch bei langen Abschnitten |
+| Hinzufügen | `GET …/{child}/new?{fk}={id}&_lock={fk}&_view=refresh` | Formular im Dialog; der Fremdschlüssel geht als verstecktes Feld fest mit. Die Leiste mit dem Knopf steht links und klebt unter dem Seitenkopf (seit 0.44.0), auch bei langen und breiten Abschnitten |
 | Bearbeiten | `GET …/{child}/{cid}/edit?view=refresh&_lock={fk}` | dito, mit Werten und Labels |
 | Speichern | `POST`/`PUT` mit `_view=refresh` | leerer Swap in `#modal` (Dialog zu) + Toast + `HX-Trigger: coremesh-changed` → die Abschnitte laden neu |
 | Löschen | `DELETE …/{child}/{cid}?_view=refresh` | Zeile entfernt + Toast |

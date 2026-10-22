@@ -120,9 +120,11 @@ details.section[open] > summary::before { transform: rotate(90deg); }
 details.section[open] > summary { border-bottom: 1px solid var(--border); }
 details.section > dl, details.section > .relation { padding: .75rem 1rem; margin: 0; }
 .relation-toolbar { display: flex; justify-content: flex-end; margin-bottom: .5rem; }
-/* „Hinzufügen“ bleibt bei langen Abschnitten unter dem Seitenkopf sichtbar */
-.relation-toolbar { position: sticky; top: var(--page-head-h, 0); z-index: 4; background: var(--surface);
-                    margin: -.75rem -1rem .5rem; padding: .5rem 1rem; }
+/* „Hinzufügen“ bleibt bei langen Abschnitten unter dem Seitenkopf sichtbar – links, damit
+   der Knopf auch bei breiten Tabellen (seitwärts gescrollt) im Bild bleibt */
+.relation-toolbar { position: sticky; top: var(--page-head-h, 0); left: 0; z-index: 4; width: fit-content;
+                    justify-content: flex-start; background: var(--surface); margin: -.75rem 0 .5rem -1rem;
+                    padding: .5rem 1rem; border-radius: 0 0 var(--radius) 0; }
 .btn.small { padding: .25rem .6rem; font-size: .85rem; }
 table.data.sub { font-size: .92rem; }
 .inline-edit { text-decoration: none; margin-left: .35rem; color: var(--muted); }
