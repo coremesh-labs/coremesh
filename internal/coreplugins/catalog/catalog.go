@@ -43,7 +43,7 @@ import (
 
 const (
 	Name    = "catalog"
-	Version = "0.5.0"
+	Version = "0.5.1"
 	Object  = sdk.ObjectCatalog
 )
 
