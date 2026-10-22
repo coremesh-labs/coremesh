@@ -915,6 +915,8 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
   vor der Klammer bzw. Schlüssel) mit ⓘ (voller Text im Tooltip).
 - Eingebettete Tabellen der Detailansicht (seit 0.40.8): Wörter bleiben ganz, zu breite Tabellen
   scrollen seitwärts; Beträge (`td.num`, rechtsbündig) und Datum (`td.date`) ohne Umbruch, lange
-  Texte ab 20 Zeichen (`td.long`) mindestens 14rem breit.
+  Texte ab 20 Zeichen (`td.long`) mindestens 14rem breit. Seit 0.43.1 bekommt ein breites
+  mehrzeiliges Feld (`Wide`, Textarea) die meiste Breite (`td.text`), Absätze bleiben erhalten –
+  Fließtext wie Vertragsklauseln lässt sich in der Tabelle lesen.
 - Klick auf eine Zeile (auch auf ihren Schlüssel) öffnet den Datensatz; Links, Knöpfe und ⓘ behalten
   ihre Aktion.
