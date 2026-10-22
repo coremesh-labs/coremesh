@@ -40,7 +40,7 @@ import (
 
 const (
 	Name    = "backup"
-	Version = "0.1.1"
+	Version = "0.2.0"
 
 	settingID   = "main"
 	tick        = time.Minute
@@ -96,7 +96,8 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 	return sdk.Manifest{
 		Name: Name, Version: Version, Description: "Datensicherung: Snapshots der Datenbank in einstellbarem Abstand",
 		Capabilities: []sdk.Capability{
-			{Object: "BackupSetting", Actions: []string{"list", "get", "update", "run"}, Description: "Einstellungen der Sicherung, jetzt sichern"},
+			{Object: "BackupSetting", Actions: []string{"list", "get", "update", "run", "compact"},
+				Description: "Einstellungen der Sicherung, jetzt sichern, Datenbank verdichten"},
 			{Object: "BackupSnapshot", Actions: []string{"list", "get"}, Description: "Protokoll der Snapshots"},
 			{Object: sdk.ObjectDBSchema, Actions: []string{sdk.ActionInit}},
 			{Object: sdk.ObjectCatalog, Actions: []string{sdk.ActionDescribe}},
@@ -167,6 +168,12 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		}
 		return sdk.Response{Payload: map[string]any{"id": settingID,
 			"message": fmt.Sprintf("Snapshot %s gesichert (%s)", snap.File, sizeText(snap.Size))}}, nil
+	case "BackupSetting.compact":
+		msg, err := p.compact(ctx)
+		if err != nil {
+			return sdk.Response{}, err
+		}
+		return sdk.Response{Payload: map[string]any{"id": settingID, "message": msg}}, nil
 	case "BackupSnapshot.list":
 		return p.snapshotList(ctx, req.Payload)
 	case "BackupSnapshot.get":
@@ -515,6 +522,43 @@ func (p *Plugin) prune(ctx context.Context, st setting) {
 		_, _ = p.pool().ExecContext(ctx, p.q(`UPDATE backup__snapshot SET status = ?, message = ? WHERE id = ?`),
 			statusGone, "gelöscht am "+p.now().Format("02.01.2006 15:04")+" ("+o.why+")", o.id)
 	}
+}
+
+// --- Verdichten ----------------------------------------------------------------------
+
+// compact gibt freien Platz der Datenbank an das Dateisystem zurück. SQLite: VACUUM
+// (baut die Datei neu, andere warten so lange) und danach den WAL leeren; PostgreSQL
+// verwaltet freien Platz selbst (autovacuum) – dort nichts zu tun.
+func (p *Plugin) compact(ctx context.Context) (string, error) {
+	if p.dbKind() != "SQLite" {
+		return "", fmt.Errorf("%w: Verdichten nur bei SQLite – %s verwaltet freien Platz selbst", sdk.ErrInvalidArgument, p.dbKind())
+	}
+	p.mu.Lock() // nicht während eines Snapshots
+	defer p.mu.Unlock()
+	path := sqlitePath(p.db.DSN(p.settings.Database))
+	before := fileSize(path) + fileSize(path+"-wal")
+	start := p.now()
+	if _, err := p.pool().ExecContext(ctx, `VACUUM`); err != nil {
+		return "", fmt.Errorf("Verdichten: %w", err)
+	}
+	if _, err := p.pool().ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		p.log(ctx, sdk.LogWarn, "WAL nach dem Verdichten nicht geleert", map[string]string{"err": err.Error()})
+	}
+	after := fileSize(path) + fileSize(path+"-wal")
+	msg := fmt.Sprintf("Datenbank verdichtet: %s → %s (%d ms)", sizeText(before), sizeText(after), p.now().Sub(start).Milliseconds())
+	p.log(ctx, sdk.LogInfo, msg, nil)
+	return msg, nil
+}
+
+func fileSize(path string) int64 {
+	if path == "" {
+		return 0
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return fi.Size()
 }
 
 // --- Änderungen erkennen ------------------------------------------------------------

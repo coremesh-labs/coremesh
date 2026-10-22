@@ -1,4 +1,6 @@
 {
+  "backup.BackupSetting.actions.compact": "压缩数据库",
+  "backup.BackupSetting.actions.compact.confirm": "释放数据库的空闲空间？期间数据库会短暂锁定。",
   "backup.BackupSetting.actions.run.confirm": "立即创建数据库快照？",
   "backup.BackupSetting.fields.active": "自动备份",
   "backup.BackupSetting.fields.database": "数据库",
