@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
@@ -344,7 +345,23 @@ func displayValueIn(rec record, f metamodel.FieldDefinition, yes, no string) str
 		}
 		return s
 	}
-	return scalar(v)
+	return localTimestamp(scalar(v))
+}
+
+// timestampRe: Zeitstempel nach RFC 3339 (so speichern die Module, meist in UTC).
+var timestampRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
+
+// localTimestamp (seit 0.43.0): Zeitstempel zur Anzeige in Ortszeit des Servers,
+// z. B. 2026-10-21T21:23:24Z → 21.10.2026 23:23; andere Texte unverändert.
+func localTimestamp(s string) string {
+	if !timestampRe.MatchString(s) {
+		return s
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return s
+	}
+	return t.Local().Format("02.01.2006 15:04")
 }
 
 // formValue liefert den Wert für ein Formularfeld.
