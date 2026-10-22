@@ -1,0 +1,39 @@
+# Zusammenstellung eines Stands aus den Repositories (coremesh-setup pack).
+# Die Repositories liegen nebeneinander im Verzeichnis --labs.
+repositories: [coremesh, coremesh-erp, coremesh-erph]
+
+# Bauen (nur mit --build), je Repository ein Befehl im Repository-Verzeichnis
+build:
+  coremesh: [make, build]
+  coremesh-erp: [make, build]
+  coremesh-erph: [./build.sh]
+
+# Programme aus <repo>/bin (unter Windows mit .exe)
+binaries:
+  coremesh: [host, console]
+
+# Weitere Inhalte: Ziel im Archiv → Quelle (relativ zu --labs)
+copy:
+  migrations: coremesh/migrations
+  content/berichte.yaml: coremesh-erp/scripts/berichte.yaml
+  agent: coremesh-erp/agent
+  licenses/LICENSE: coremesh/LICENSE
+  licenses/THIRD_PARTY_NOTICES-coremesh.md: coremesh/THIRD_PARTY_NOTICES.md
+  licenses/THIRD_PARTY_NOTICES-coremesh-erp.md: coremesh-erp/THIRD_PARTY_NOTICES.md
+  licenses/THIRD_PARTY_NOTICES-coremesh-erph.md: coremesh-erph/THIRD_PARTY_NOTICES.md
+
+# Konfiguration: alle configs/*.yaml der Repositories, ohne Beispiele und ohne lokale Suchpfade
+configs:
+  exclude: [03-domain-plugins.yaml]
+  drop_lines: ['^\s*extra_plugin_dirs:']
+
+# Ausprägungen. plugins leer = alle konfigurierten Plugins.
+packages:
+  erp-vuv:
+    title: ERP Vermietung und Verwaltung
+    description: Hauptbuch, Immobilien, Verträge, Nebenkosten, Beschaffung, Bank, Dokumente, Vorlagen
+    data:
+      title: Testbestand „Faust“ (erfundene Hausverwaltung, Namen aus Goethes Faust)
+      seed: coremesh-erp/testdata/vuv-faust.yaml
+      user: admin
+      password: faust-demo-2026

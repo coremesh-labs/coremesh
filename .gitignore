@@ -14,3 +14,6 @@ sdk/haskell/dist-newstyle/
 /cmd/plugins/*/partner
 /cmd/plugins/*/tag
 /cmd/plugins/*/webserver
+
+# Stände von coremesh-setup pack
+/dist/out/
