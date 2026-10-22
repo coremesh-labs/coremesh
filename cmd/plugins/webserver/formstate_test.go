@@ -134,11 +134,14 @@ func TestListFilters(t *testing.T) {
 	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
 		d.Filters, d.Search = []string{"kind_code", "value"}, true
 		field(d, "kind_code").Options = []metamodel.Option{{Value: "MAIL", Label: "E-Mail"}, {Value: "TEL", Label: "Telefon"}}
+		field(d, "kind_code").Label = "Art (Kanal des Kontakts)"
 	})
 	s, h := newMDServer(t)
 	b := do(s, "GET", "/m/crm/CustomerContact?kind_code=MAIL&q=muster", nil, true).Body.String()
 	mustContain(t, b, `class="list-filters"`, `name="q" value="muster"`, `<option value="MAIL" selected>MAIL – E-Mail</option>`,
-		`hx-get="/m/crm/CustomerContact?kind_code=MAIL&amp;q=muster"`, ">Filter zurücksetzen<")
+		`hx-get="/m/crm/CustomerContact?kind_code=MAIL&amp;q=muster"`, ">Filter zurücksetzen<",
+		// Filterraster: kurze Bezeichnung, voller Text als title
+		`<label title="Art (Kanal des Kontakts)"><span>Art</span>`)
 	q := h.find("list").Payload.(map[string]any)["query"].(map[string]any)
 	if q["kind_code"] != "MAIL" || q["q"] != "muster" {
 		t.Fatalf("Query: %v", q)

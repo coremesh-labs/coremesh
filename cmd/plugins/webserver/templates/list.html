@@ -28,7 +28,7 @@
         hx-trigger="change, submit, keyup changed delay:400ms from:find input[type=search]">
     {{if .Def.Search}}<input type="search" name="q" value="{{index .Filter "q"}}" placeholder="{{t "core.list.search"}}" aria-label="{{t "core.list.search"}}">{{end}}
     {{range .FilterFields}}{{$v := index $.Filter .Key}}
-    <label><span>{{.Label}}</span>
+    <label title="{{.Label}}"><span>{{columnLabel .FieldDefinition}}</span>
       {{if eq .Type "boolean"}}
       <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
         <option value="true" {{if eq $v "true"}}selected{{end}}>{{t "core.app.yes"}}</option>

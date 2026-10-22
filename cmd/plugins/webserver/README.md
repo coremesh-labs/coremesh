@@ -401,7 +401,7 @@ Lookup ist: `BusinessPartner` → `PartnerAddress` (Rolle, Zeitscheibe) → `Par
 | Aktion | Anfrage | Antwort |
 |---|---|---|
 | Abschnitt laden | `GET /m/{module}/{object}/{id}/rel/{section}` (`hx-trigger="load, coremesh-changed from:body"`) | Fragment `relation` |
-| Hinzufügen | `GET …/{child}/new?{fk}={id}&_lock={fk}&_view=refresh` | Formular im Dialog; der Fremdschlüssel geht als verstecktes Feld fest mit |
+| Hinzufügen | `GET …/{child}/new?{fk}={id}&_lock={fk}&_view=refresh` | Formular im Dialog; der Fremdschlüssel geht als verstecktes Feld fest mit. Die Leiste mit dem Knopf klebt unter dem Seitenkopf (seit 0.44.0), auch bei langen Abschnitten |
 | Bearbeiten | `GET …/{child}/{cid}/edit?view=refresh&_lock={fk}` | dito, mit Werten und Labels |
 | Speichern | `POST`/`PUT` mit `_view=refresh` | leerer Swap in `#modal` (Dialog zu) + Toast + `HX-Trigger: coremesh-changed` → die Abschnitte laden neu |
 | Löschen | `DELETE …/{child}/{cid}?_view=refresh` | Zeile entfernt + Toast |
@@ -688,6 +688,10 @@ dieses Lookups (seit 0.20.0).
 - „Filter zurücksetzen“.
 
 Filter bleiben, auch wenn eine Darstellungsregel ihre Spalte ausblendet.
+
+Seit 0.44.0 stehen die Filter in einem Raster mit drei Paaren Bezeichnung | Feld (bei
+schmalem Inhalt zwei bzw. eines). Die Bezeichnung ist kurz wie der Spaltenkopf (`Short`,
+sonst ohne Klammerzusatz), der volle Text steht als Tooltip daneben.
 
 Filter stehen in der URL und überleben das Neuladen der Liste. crud wandelt Filterwerte
 nach dem Feldtyp um (Ja/Nein, Zahl).

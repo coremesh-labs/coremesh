@@ -82,6 +82,8 @@
         var h = l.querySelector(".list-head");
         if (h) l.style.setProperty("--list-head-h", h.offsetHeight + "px");
       });
+      var m = document.getElementById("main-content"), p = m && m.querySelector(":scope > * > .page-header, :scope > .page-header");
+      if (m) m.style.setProperty("--page-head-h", p ? p.offsetHeight + "px" : "0px");
     }
     window.addEventListener("load", coremeshStickyHeads);
     window.addEventListener("resize", coremeshStickyHeads);
