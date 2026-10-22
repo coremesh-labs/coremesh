@@ -702,7 +702,7 @@ func TestCellClass(t *testing.T) {
 		want string
 	}{
 		{txt, "184.92 EUR", "num"}, {txt, "-1.234,56", "num"}, {txt, "1", "num"}, {date, "2026-01-01", "date"},
-		{txt, "Umsatzsteuer 19 % auf 201,73", "long"}, {txt, "Entgelt / Prämie", ""}, {txt, "VA19", ""}, {txt, "", ""}, {metamodel.FieldDefinition{Type: metamodel.TypeText, Lookup: &metamodel.Lookup{Object: "GLAccount"}}, "1406", ""},
+		{txt, "Umsatzsteuer 19 % auf 201,73", "long"}, {txt, "Entgelt / Prämie", ""}, {txt, "VA19", ""}, {txt, "", ""}, {metamodel.FieldDefinition{Type: metamodel.TypeTextarea, Wide: true}, "a", "long text"}, {metamodel.FieldDefinition{Type: metamodel.TypeText, Lookup: &metamodel.Lookup{Object: "GLAccount"}}, "1406", ""},
 	} {
 		if got := cellClass(c.f, c.v); got != c.want {
 			t.Errorf("cellClass(%s, %q) = %q, erwartet %q", c.f.Type, c.v, got, c.want)

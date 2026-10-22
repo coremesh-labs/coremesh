@@ -284,6 +284,8 @@ tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--su
 .detail table.data.sub td { white-space: normal; overflow-wrap: break-word; }
 .detail table.data.sub td.num, .detail table.data.sub td.date { white-space: nowrap; }
 table.data.sub td.long { min-width: 14rem; }
+/* seit 0.43.1: breites mehrzeiliges Feld (Wide, Textarea) – Fließtext mit Absätzen, die meiste Breite */
+.detail table.data.sub td.text { min-width: 24rem; width: 60%; white-space: pre-line; }
 .form-grid > *, .field > * { min-width: 0; }
 .field input, .field select, .field textarea { max-width: 100%; min-width: 0; }
 .action-section form footer { position: sticky; bottom: 0; z-index: 3; flex-wrap: wrap; padding: .5rem 0;

@@ -136,6 +136,8 @@ func cellClass(f metamodel.FieldDefinition, v string) string {
 		return "date"
 	case f.Lookup == nil && amountRe.MatchString(v): // Schlüssel (z. B. Sachkonto 1406) bleiben linksbündig
 		return "num"
+	case f.Type == metamodel.TypeTextarea && f.Wide: // Fließtext, z. B. Vertragsklauseln: breit, Absätze bleiben
+		return "long text"
 	case utf8.RuneCountInString(v) >= cellLongRunes && strings.Contains(v, " "):
 		return "long"
 	}
