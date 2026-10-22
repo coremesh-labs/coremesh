@@ -120,6 +120,11 @@ details.section[open] > summary::before { transform: rotate(90deg); }
 details.section[open] > summary { border-bottom: 1px solid var(--border); }
 details.section > dl, details.section > .relation { padding: .75rem 1rem; margin: 0; }
 .relation-toolbar { display: flex; justify-content: flex-end; margin-bottom: .5rem; }
+/* „Hinzufügen“ bleibt bei langen Abschnitten unter dem Seitenkopf sichtbar – links, damit
+   der Knopf auch bei breiten Tabellen (seitwärts gescrollt) im Bild bleibt */
+.relation-toolbar { position: sticky; top: var(--page-head-h, 0); left: 0; z-index: 4; width: fit-content;
+                    justify-content: flex-start; background: var(--surface); margin: -.75rem 0 .5rem -1rem;
+                    padding: .5rem 1rem; border-radius: 0 0 var(--radius) 0; }
 .btn.small { padding: .25rem .6rem; font-size: .85rem; }
 table.data.sub { font-size: .92rem; }
 .inline-edit { text-decoration: none; margin-left: .35rem; color: var(--muted); }
@@ -195,8 +200,20 @@ dialog.modal form footer { position: sticky; bottom: -1.25rem; background: var(-
 .form-hint { background: var(--bg); border-left: 3px solid var(--accent); padding: .5rem .75rem; margin: 0 0 .9rem; font-size: .9rem; }
 
 /* Filterleiste der Übersicht */
-.list-filters { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: flex-end; margin: 0 0 1rem; }
-.list-filters label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+/* Raster mit drei Paaren Bezeichnung | Feld (schmaler: zwei bzw. eines); Suche und
+   „Zurücksetzen“ über die ganze Breite. Kurze Bezeichnung, voller Text als title. */
+.list-filters { display: grid; grid-template-columns: repeat(3, max-content minmax(0, 1fr)); gap: .4rem .75rem;
+                align-items: center; margin: 0 0 1rem; }
+.list-filters label { display: contents; }
+.list-filters label > span:first-child { font-size: .85rem; color: var(--muted); white-space: nowrap; max-width: 11rem;
+                                         overflow: hidden; text-overflow: ellipsis; }
+.list-filters label > select, .list-filters label > input { width: 100%; min-width: 0; box-sizing: border-box; }
+.list-filters .lookup { display: flex; gap: .3rem; align-items: center; min-width: 0; }
+.list-filters .lookup input { flex: 0 1 7rem; min-width: 0; }
+.list-filters .lookup-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85rem; }
+.list-filters > input[type=search], .list-filters > a.link { grid-column: 1 / -1; justify-self: start; }
+@container (max-width: 60rem) { .list-filters { grid-template-columns: repeat(2, max-content minmax(0, 1fr)); } }
+@container (max-width: 34rem) { .list-filters { grid-template-columns: max-content minmax(0, 1fr); } }
 .list-filters input, .list-filters select { font: inherit; padding: .35rem .5rem; border: 1px solid var(--border);
        border-radius: var(--radius); background: var(--bg); color: var(--text); }
 .list-filters input[type=search] { min-width: 14rem; }

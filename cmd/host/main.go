@@ -9,7 +9,7 @@
 // Danach läuft der Host bis Strg+C. Mit -call führt er stattdessen genau einen
 // Aufruf aus und beendet sich, z. B.:
 //
-//	host -config configs -call Greeting.say -payload '{"name":"Kermit"}'
+//	host -config configs -call Greeting.say -payload '{"name":"Gretchen"}'
 package main
 
 import (

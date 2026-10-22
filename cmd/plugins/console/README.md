@@ -53,7 +53,7 @@ console read JournalEntryItem.list --company_code_id=2000 --format jsonl --out i
 
 ```bash
 console --object Greeting --action list
-console --object Greeting --action say --param name=Kermit
+console --object Greeting --action say --param name=Gretchen
 console --object BusinessPartner --action SampleFile --out ./partner_template.yaml
 console --object BusinessPartner --sample --format csv
 console --object JournalEntryItem --action list --read --param company_code_id=1000 --out items.csv
