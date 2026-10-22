@@ -47,6 +47,8 @@ jobs:
             coremesh-erph/dist-newstyle
           key: cabal-${{ runner.os }}-${{ hashFiles('coremesh-erph/cabal.project.freeze') }}
           restore-keys: cabal-${{ runner.os }}-
+      - name: protoc (für proto-lens im Haskell-Build)
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: cabal update
         working-directory: coremesh-erph
 
