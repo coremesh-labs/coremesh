@@ -1,0 +1,73 @@
+# Stand bauen und als GitHub-Release veröffentlichen.
+# Auslöser: Tag <JJJJ.MM.TT>[-n] im Kern-Repository. Dasselbe Tag muss es in coremesh-erp und
+# coremesh-erph geben (zuerst dort pushen). Ergebnis: Archiv je Plattform, coremesh-setup,
+# Testbestände der Ausprägungen und manifest.json (siehe dist/pack.yaml, dist/index.json).
+name: release
+
+on:
+  push:
+    tags: ['[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag (in allen drei Repositories vorhanden)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest   # linux-amd64 (Windows und macOS folgen)
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {path: coremesh, ref: '${{ env.TAG }}'}
+      - uses: actions/checkout@v4
+        with: {repository: coremesh-labs/coremesh-erp, path: coremesh-erp, ref: '${{ env.TAG }}'}
+      - uses: actions/checkout@v4
+        with: {repository: coremesh-labs/coremesh-erph, path: coremesh-erph, ref: '${{ env.TAG }}'}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coremesh/go.mod
+          cache-dependency-path: '**/go.sum'
+      - uses: haskell-actions/setup@v2
+        with: {ghc-version: '9.10.3', cabal-version: latest}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cabal/store
+            ~/.local/state/cabal/store
+            coremesh-erph/dist-newstyle
+          key: cabal-${{ runner.os }}-${{ hashFiles('coremesh-erph/cabal.project.freeze') }}
+          restore-keys: cabal-${{ runner.os }}-
+      - run: cabal update
+        working-directory: coremesh-erph
+
+      - name: Tests
+        run: |
+          (cd coremesh && go test ./...)
+          (cd coremesh-erp && go test ./...)
+
+      - name: Bauen und packen (mit Testbeständen)
+        run: |
+          (cd coremesh && go build -o bin/coremesh-setup ./cmd/coremesh-setup)
+          coremesh/bin/coremesh-setup pack --labs=. --release="$TAG" --build --data --out=out
+          ls -la out
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: CoreMesh ${{ env.TAG }}
+          body: |
+            Stand ${{ env.TAG }}. Einrichten mit coremesh-setup (Datei coremesh-setup-<plattform> laden, ausführbar machen, starten,
+            im Browser http://127.0.0.1:9870 öffnen) – oder auf der Kommandozeile:
+            `coremesh-setup install --dir=~/coremesh --package=erp-vuv --data`
+            Testbestand „Faust“: erfundene Hausverwaltung mit Namen aus Goethes Faust.
+          files: out/*

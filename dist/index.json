@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "repositories": {
+    "github": "https://github.com/coremesh-labs/coremesh/releases/download/{release}/{file}"
+  },
+  "lines": {
+    "release": "2026.10.23",
+    "preview": "2026.10.23"
+  },
+  "releases": [
+    {
+      "id": "2026.10.23",
+      "date": "2026-10-23",
+      "repository": "github",
+      "notes": "erster Stand über coremesh-setup; Ausprägung ERP Vermietung und Verwaltung mit Testbestand Faust"
+    }
+  ],
+  "packages": [
+    {
+      "id": "erp-vuv",
+      "title": "ERP Vermietung und Verwaltung",
+      "description": "Hauptbuch, Immobilien, Verträge, Nebenkosten, Beschaffung, Bank, Dokumente, Vorlagen"
+    }
+  ]
+}
