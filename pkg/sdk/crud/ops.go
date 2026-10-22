@@ -457,7 +457,7 @@ func (e *Entity) filterArg(field string, v any) any {
 	return Str(v)
 }
 
-// Suche ohne Rücksicht auf deutsche Schreibweisen: „Schlossallee“ findet „Schloßallee“,
+// Suche ohne Rücksicht auf deutsche Schreibweisen: „Walpurgisstrasse“ findet „Walpurgisstraße“,
 // „Mueller“ findet „Müller“ und umgekehrt. Spalte und Suchbegriff werden gleich
 // gefaltet (klein, ß → ss, ä → ae, ö → oe, ü → ue); SQLites LOWER kennt keine
 // Umlaute, daher auch die Großbuchstaben.
