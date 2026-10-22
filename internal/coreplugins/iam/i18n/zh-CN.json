@@ -71,5 +71,8 @@
   "admin.module.title": "系统管理",
   "admin.navigation.darstellung": "显示",
   "admin.navigation.organisation": "组织",
-  "admin.navigation.zugriff": "访问权限"
+  "admin.navigation.zugriff": "访问权限",
+  "admin.Role.fields.modules": "模块",
+  "admin.Role.fields.company_codes": "新权限的公司代码（逗号分隔，* = 全部）",
+  "admin.Role.actions.setupModuleRoles": "创建模块角色 …"
 }

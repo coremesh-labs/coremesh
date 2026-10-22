@@ -73,7 +73,7 @@ const (
 // mehr für Neu-Eingaben, Bestandswerte bleiben lesbar.
 func (m *Module) tagType() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagType", Title: "Tags", Icon: "icon-tag", Table: "tag__tag_types", Section: "Definition",
+		Object: "TagType", Customizing: true, Title: "Tags", Icon: "icon-tag", Table: "tag__tag_types", Section: "Definition",
 		Keys: []string{"code"}, Order: "code", Search: []string{"code", "name"},
 		StatusField: "status", StatusActive: "ACTIVE", StatusInactive: "DEPRECATED",
 		TitleField: "name",
@@ -134,7 +134,7 @@ func (m *Module) tagType() *crud.Entity {
 // Werte erscheinen nicht mehr für Neu-Eingaben, Bestandsdaten bleiben gültig.
 func (m *Module) valueOption() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagValueOption", Title: "Auswahlwerte", Icon: "icon-list", Table: "tag__value_options", Section: "Definition",
+		Object: "TagValueOption", Customizing: true, Title: "Auswahlwerte", Icon: "icon-list", Table: "tag__value_options", Section: "Definition",
 		Keys: []string{"tag_type_code", "code", "valid_from"}, TimeSlice: true,
 		Order: "tag_type_code, sort_order, code, valid_from", Filters: []string{"tag_type_code"}, Search: []string{"code", "label"},
 		Fields: crud.WithTimeSlice(
@@ -168,7 +168,7 @@ func (m *Module) valueOption() *crud.Entity {
 // sind eingebettete Abschnitte.
 func (m *Module) tagSet() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagSet", Title: "Tag Sets", Icon: "icon-layers", Table: "tag__tag_sets", Section: "Tag Sets",
+		Object: "TagSet", Customizing: true, Title: "Tag Sets", Icon: "icon-layers", Table: "tag__tag_sets", Section: "Tag Sets",
 		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "code, valid_from", Search: []string{"code", "name"},
 		TitleField: "name",
 		Fields: crud.WithTimeSlice(
@@ -198,7 +198,7 @@ func (m *Module) tagSet() *crud.Entity {
 
 func (m *Module) setItem() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagSetItem", Title: "Tags im Tag Set", Icon: "icon-tag", Table: "tag__tag_set_items", Section: "Tag Sets",
+		Object: "TagSetItem", Customizing: true, Title: "Tags im Tag Set", Icon: "icon-tag", Table: "tag__tag_set_items", Section: "Tag Sets",
 		Keys: []string{"tag_set_code", "tag_type_code", "valid_from"}, TimeSlice: true,
 		Order: "tag_set_code, sort_order, tag_type_code", Filters: []string{"tag_set_code", "tag_type_code"},
 		Fields: crud.WithTimeSlice(
@@ -228,7 +228,7 @@ func (m *Module) setItem() *crud.Entity {
 
 func (m *Module) setRule() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagSetRule", Title: "Regeln", Icon: "icon-branch", Table: "tag__tag_set_rules", Section: "Tag Sets",
+		Object: "TagSetRule", Customizing: true, Title: "Regeln", Icon: "icon-branch", Table: "tag__tag_set_rules", Section: "Tag Sets",
 		Keys: []string{"id", "valid_from"}, Surrogate: true, TimeSlice: true,
 		Order: "tag_set_code, source_tag, valid_from", Filters: []string{"tag_set_code"},
 		Fields: crud.WithTimeSlice(
@@ -267,7 +267,7 @@ func (m *Module) setRule() *crud.Entity {
 // Werte aus condition_values hat (z. B. Mietvertrag vs. Darlehensvertrag).
 func (m *Module) setAssignment() *crud.Entity {
 	return &crud.Entity{
-		Object: "TagSetAssignment", Title: "Objekttypen", Icon: "icon-link", Table: "tag__tag_set_assignments", Section: "Tag Sets",
+		Object: "TagSetAssignment", Customizing: true, Title: "Objekttypen", Icon: "icon-link", Table: "tag__tag_set_assignments", Section: "Tag Sets",
 		Keys: []string{"entity_type", "company_code", "tag_set_code", "valid_from"}, TimeSlice: true,
 		Order: "entity_type, company_code, tag_set_code, valid_from", Filters: []string{"entity_type", "company_code", "tag_set_code"},
 		Fields: crud.WithTimeSlice(

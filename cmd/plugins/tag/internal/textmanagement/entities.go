@@ -36,7 +36,7 @@ func sortDefault(rec crud.Record) {
 // category: Textkategorien (für alle Buchungskreise).
 func (m *Module) category() *crud.Entity {
 	return &crud.Entity{
-		Object: "TextCategory", Title: "Textkategorien", Icon: "icon-tag", Table: "tag__text_category", Section: "Einstellungen",
+		Object: "TextCategory", Customizing: true, Title: "Textkategorien", Icon: "icon-tag", Table: "tag__text_category", Section: "Einstellungen",
 		Keys: []string{"code"}, Order: "sort_order, code", StatusField: "is_active", TitleField: "name", Search: []string{"code", "name"},
 		Fields: []crud.Field{
 			{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -73,7 +73,7 @@ func (m *Module) category() *crud.Entity {
 // language: Sprachschlüssel (z. B. de, en, zh-CN).
 func (m *Module) language() *crud.Entity {
 	return &crud.Entity{
-		Object: "TextLanguage", Title: "Sprachen", Icon: "icon-globe", Table: "tag__text_language", Section: "Einstellungen",
+		Object: "TextLanguage", Customizing: true, Title: "Sprachen", Icon: "icon-globe", Table: "tag__text_language", Section: "Einstellungen",
 		Keys: []string{"code"}, Order: "sort_order, code", StatusField: "is_active", TitleField: "name", Search: []string{"code", "name"},
 		Fields: []crud.Field{
 			{Key: "code", Label: "Sprachschlüssel (z. B. de, en, zh-CN)", Short: "Sprache", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -98,7 +98,7 @@ func (m *Module) language() *crud.Entity {
 // oder für alle (*), optional nur für Datensätze mit bestimmten Feldwerten.
 func (m *Module) assignment() *crud.Entity {
 	return &crud.Entity{
-		Object: "TextAssignment", Title: "Zuordnungen", Icon: "icon-link", Table: "tag__text_assignment", Section: "Einstellungen",
+		Object: "TextAssignment", Customizing: true, Title: "Zuordnungen", Icon: "icon-link", Table: "tag__text_assignment", Section: "Einstellungen",
 		Keys: []string{"entity_type", "company_code", "category"}, Order: "entity_type, sort_order, category, company_code",
 		Filters: []string{"entity_type", "company_code", "category"},
 		Fields: []crud.Field{

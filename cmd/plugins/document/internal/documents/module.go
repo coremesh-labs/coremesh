@@ -87,7 +87,7 @@ func (m *Module) Translations() metamodel.Translations { return translations }
 // docType: Katalog der Dokumentarten.
 func (m *Module) docType() *crud.Entity {
 	return &crud.Entity{
-		Object: "DocumentKind", Title: "Dokumentarten", Icon: "icon-tag", Table: "document__type", Section: "Kataloge",
+		Object: "DocumentKind", Customizing: true, Title: "Dokumentarten", Icon: "icon-tag", Table: "document__type", Section: "Kataloge",
 		Keys: []string{"code"}, Order: "sort_order, code", StatusField: "is_active", TitleField: "name", Search: []string{"code", "name"},
 		Fields: []crud.Field{
 			{Key: "code", Label: "Code", Type: metamodel.TypeText, Required: true, Listable: true, Immutable: true},

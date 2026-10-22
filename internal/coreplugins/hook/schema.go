@@ -169,6 +169,7 @@ var (
 			{Object: "Hook", Section: "Hooks"},
 			{Object: "HookSubscription", Section: "Hooks"},
 		},
+		Customizing: []string{"Hook", "HookSubscription"},
 	}
 )
 

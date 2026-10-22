@@ -71,5 +71,8 @@
   "admin.module.title": "Administration",
   "admin.navigation.darstellung": "Display",
   "admin.navigation.organisation": "Organization",
-  "admin.navigation.zugriff": "Access"
+  "admin.navigation.zugriff": "Access",
+  "admin.Role.fields.modules": "Modules",
+  "admin.Role.fields.company_codes": "Company codes of new permissions (comma-separated, * = all)",
+  "admin.Role.actions.setupModuleRoles": "Create module roles …"
 }

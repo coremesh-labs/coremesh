@@ -46,7 +46,7 @@ func (m *Module) entities() []*entity {
 
 func (m *Module) addressRoleCatalog() *entity {
 	return &entity{
-		Object: "PartnerAddressRole", Section: "Kataloge", Title: "Adressrollen", Icon: "icon-tag", Table: "partner__address_roles",
+		Object: "PartnerAddressRole", Customizing: true, Section: "Kataloge", Title: "Adressrollen", Icon: "icon-tag", Table: "partner__address_roles",
 		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -65,7 +65,7 @@ func (m *Module) addressRoleCatalog() *entity {
 
 func (m *Module) commCategoryCatalog() *entity {
 	return &entity{
-		Object: "PartnerCommCategory", Section: "Kataloge", Title: "Kommunikationskategorien", Icon: "icon-tag", Table: "partner__comm_categories",
+		Object: "PartnerCommCategory", Customizing: true, Section: "Kataloge", Title: "Kommunikationskategorien", Icon: "icon-tag", Table: "partner__comm_categories",
 		Keys: []string{"code"}, Order: "code", Search: []string{"code", "description"},
 		Fields: []field{
 			{Key: "code", Label: "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -76,7 +76,7 @@ func (m *Module) commCategoryCatalog() *entity {
 
 func (m *Module) commTypeCatalog() *entity {
 	return &entity{
-		Object: "PartnerCommType", Section: "Kataloge", Title: "Kommunikationstypen", Icon: "icon-tag", Table: "partner__comm_types",
+		Object: "PartnerCommType", Customizing: true, Section: "Kataloge", Title: "Kommunikationstypen", Icon: "icon-tag", Table: "partner__comm_types",
 		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "category_code, code", Search: []string{"code", "description"}, Filters: []string{"category_code"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},
@@ -96,7 +96,7 @@ func (m *Module) commTypeCatalog() *entity {
 
 func (m *Module) roleTypeCatalog() *entity {
 	return &entity{
-		Object: "PartnerRoleType", Section: "Kataloge", Title: "Rollentypen", Icon: "icon-tag", Table: "partner__role_types",
+		Object: "PartnerRoleType", Customizing: true, Section: "Kataloge", Title: "Rollentypen", Icon: "icon-tag", Table: "partner__role_types",
 		Keys: []string{"code", "valid_from"}, TimeSlice: true, Order: "code", Search: []string{"code", "description"},
 		Fields: withTimeSlice(
 			field{Key: "code", Label: "Code", Type: tText, Required: true, Listable: true, Immutable: true},

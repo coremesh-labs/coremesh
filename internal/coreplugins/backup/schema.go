@@ -181,6 +181,7 @@ var (
 			{Object: "BackupSetting", Section: "Datensicherung"},
 			{Object: "BackupSnapshot", Section: "Protokoll"},
 		},
+		Customizing: []string{"BackupSetting"},
 	}
 )
 

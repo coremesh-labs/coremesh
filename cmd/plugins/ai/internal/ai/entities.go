@@ -42,7 +42,7 @@ func checkCode(rec crud.Record, key, label string) error {
 
 func (m *Module) provider() *crud.Entity {
 	return &crud.Entity{
-		Object: providerObject, Title: "KI-Dienste", Icon: "icon-cloud", Table: "ai__provider", Section: "Einstellungen",
+		Object: providerObject, Customizing: true, Title: "KI-Dienste", Icon: "icon-cloud", Table: "ai__provider", Section: "Einstellungen",
 		Keys: []string{"code"}, Order: "code", StatusField: "is_active", TitleField: "name",
 		Fields: []crud.Field{
 			{Key: "code", Label: "Schlüssel", Type: tText, Required: true, Listable: true, Immutable: true},

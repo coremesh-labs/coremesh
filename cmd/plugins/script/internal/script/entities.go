@@ -67,7 +67,7 @@ func checkOption(rec crud.Record, key, label string, opts []metamodel.Option, de
 
 func (m *Module) scriptEntity() *crud.Entity {
 	return &crud.Entity{
-		Object: scriptObject, Title: "Skripte", Icon: "icon-code", Table: "script__script", Section: "Skripte",
+		Object: scriptObject, Customizing: true, Title: "Skripte", Icon: "icon-code", Table: "script__script", Section: "Skripte",
 		Keys: []string{"code"}, Order: "code", StatusField: "is_active", TitleField: "name",
 		Filters: []string{"is_active"}, Search: []string{"code", "name", "description", "source"},
 		Fields: []crud.Field{
@@ -154,7 +154,7 @@ func (m *Module) paramEntity(object, table, owner, ownerLabel string, ref *crud.
 		title = "Parameter der Berichte"
 	}
 	return &crud.Entity{
-		Object: object, Title: title, Icon: "icon-sliders", Table: table, Section: "Einstellungen",
+		Object: object, Customizing: true, Title: title, Icon: "icon-sliders", Table: table, Section: "Einstellungen",
 		Keys: []string{owner, "name"}, Order: owner + ", position, name", Filters: []string{owner, "type"},
 		Fields: []crud.Field{
 			{Key: owner, Label: ownerLabel, Type: tText, Required: true, Listable: true, Immutable: true, Ref: ref},
@@ -229,7 +229,7 @@ func (m *Module) bindingEntity() *crud.Entity {
 	isEvent := &metamodel.Condition{Field: "kind", Values: []string{trigEvent}}
 	isHook := &metamodel.Condition{Field: "kind", Values: []string{trigHook}}
 	return &crud.Entity{
-		Object: bindingObject, Title: "Bindungen", Icon: "icon-link", Table: "script__binding", Section: "Skripte",
+		Object: bindingObject, Customizing: true, Title: "Bindungen", Icon: "icon-link", Table: "script__binding", Section: "Skripte",
 		Keys: []string{"id"}, Surrogate: true, Order: "script, kind, priority, id", StatusField: "is_active",
 		Filters: []string{"script", "kind", "event_object", "hook", "is_active"},
 		Fields: []crud.Field{
@@ -404,7 +404,7 @@ func (m *Module) reportEntity() *crud.Entity {
 
 func (m *Module) reportColumnEntity() *crud.Entity {
 	return &crud.Entity{
-		Object: reportColObject, Title: "Spalten der Berichte", Icon: "icon-columns", Table: "script__report_column", Section: "Einstellungen",
+		Object: reportColObject, Customizing: true, Title: "Spalten der Berichte", Icon: "icon-columns", Table: "script__report_column", Section: "Einstellungen",
 		Keys: []string{"report", "position"}, Order: "report, position", Filters: []string{"report"},
 		Fields: []crud.Field{
 			{Key: "report", Label: "Bericht", Type: tText, Required: true, Listable: true, Immutable: true, Ref: refReport},
