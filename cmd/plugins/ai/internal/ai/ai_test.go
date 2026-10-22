@@ -232,7 +232,7 @@ func TestFallbackProvider(t *testing.T) {
 func TestTextWithFile(t *testing.T) {
 	e := setup(t)
 	e.partnerRequest()
-	e.ai.answer = `{"partner":{"name1":"Sanitär Beaker"}}`
+	e.ai.answer = `{"partner":{"name1":"Sanitär Altmayer"}}`
 	pdf := base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 x"))
 	e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Rechnung 250526", "input": pdf, "content_type": "application/pdf"})
 	msgs, _ := json.Marshal(e.ai.bodies[0]["messages"])
