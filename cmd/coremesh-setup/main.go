@@ -6,6 +6,9 @@
 //	coremesh-setup plan --dir=D [--release=…]      was ein Update laden würde
 //	coremesh-setup update --dir=D [--release=…]    Standard: die Linie der Installation
 //	coremesh-setup rollback --dir=D                zurück auf den Stand vor dem letzten Update
+//	coremesh-setup adopt --dir=D [--package=…]     vorhandene Installation aufnehmen (erkennt Stand, Plugins, Ausprägung)
+//	coremesh-setup forget --dir=D                  aus der Liste entfernen (Dateien bleiben)
+//	coremesh-setup remove --dir=D [--backup=V]     beenden, Datenbank nach V sichern, löschen
 //	coremesh-setup start|stop|status --dir=D
 //	coremesh-setup seed --dir=D --file=einrichtung.yaml
 //	coremesh-setup pack --labs=.. --release=2026.10.23 [--build] [--data] [--out=dist/out]
@@ -54,6 +57,7 @@ func run(cmd string, args []string) error {
 	previous := fs.String("previous", "", "pack: vorheriger Stand (Update-Pfad, Wiederverwendung; Standard: Linie preview)")
 	build := fs.Bool("build", false, "pack: vorher bauen")
 	listen := fs.String("listen", "127.0.0.1:9870", "ui: Adresse der Oberfläche")
+	backup := fs.String("backup", "", "remove: Verzeichnis für die Sicherung der Datenbank (leer = keine)")
 	fs.Parse(args)
 
 	inst := func() (*installation, error) {
@@ -131,6 +135,48 @@ func run(cmd string, args []string) error {
 			fmt.Printf("  %-8s %-16s %-14s → %-14s %s\n", it.Kind, it.Name, it.Old, it.New, it.Action)
 		}
 		return nil
+	case "adopt":
+		in, err := inst()
+		if err != nil {
+			return err
+		}
+		pkgSet := false
+		fs.Visit(func(f *flag.Flag) { pkgSet = pkgSet || f.Name == "package" })
+		want := ""
+		if pkgSet {
+			want = *pkg
+		} else if ix, err := src.Index(); err == nil {
+			if m, err := src.Manifest(ix, ix.Lines["release"]); err == nil {
+				d, err := detect(in.dir)
+				if err != nil {
+					return err
+				}
+				want = matchPackage(m, d.Plugins)
+			}
+		}
+		d, err := adopt(in, want)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s: %s, Stand %s, %d Plugins, Port %d, Ausprägung %s\n", in.dir, d.Layout, d.Release, len(d.Plugins), d.Port, or(want, "unbekannt (--package=…)"))
+		return nil
+	case "forget":
+		in, err := inst()
+		if err != nil {
+			return err
+		}
+		forget(in.dir)
+		return nil
+	case "remove":
+		in, err := inst()
+		if err != nil {
+			return err
+		}
+		saved, err := remove(in, *backup, func(s string) { logf("%s", s) })
+		if saved != "" {
+			logf("Sicherung: %s", saved)
+		}
+		return err
 	case "start", "stop", "status":
 		in, err := inst()
 		if err != nil {
@@ -177,7 +223,14 @@ func run(cmd string, args []string) error {
 		return pack(packOptions{labs: l, config: *config, out: *out, release: *release, previous: *previous,
 			date: time.Now().Format("2006-01-02"), build: *build, data: *data, port: 19870, src: src})
 	}
-	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, plan, update, rollback, start, stop, status, seed, pack)", cmd)
+	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, plan, update, rollback, adopt, forget, remove, start, stop, status, seed, pack)", cmd)
+}
+
+func or(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }
 
 func envOr(k, def string) string {

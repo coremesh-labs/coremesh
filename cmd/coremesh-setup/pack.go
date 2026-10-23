@@ -35,6 +35,7 @@ type packConfig struct {
 		Title       string   `yaml:"title"`
 		Description string   `yaml:"description"`
 		Plugins     []string `yaml:"plugins"`
+		Detect      []string `yaml:"detect"`
 		Data        *struct {
 			Title    string `yaml:"title"`
 			Seed     string `yaml:"seed"`
@@ -171,7 +172,7 @@ func pack(o packOptions) error {
 	logf("%d Bausteine, %d neu abgelegt, %d aus früheren Ständen", len(m.Components), pk.written, pk.reused)
 
 	for id, p := range pc.Packages {
-		pkg := Package{Title: p.Title, Description: p.Description, Plugins: p.Plugins}
+		pkg := Package{Title: p.Title, Description: p.Description, Plugins: p.Plugins, Detect: p.Detect}
 		if old, ok := m.Packages[id]; ok {
 			pkg.Data = old.Data
 		}

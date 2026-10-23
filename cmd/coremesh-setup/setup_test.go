@@ -303,3 +303,77 @@ func TestAccess(t *testing.T) {
 		t.Fatalf("ZUGANG.txt: Rechte %v", fi.Mode().Perm())
 	}
 }
+
+func writeConfig(t *testing.T, dir, name, body string) {
+	os.MkdirAll(dir, 0o755)
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Erkennung: Layout, Stand, Plugin-Versionen (spätere Dateien gewinnen), Port, Ausprägung.
+func TestDetect(t *testing.T) {
+	d := t.TempDir()
+	in := &installation{dir: d}
+	writeConfig(t, in.path("releases", "R1", "configs"), "01.yaml", "plugins:\n  ledger: {version: 1.0.0}\n  realestate: {version: 0.3.0}\n  contract: {version: 0.4.0}\n  webserver:\n    version: 0.44.0\n    settings: {listen: 0.0.0.0:8080}\n")
+	writeConfig(t, in.path("local"), "90-local.yaml", "plugins:\n  webserver:\n    settings:\n      listen: 127.0.0.1:8084\n")
+	os.WriteFile(in.path("current"), []byte("R1\n"), 0o644)
+	det, err := detect(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if det.Layout != layoutSetup || det.Release != "R1" || det.Format != 1 || det.Port != 8084 || det.Plugins["contract"] != "0.4.0" {
+		t.Fatalf("erkannt: %+v", det)
+	}
+	m := &Manifest{Packages: map[string]Package{"basis": {Detect: []string{"webserver"}}, "erp-vuv": {Detect: []string{"ledger", "realestate", "contract"}}, "ohne": {}}}
+	if p := matchPackage(m, det.Plugins); p != "erp-vuv" {
+		t.Fatalf("Ausprägung: %q", p)
+	}
+	if p := matchPackage(m, map[string]string{"partner": "1"}); p != "" {
+		t.Fatalf("ohne Treffer: %q", p)
+	}
+
+	single := t.TempDir()
+	os.WriteFile(filepath.Join(single, exe("host")), []byte("x"), 0o755)
+	writeConfig(t, filepath.Join(single, "configs"), "04.yaml", "plugins:\n  webserver: {version: 0.45.0}\n")
+	if det, err := detect(single); err != nil || det.Layout != layoutSingle || det.Release != "" {
+		t.Fatalf("eigenständig: %+v %v", det, err)
+	}
+	if _, err := detect(t.TempDir()); err == nil {
+		t.Fatal("leeres Verzeichnis erkannt")
+	}
+	// eigenständige Stände löscht das Werkzeug nicht
+	if _, err := (&installation{dir: single}).removal(); err == nil {
+		t.Fatal("eigenständig löschbar")
+	}
+}
+
+// Löschen: Datenbank sichern, nur eigene Einträge entfernen, fremde Dateien bleiben.
+func TestRemove(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	d := filepath.Join(t.TempDir(), "coremesh")
+	in := &installation{dir: d}
+	writeConfig(t, in.path("data"), "coremesh.db", "daten")
+	writeConfig(t, in.path("plugins", "we"), "webserver-1.0.0", "bin")
+	os.WriteFile(in.path("current"), []byte("R1\n"), 0o644)
+	os.WriteFile(in.path("notizen.txt"), []byte("meins"), 0o644)
+	remember(d)
+	backup := t.TempDir()
+	saved, err := remove(in, backup, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(saved); string(b) != "daten" {
+		t.Fatalf("Sicherung: %q", b)
+	}
+	if exists(in.path("data")) || exists(in.path("plugins")) || exists(in.path("current")) {
+		t.Fatal("eigene Einträge nicht gelöscht")
+	}
+	if !exists(in.path("notizen.txt")) {
+		t.Fatal("fremde Datei gelöscht")
+	}
+	if known(d) {
+		t.Fatal("noch in der Liste")
+	}
+}

@@ -183,7 +183,10 @@ func (in *installation) pid() int {
 	return n
 }
 
-func (in *installation) running() bool { return in.pid() > 0 && alive(in.pid()) }
+// running: Host läuft (PID-Datei) oder die Konsole antwortet (z. B. eigenständig gestartet).
+func (in *installation) running() bool {
+	return (in.pid() > 0 && alive(in.pid())) || listening(in.socket())
+}
 
 func (in *installation) stop() error {
 	pid := in.pid()

@@ -27,11 +27,13 @@ configs:
   exclude: [03-domain-plugins.yaml]
   drop_lines: ['^\s*extra_plugin_dirs:']
 
-# Ausprägungen. plugins leer = alle konfigurierten Plugins.
+# Ausprägungen. plugins leer = alle konfigurierten Plugins. detect: an diesen Plugins erkennt
+# coremesh-setup die Ausprägung einer vorhandenen Installation.
 packages:
   erp-vuv:
     title: ERP Vermietung und Verwaltung
     description: Hauptbuch, Immobilien, Verträge, Nebenkosten, Beschaffung, Bank, Dokumente, Vorlagen
+    detect: [ledger, realestate, contract]
     data:
       title: Testbestand „Faust“ (erfundene Hausverwaltung, Namen aus Goethes Faust)
       seed: coremesh-erp/testdata/vuv-faust.yaml
