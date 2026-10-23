@@ -288,7 +288,7 @@ func newMDServerFor(t *testing.T, perms ...string) (*server, *fakeHost) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newServer(mdHost{fh}, views, settings{Title: "CoreMesh"}, auth)
+	s := newServer(mdHost{fh}, views, settings{Title: "CoreMesh", VisibleActions: 3}, auth)
 	testTokens.Store(s, token)
 	testIdentities.Store(s, ids)
 	return s, fh
@@ -667,30 +667,25 @@ func TestDisplayColumnsAndSections(t *testing.T) {
 	mustNotContain(t, do(s, "GET", "/m/crm/Customer/c1/edit", nil, true).Body.String(), `name="note"`)
 }
 
-// Zeilenmenü: bis zu zwei Aktionen stehen direkt in der Zeile, mehr klappen
-// unter „Aktionen ▾“ auf.
-func TestRelationRowMenu(t *testing.T) {
+// Seit 0.45.0: Die Zeile liefert alle Aktionen; mehr als visible_actions (Standard 3)
+// legt das Layout im Browser ins Menü „Weitere“ (coremeshActionMenus).
+func TestRelationRowActions(t *testing.T) {
 	orig := mdDefs["CustomerContact"]
 	defer func() { mdDefs["CustomerContact"] = orig }()
-	withActions := func(n int) {
-		d := orig
-		d.Actions = slices.Clone(orig.Actions)
-		for i := 1; i <= n; i++ {
-			d.Actions = append(d.Actions, metamodel.ActionConfig{Name: fmt.Sprintf("act%d", i), Kind: metamodel.KindCustom, Label: fmt.Sprintf("Aktion %d", i), Record: true})
-		}
-		mdDefs["CustomerContact"] = d
+	d := orig
+	d.Actions = slices.Clone(orig.Actions)
+	for i := 1; i <= 4; i++ {
+		d.Actions = append(d.Actions, metamodel.ActionConfig{Name: fmt.Sprintf("act%d", i), Kind: metamodel.KindCustom, Label: fmt.Sprintf("Aktion %d", i), Record: true})
 	}
-	withActions(2)
+	mdDefs["CustomerContact"] = d
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
-	mustContain(t, b, `>Aktion 1</button>`, `>Aktion 2</button>`)
-	mustNotContain(t, b, `class="row-menu"`)
-
-	withActions(3)
-	s, _ = newMDServer(t)
-	b = do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
-	mustContain(t, b, `<details class="row-menu"><summary class="link">Aktionen ▾</summary>`, `>Aktion 3</button>`,
+	mustContain(t, b, `>Aktion 1</button>`, `>Aktion 4</button>`,
 		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`)
+	mustNotContain(t, b, `<details`)
+
+	b = do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String()
+	mustContain(t, b, `data-visible-actions="3"`, `data-more-label="Weitere"`, `htmx.onLoad(coremeshActionMenus)`)
 }
 
 // Seit 0.40.8: Zellen eingebetteter Tabellen nach Inhalt – Betrag, Datum, langer Text.

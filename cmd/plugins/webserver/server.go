@@ -188,7 +188,7 @@ func (s *server) render(w http.ResponseWriter, r *http.Request, status int, frag
 	if isHTMX(r) {
 		err = s.views.fragment(localeFrom(r), &buf, fragment, data)
 	} else {
-		err = s.views.page(localeFrom(r), &buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r, active), User: userFrom(r), Path: originalURI(r)})
+		err = s.views.page(localeFrom(r), &buf, fragment, data, pageData{AppTitle: s.cfg.Title, Title: title, Active: active, Nav: s.nav(r, active), User: userFrom(r), Path: originalURI(r), VisibleActions: s.cfg.VisibleActions})
 	}
 	if err != nil {
 		s.logError(r, "Template "+fragment, err)

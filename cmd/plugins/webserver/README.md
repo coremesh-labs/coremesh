@@ -699,6 +699,14 @@ nach dem Feldtyp um (Ja/Nein, Zahl).
 **Aktionen je Datensatz ausblenden.** Liefert ein Modul `"_hidden_actions": ["unlock"]`,
 fehlen diese Aktionen bei diesem Datensatz, z. B. „Entsperren“ bei einem aktiven Konto.
 
+**Menü „Weitere“** (seit 0.45.0). Stehen in einer Kopfleiste (`.toolbar`) oder einer Zeile
+(`td.actions`) mehr Aktionen als `visible_actions` (Standard 3), bleiben die ersten
+nebeneinander, die weiteren klappen unter „Weitere ▾“ auf. „Zurück“ zählt nicht mit. Das
+Layout baut das Menü im Browser (`coremeshActionMenus`, auch nach jedem HTMX-Austausch); die
+Vorlagen liefern alle Aktionen nebeneinander, überschriebene Blöcke bekommen das Menü also
+ohne eigenes Zutun. Das Menü ist ein `<details>` und schließt bei Klick daneben, Escape oder
+Scrollen. `visible_actions: 0` zeigt alle Aktionen nebeneinander.
+
 ## 9. Fehlerbehandlung
 
 | Fehler des Moduls (`errors.Is`) | HTTP-Status |
@@ -798,6 +806,7 @@ plugins:
       title: CoreMesh
       tenant: demo                      # Mandant für Benutzer ohne eigenen Mandanten
       session_ttl: 12h                  # Gültigkeit einer Anmeldung
+      visible_actions: 3                # Aktionen nebeneinander, weitere im Menü „Weitere“ (0 = alle)
       tls_cert: ./certs/server.crt      # optional; beide gesetzt = HTTPS
       tls_key: ./certs/server.key
       cookie_secure: auto               # auto (bei TLS) | true (hinter TLS-Proxy) | false

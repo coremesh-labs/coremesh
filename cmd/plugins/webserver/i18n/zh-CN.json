@@ -10,6 +10,7 @@
   "core.action.mergeSlice.confirm": "此时间段与上一时间段的值相同。是否合并？",
   "core.action.update": "编辑",
   "core.app.actions": "操作",
+  "core.app.more": "更多",
   "core.app.back": "返回",
   "core.app.bad_request": "无效请求",
   "core.app.cancel": "取消",

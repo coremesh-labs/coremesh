@@ -48,12 +48,19 @@ table.data th .th-label { display: inline-block; max-width: 9rem; hyphens: auto;
 table.data td.actions { text-align: right; white-space: nowrap; }
 table.data td.actions > * { margin-left: .75rem; }
 /* Zeilenmenü: mehr als zwei Aktionen klappen unter „Aktionen ▾“ auf (untereinander, rechtsbündig) */
-details.row-menu { display: inline-block; vertical-align: top; text-align: right; }
-details.row-menu > summary { list-style: none; color: var(--accent); }
-details.row-menu > summary::-webkit-details-marker { display: none; }
-details.row-menu[open] > summary { font-weight: 600; }
-.row-menu-items { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; margin-top: .35rem; }
-.row-menu-items > * { margin: 0; white-space: nowrap; }
+/* Menü „Weitere“ (layout.html: coremeshActionMenus) – mehr Aktionen als visible_actions */
+details.more-menu { display: inline-block; vertical-align: top; }
+details.more-menu > summary { list-style: none; cursor: pointer; }
+details.more-menu > summary.link { color: var(--accent); }
+details.more-menu > summary::-webkit-details-marker { display: none; }
+.more-menu-items { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 10rem;
+                   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                   box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: .25rem 0; text-align: left; }
+.more-menu-items > *, table.data td.actions .more-menu-items > * { display: block; margin: 0; padding: .4rem .9rem; border: 0; border-radius: 0;
+                   background: none; text-align: left; white-space: nowrap; font: inherit; color: var(--accent); cursor: pointer; text-decoration: none; }
+.more-menu-items > .danger { color: var(--danger); }
+.more-menu-items > .primary { color: var(--accent); font-weight: 600; }
+.more-menu-items > *:hover { background: var(--bg); }
 table.data td.actions button.link:not(.danger) { color: var(--accent); } /* Aktionen mit Rückfrage wie Links */
 .empty { color: var(--muted); }
 dl.fields { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1.5rem;

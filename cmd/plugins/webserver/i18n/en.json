@@ -10,6 +10,7 @@
   "core.action.mergeSlice.confirm": "This period has the same values as the previous one. Merge?",
   "core.action.update": "Edit",
   "core.app.actions": "Actions",
+  "core.app.more": "More",
   "core.app.back": "Back",
   "core.app.bad_request": "Invalid request",
   "core.app.cancel": "Cancel",
