@@ -38,23 +38,55 @@ type PackageRef struct {
 	CompatibleWith []string `json:"compatible_with,omitempty"` // in einem System kombinierbar
 }
 
-// Manifest: Inhalt eines Stands (manifest.json neben den Archiven).
+// Manifest: Inhalt eines Stands (manifest.json im Release). Ein Stand ist die Liste der
+// zusammengehörenden Bausteine; jeder Baustein ist eine eigene Datei. Das Werkzeug lädt nur,
+// was in der Installation fehlt – bei einem Update meist wenige Plugins.
 type Manifest struct {
-	Release   string              `json:"release"`
-	Date      string              `json:"date"`
-	Previous  string              `json:"previous,omitempty"`
-	Sources   map[string]string   `json:"sources"` // Repository → Commit
-	Plugins   map[string]string   `json:"plugins"` // Plugin → Version
-	Platforms map[string]Artifact `json:"platforms"`
-	Setup     map[string]Artifact `json:"setup,omitempty"` // coremesh-setup je Plattform
-	Packages  map[string]Package  `json:"packages"`
+	Format     int                `json:"format"` // 2: Bausteine
+	Release    string             `json:"release"`
+	Date       string             `json:"date"`
+	Previous   string             `json:"previous,omitempty"`
+	Sources    map[string]string  `json:"sources"` // Repository → Commit
+	Components []Component        `json:"components"`
+	Packages   map[string]Package `json:"packages"`
 }
 
-// Artifact: herunterladbare Datei mit Prüfsumme.
+// Baustein-Arten
+const (
+	kindProgram = "program" // host, console → releases/<stand>/
+	kindPlugin  = "plugin"  // → plugins/<xx>/ (gemeinsam für alle Stände)
+	kindFiles   = "files"   // configs, migrations, Inhalte, Lizenzen (tar.gz) → releases/<stand>/
+	kindSetup   = "setup"   // coremesh-setup selbst → Installationsverzeichnis
+)
+
+// Component: ein Baustein. Plugins heißen nach ihrem Namen und tragen die Version aus der
+// Konfiguration; die übrigen tragen als Version den Anfang ihrer Prüfsumme.
+type Component struct {
+	Name      string              `json:"name"`
+	Kind      string              `json:"kind"`
+	Version   string              `json:"version"`
+	Platforms map[string]Artifact `json:"platforms"` // Plattform (linux-amd64, …) bzw. "any"
+}
+
+// Artifact: herunterladbare Datei. Gzip-komprimiert, außer bei coremesh-setup (zum
+// direkten Herunterladen). Release nennt den Stand, in dem die Datei liegt, wenn ein
+// früherer Stand sie schon veröffentlicht hat – sie wird dann nicht noch einmal hochgeladen.
 type Artifact struct {
-	File   string `json:"file"`
-	SHA256 string `json:"sha256"`
-	Size   int64  `json:"size"`
+	File    string `json:"file"`
+	SHA256  string `json:"sha256"`
+	Size    int64  `json:"size"`
+	Path    string `json:"path,omitempty"`    // Ziel (Plugin: plugins/we/webserver-0.45.0-linux-amd64)
+	Content string `json:"content,omitempty"` // SHA-256 der entpackten Datei (nicht bei files)
+	Release string `json:"release,omitempty"` // Stand mit der Datei; leer = dieser
+}
+
+// artifactFor: Datei des Bausteins für eine Plattform ("any" gilt für alle).
+func (c Component) artifactFor(p string) (Artifact, bool) {
+	if a, ok := c.Platforms[p]; ok {
+		return a, true
+	}
+	a, ok := c.Platforms["any"]
+	return a, ok
 }
 
 // Package: Ausprägung in einem Stand – Plugins (leer = alle) und optional ein Datenbestand.
@@ -63,6 +95,30 @@ type Package struct {
 	Description string   `json:"description,omitempty"`
 	Plugins     []string `json:"plugins,omitempty"`
 	Data        *DataSet `json:"data,omitempty"`
+}
+
+// components: die Bausteine einer Ausprägung (Programme, Dateien und Werkzeug immer).
+func (m *Manifest) components(pkg string) ([]Component, error) {
+	p, ok := m.Packages[pkg]
+	if !ok {
+		return nil, fmt.Errorf("Stand %s hat keine Ausprägung %q", m.Release, pkg)
+	}
+	var out []Component
+	for _, c := range m.Components {
+		if c.Kind != kindPlugin || len(p.Plugins) == 0 || contains(p.Plugins, c.Name) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (m *Manifest) component(kind, name string) *Component {
+	for i := range m.Components {
+		if m.Components[i].Kind == kind && m.Components[i].Name == name {
+			return &m.Components[i]
+		}
+	}
+	return nil
 }
 
 // DataSet: mitgelieferte Datenbank (SQLite, gzip). Der Zugang des Bestands wird beim
@@ -125,6 +181,14 @@ func (s *source) Index() (*Index, error) {
 	return &ix, nil
 }
 
+// artifactURL: Adresse einer Datei, auch wenn sie in einem früheren Stand liegt.
+func (ix *Index) artifactURL(rel string, a Artifact) (string, error) {
+	if a.Release != "" {
+		rel = a.Release
+	}
+	return ix.fileURL(rel, a.File)
+}
+
 // fileURL: Adresse einer Datei eines Stands nach der Vorlage seines Repositories.
 func (ix *Index) fileURL(rel, file string) (string, error) {
 	r := ix.Release(rel)
@@ -169,6 +233,9 @@ func (s *source) Manifest(ix *Index, rel string) (*Manifest, error) {
 	var m Manifest
 	if err := s.readJSON(u, &m); err != nil {
 		return nil, err
+	}
+	if m.Format != 2 {
+		return nil, fmt.Errorf("Stand %s: Manifest-Format %d – dieses Werkzeug versteht nur Bausteine (Format 2); Stand neu packen oder älteres Werkzeug nehmen", rel, m.Format)
 	}
 	return &m, nil
 }

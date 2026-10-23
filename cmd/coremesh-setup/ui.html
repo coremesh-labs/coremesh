@@ -4,69 +4,226 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CoreMesh Setup</title>
-{{if and .Job (not .JobDone)}}<meta http-equiv="refresh" content="2">{{end}}
+{{if and (eq .Page "job") (not .JobDone)}}<meta http-equiv="refresh" content="2">{{end}}
 <style>
-:root { --bg: #f6f7f9; --surface: #fff; --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --accent: #2563eb; --bad: #b91c1c; --ok: #15803d; }
-@media (prefers-color-scheme: dark) { :root { --bg: #111827; --surface: #1f2937; --text: #e5e7eb; --muted: #9ca3af; --border: #374151; --accent: #60a5fa; --bad: #f87171; --ok: #4ade80; } }
+:root { --bg: #f6f7f9; --surface: #fff; --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --accent: #2563eb; --bad: #b91c1c; --ok: #15803d; --warn: #b45309; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111827; --surface: #1f2937; --text: #e5e7eb; --muted: #9ca3af; --border: #374151; --accent: #60a5fa; --bad: #f87171; --ok: #4ade80; --warn: #fbbf24; } }
 body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }
 main { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-h1 { font-size: 1.4rem; margin: 0 0 .25rem; } h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
-.sub { color: var(--muted); margin: 0 0 1.25rem; font-size: .9rem; word-break: break-all; }
+h1 { font-size: 1.4rem; margin: 0 0 .25rem; } h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 1.1rem; margin: 0 0 .75rem; }
+.sub { color: var(--muted); margin: 0 0 1.25rem; font-size: .85rem; word-break: break-all; }
 section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-table { width: 100%; border-collapse: collapse; } td, th { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: .85rem; }
-form.grid { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; align-items: center; }
-form.grid .full { grid-column: 1 / -1; }
-input, select, button { font: inherit; padding: .35rem .55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
-button { cursor: pointer; } button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.err { color: var(--bad); } .ok { color: var(--ok); } .muted { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; } td, th { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; } td.num, th.num { text-align: right; white-space: nowrap; }
+input, select, button, .btn { font: inherit; padding: .4rem .7rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+input[type=text], input:not([type]) { width: 100%; box-sizing: border-box; }
+button, .btn { cursor: pointer; text-decoration: none; display: inline-block; }
+.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.err { color: var(--bad); } .ok { color: var(--ok); } .muted { color: var(--muted); } .warn { color: var(--warn); }
+section.err { border-color: var(--bad); }
 a { color: var(--accent); }
 pre { background: var(--bg); padding: .75rem; border-radius: 6px; overflow: auto; font-size: .85rem; margin: 0; }
-.inline { display: inline; }
-@media (max-width: 560px) { form.grid { grid-template-columns: 1fr; } }
+.actions { display: flex; flex-wrap: wrap; gap: .4rem; } .actions form { display: inline; }
+.steps { display: flex; gap: .25rem; list-style: none; padding: 0; margin: 0 0 1rem; flex-wrap: wrap; counter-reset: s; }
+.steps li { padding: .3rem .75rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: .9rem; }
+.steps li.current { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.steps li.done { color: var(--ok); }
+.field { margin-bottom: .9rem; } .field > label { display: block; font-weight: 600; margin-bottom: .25rem; }
+.hint { color: var(--muted); font-size: .85rem; margin: .25rem 0 0; }
+.choice { display: flex; gap: .6rem; align-items: flex-start; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: .5rem; cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--bg); }
+.choice input { margin-top: .3rem; } .choice b { display: block; }
+.nav { display: flex; justify-content: space-between; gap: .5rem; margin-top: 1rem; }
+.badge { font-size: .75rem; padding: .05rem .45rem; border-radius: 999px; border: 1px solid currentColor; margin-left: .35rem; white-space: nowrap; }
+.sum { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: .75rem; } .sum div b { display: block; font-size: 1.2rem; }
+details summary { cursor: pointer; color: var(--accent); margin-top: .5rem; }
+@media (max-width: 560px) { .hide-small { display: none; } }
 </style>
 </head>
 <body><main>
-<h1>CoreMesh Setup</h1>
+<h1><a href="/">CoreMesh Setup</a></h1>
 <p class="sub">Server: {{.Index}} · Plattform {{.Platform}}</p>
 {{with .Error}}<section class="err">{{.}}</section>{{end}}
 
-{{if .Job}}<section>
-  <h2>Einrichtung {{.JobDir}}</h2>
-  <pre>{{range .JobLines}}{{.}}
-{{end}}{{if not .JobDone}}…{{end}}</pre>
-  {{with .JobErr}}<p class="err">Fehler: {{.}}</p>{{end}}
-</section>{{end}}
+{{if eq .Page "home"}}{{template "home" .}}
+{{else if eq .Page "new"}}{{template "new" .}}
+{{else if eq .Page "update"}}{{template "update" .}}
+{{else if eq .Page "rollback"}}{{template "rollback" .}}
+{{else if eq .Page "job"}}{{template "job" .}}{{end}}
+</main></body>
+</html>
 
+{{define "home"}}
+{{if and .Job (not .JobDone)}}<section><p>Es läuft: {{.Job.Title}} · <a href="/job">Fortschritt ansehen</a></p></section>{{end}}
 <section>
   <h2>Installationen</h2>
   {{if .Installs}}<table>
     <tr><th>Verzeichnis</th><th>Stand</th><th>Zustand</th><th></th></tr>
     {{range .Installs}}<tr>
-      <td>{{.Dir}}</td><td>{{.Release}}</td>
-      <td>{{if .Running}}<span class="ok">läuft</span> · <a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else}}<span class="muted">beendet</span>{{end}}
-        <br><span class="muted">Benutzer {{.User}}, Passwort in ZUGANG.txt</span></td>
-      <td><form class="inline" method="post" action="/control"><input type="hidden" name="dir" value="{{.Dir}}">
-        {{if .Running}}<button name="do" value="stop">Beenden</button>{{else}}<button name="do" value="start">Starten</button>{{end}}</form></td>
+      <td>{{.Dir}}<br><span class="muted">Benutzer {{.User}}, Passwort in ZUGANG.txt</span></td>
+      <td>{{.Release}}<br><span class="muted">Linie {{.Line}}</span>
+        {{with .UpdateTo}}<br><span class="warn">Update auf {{.}} verfügbar</span>{{end}}</td>
+      <td>{{if .Running}}<span class="ok">läuft</span><br><a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else}}<span class="muted">beendet</span>{{end}}</td>
+      <td><div class="actions">
+        <form method="post" action="/control"><input type="hidden" name="dir" value="{{.Dir}}">
+          {{if .Running}}<button name="do" value="stop">Beenden</button>{{else}}<button name="do" value="start">Starten</button>{{end}}</form>
+        <a class="btn{{if .UpdateTo}} primary{{end}}" href="/update?dir={{.Dir}}">Aktualisieren …</a>
+        {{if .Previous}}<a class="btn" href="/rollback?dir={{.Dir}}">Zurück auf {{.Previous}} …</a>{{end}}
+      </div></td>
     </tr>{{end}}
   </table>{{else}}<p class="muted">Noch keine Installation.</p>{{end}}
+  <p><a class="btn primary" href="/new">Neue Installation …</a></p>
 </section>
-
 <section>
-  <h2>Neu einrichten oder aktualisieren</h2>
-  <form class="grid" method="post" action="/install">
-    <label for="dir">Verzeichnis</label><input id="dir" name="dir" value="{{.DefaultDir}}" required>
-    <label for="release">Stand</label>
-    <select id="release" name="release">
-      {{range .Lines}}<option value="{{.Name}}">Linie {{.Name}} ({{.Release}})</option>{{end}}
-      {{range .Releases}}<option value="{{.ID}}">{{.ID}} vom {{.Date}}</option>{{end}}
-    </select>
-    <label for="package">Ausprägung</label>
-    <select id="package" name="package">{{range .Packages}}<option value="{{.ID}}" title="{{.Description}}">{{.Title}}</option>{{end}}</select>
-    <label for="port">Port</label><input id="port" name="port" type="number" min="1" max="65535" value="{{.DefaultPort}}">
-    <label class="full"><input type="checkbox" name="data"> mit Testbestand (nur in ein neues Verzeichnis; eigenes Passwort wird gesetzt)</label>
-    <div class="full"><button class="primary">Einrichten und starten</button></div>
+  <h2>Stände auf dem Server</h2>
+  <table>
+    {{range .Lines}}<tr><td>Linie <b>{{.Name}}</b></td><td>{{.Release}}</td></tr>{{end}}
+  </table>
+  <p class="hint">Jede Installation hat Start- und Stopp-Skripte (start.sh, stop.sh, status.sh; unter Windows .cmd) in ihrem Verzeichnis.</p>
+</section>
+{{end}}
+
+{{define "steps"}}<ol class="steps">{{range .Steps}}<li class="{{if .Current}}current{{else if .Done}}done{{end}}">{{.N}} {{.Title}}</li>{{end}}</ol>{{end}}
+
+{{define "hidden"}}
+<input type="hidden" name="dir" value="{{.Dir}}"><input type="hidden" name="port" value="{{.Port}}">
+<input type="hidden" name="release" value="{{.Release}}"><input type="hidden" name="package" value="{{.Package}}">
+{{if .Data}}<input type="hidden" name="data" value="on">{{end}}
+{{end}}
+
+{{define "releases"}}
+{{$sel := .Release}}
+{{range .Lines}}<label class="choice"><input type="radio" name="release" value="{{.Name}}" {{if eq $sel .Name}}checked{{end}}>
+  <span><b>Linie {{.Name}} – {{.Release}}</b>
+  <span class="muted">{{if eq .Name "release"}}freigegeben, für den Betrieb{{else if eq .Name "preview"}}zum Ausprobieren, neuer und weniger erprobt{{end}}; Updates folgen dieser Linie</span></span></label>{{end}}
+<details><summary>fester Stand …</summary>
+{{range .Releases}}<label class="choice"><input type="radio" name="release" value="{{.ID}}" {{if eq $sel .ID}}checked{{end}}>
+  <span><b>{{.ID}}</b><span class="muted">{{.Date}}{{with .Notes}} · {{.}}{{end}}</span></span></label>{{end}}
+</details>
+{{end}}
+
+{{define "plan"}}
+<div class="sum">
+  <div><b>{{len .Items}}</b>Bausteine</div>
+  <div><b>{{.Count "laden"}}</b>zu laden</div>
+  <div><b>{{.Count "vorhanden"}}</b>schon vorhanden</div>
+  {{with .Count "übernehmen"}}<div><b>{{.}}</b>aus anderem Stand</div>{{end}}
+  <div><b>{{size .LoadSize}}</b>Download</div>
+</div>
+<details{{if .Current}} open{{end}}><summary>Bausteine im Einzelnen</summary>
+<table>
+  <tr><th>Baustein</th><th class="hide-small">Art</th>{{if .Current}}<th>bisher</th>{{end}}<th>Version</th><th></th><th class="num">Größe</th></tr>
+  {{$cur := .Current}}
+  {{range .Items}}<tr>
+    <td>{{.Name}}</td><td class="hide-small muted">{{.Kind}}</td>
+    {{if $cur}}<td class="muted">{{or .Old "neu"}}</td>{{end}}
+    <td>{{if and $cur (ne .Old .New)}}<b>{{.New}}</b>{{else}}{{.New}}{{end}}</td>
+    <td class="{{if eq .Action "laden"}}warn{{else}}muted{{end}}">{{.Action}}</td>
+    <td class="num">{{if .Size}}{{size .Size}}{{end}}</td>
+  </tr>{{end}}
+</table>
+</details>
+{{end}}
+
+{{define "new"}}
+{{template "steps" .}}
+<section>
+{{if eq .Step 1}}
+  <h2>Wohin soll CoreMesh?</h2>
+  <form method="get" action="/new">
+    <input type="hidden" name="step" value="2">
+    <input type="hidden" name="release" value="{{.Release}}"><input type="hidden" name="package" value="{{.Package}}">
+    <div class="field"><label for="dir">Verzeichnis</label><input id="dir" name="dir" value="{{.Dir}}" required>
+      <p class="hint">Neu oder leer. Programme, Plugins, Daten und Einstellungen liegen dann darunter.</p></div>
+    <div class="field"><label for="port">Port der Weboberfläche</label><input id="port" name="port" type="number" min="1" max="65535" value="{{.Port}}" style="width:8rem">
+      <p class="hint">Die Oberfläche ist nur auf diesem Rechner erreichbar (http://localhost:{{.Port}}).</p></div>
+    <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Weiter</button></div>
+  </form>
+{{else if eq .Step 2}}
+  <h2>Welcher Stand?</h2>
+  <form method="get" action="/new">
+    <input type="hidden" name="step" value="3">
+    <input type="hidden" name="dir" value="{{.Dir}}"><input type="hidden" name="port" value="{{.Port}}"><input type="hidden" name="package" value="{{.Package}}">
+    {{template "releases" .}}
+    <div class="nav"><a class="btn" href="/new?{{query . 1}}">Zurück</a><button class="primary">Weiter</button></div>
+  </form>
+{{else if eq .Step 3}}
+  <h2>Was soll eingerichtet werden?</h2>
+  <form method="get" action="/new">
+    <input type="hidden" name="step" value="4">
+    <input type="hidden" name="dir" value="{{.Dir}}"><input type="hidden" name="port" value="{{.Port}}"><input type="hidden" name="release" value="{{.Release}}">
+    {{$sel := .Package}}
+    {{range .Packages}}<label class="choice"><input type="radio" name="package" value="{{.ID}}" {{if eq $sel .ID}}checked{{end}}>
+      <span><b>{{.Title}}</b><span class="muted">{{.Description}}</span></span></label>{{end}}
+    {{with .DataTitle}}<label class="choice"><input type="checkbox" name="data" {{if $.Data}}checked{{end}}>
+      <span><b>mit Testbestand</b><span class="muted">{{.}}. Zum Ausprobieren; ein eigenes Passwort wird gesetzt.</span></span></label>{{end}}
+    <div class="nav"><a class="btn" href="/new?{{query . 2}}">Zurück</a><button class="primary">Weiter</button></div>
+  </form>
+{{else if eq .Step 4}}
+  <h2>Übersicht</h2>
+  <table>
+    <tr><td>Verzeichnis</td><td>{{.Dir}}</td></tr>
+    <tr><td>Adresse</td><td>http://localhost:{{.Port}}</td></tr>
+    <tr><td>Stand</td><td>{{.Plan.Release}}{{if ne .Release .Plan.Release}} (Linie {{.Release}}){{end}}</td></tr>
+    <tr><td>Ausprägung</td><td>{{with .PackageRef}}{{.Title}}{{else}}{{.Package}}{{end}}</td></tr>
+    <tr><td>Daten</td><td>{{if .Data}}{{.DataTitle}}{{else}}leer (Benutzer admin wird angelegt){{end}}</td></tr>
+  </table>
+  <p></p>
+  {{template "plan" .Plan}}
+  <form method="post" action="/new">
+    {{template "hidden" .}}
+    <div class="nav"><a class="btn" href="/new?{{query . 3}}">Zurück</a><button class="primary">Einrichten und starten</button></div>
+  </form>
+{{end}}
+</section>
+{{end}}
+
+{{define "update"}}
+{{template "steps" .}}
+<section>
+  <h2>Aktualisieren: {{.Dir}}</h2>
+  <p class="muted">Jetzt: Stand {{.Inst.Release}}, Linie {{.Inst.Line}}{{if .Inst.Running}}, läuft{{end}}</p>
+{{if eq .Step 1}}
+  <form method="get" action="/update">
+    <input type="hidden" name="step" value="2"><input type="hidden" name="dir" value="{{.Dir}}">
+    {{template "releases" .}}
+    <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Weiter</button></div>
+  </form>
+{{else}}
+  <h2>Übersicht: {{.Inst.Release}} → {{.Plan.Release}}</h2>
+  {{with .ReleaseRef}}{{with .Notes}}<p>{{.}}</p>{{end}}{{end}}
+  {{template "plan" .Plan}}
+  <p>Ablauf: Bausteine laden (das System läuft weiter) · beenden · Datenbank sichern · umschalten · starten.
+    Startet der neue Stand nicht, geht es von selbst zurück auf {{.Inst.Release}}.</p>
+  <form method="post" action="/update">
+    <input type="hidden" name="dir" value="{{.Dir}}"><input type="hidden" name="release" value="{{.Release}}">
+    <div class="nav"><a class="btn" href="/update?dir={{.Dir}}&amp;release={{.Release}}">Zurück</a><button class="primary">Aktualisieren</button></div>
+  </form>
+{{end}}
+</section>
+{{end}}
+
+{{define "rollback"}}
+<section>
+  <h2>Zurück auf {{.Inst.Previous}}</h2>
+  <p>{{.Dir}} läuft mit Stand {{.Inst.Release}}. Zurück geht es auf Stand {{.Inst.Previous}} mit der Datenbank,
+    wie sie vor dem Update am {{.Inst.BackupTime}} war.</p>
+  <p class="warn">Alles, was seit dem Update erfasst wurde, geht dabei verloren.</p>
+  <form method="post" action="/rollback"><input type="hidden" name="dir" value="{{.Dir}}">
+    <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Zurück auf {{.Inst.Previous}}</button></div>
   </form>
 </section>
-</main></body>
-</html>
+{{end}}
+
+{{define "job"}}
+<section>
+  <h2>{{.Job.Title}}</h2>
+  <pre>{{range .JobLines}}{{.}}
+{{end}}{{if not .JobDone}}…{{end}}</pre>
+  {{if .JobDone}}
+    {{with .JobErr}}<p class="err">Fehler: {{.}}</p>{{else}}<p class="ok">Fertig.{{with $.Address}} Die Oberfläche: <a href="{{.}}" target="_blank" rel="noopener">{{.}}</a> (Passwort in ZUGANG.txt){{end}}</p>{{end}}
+    <p><a class="btn" href="/">Zur Übersicht</a></p>
+  {{end}}
+</section>
+{{end}}

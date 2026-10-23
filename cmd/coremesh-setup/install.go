@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"archive/zip"
 	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
@@ -22,11 +21,15 @@ import (
 
 // installation: ein System in einem Verzeichnis.
 //
-//	releases/<stand>/   Programme, Plugins, configs, migrations (vom Archiv, wird ersetzt)
-//	local/90-local.yaml eigene Einstellungen (Port, Pfade) – wird bei Updates nie ersetzt
-//	data/               Datenbank, Socket, Log, Sicherungen
+//	releases/<stand>/   Programme, configs, migrations, Inhalte, manifest.json eines Stands
+//	plugins/<xx>/       Plugins aller Stände (Name und Version im Dateinamen, je Version einmal)
+//	local/90-local.yaml eigene Einstellungen (Port, Pfade) – wird bei Updates neu geschrieben,
+//	                    weitere Dateien in local/ bleiben
+//	data/               Datenbank, Socket, Log; data/setup-backup/ Sicherungen vor Updates
 //	current             aktiver Stand
+//	setup.json          Linie, Ausprägung, Port, vorheriger Stand (Rückfall)
 //	ZUGANG.txt          Adresse, Benutzer, Passwort
+//	start.sh, stop.sh, status.sh (Windows: .cmd) und coremesh-setup
 type installation struct {
 	dir string
 }
@@ -73,18 +76,6 @@ func newPassword() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// unpack entpackt ein Archiv nach releases/<stand>.
-func (in *installation) unpack(archive, rel string) error {
-	dst := in.path("releases", rel)
-	if err := os.RemoveAll(dst); err != nil {
-		return err
-	}
-	if strings.HasSuffix(archive, ".zip") {
-		return unzip(archive, dst)
-	}
-	return untar(archive, dst)
-}
-
 // configure schreibt die lokalen Einstellungen, den Zugang und den aktiven Stand.
 // Ein vorhandener Zugang bleibt, ebenso eigene Zeilen in local/ (nur 90-local.yaml wird neu geschrieben).
 func (in *installation) configure(rel string, port int, user, password string) error {
@@ -116,7 +107,7 @@ plugins:
       tenant: coremesh
       admin_user: %s
       admin_password: ${env:COREMESH_ADMIN_PASSWORD}   # nur beim ersten Start (ZUGANG.txt)
-`, relDir+"/plugins", relDir+"/migrations", "unix://"+filepath.ToSlash(in.socket()), port, port, user)
+`, filepath.ToSlash(in.path("plugins")), relDir+"/migrations", "unix://"+filepath.ToSlash(in.socket()), port, port, user)
 	if err := os.WriteFile(in.path("local", "90-local.yaml"), []byte(local), 0o644); err != nil {
 		return err
 	}
@@ -226,135 +217,6 @@ func (in *installation) console(args ...string) ([]byte, error) {
 	return out, nil
 }
 
-type installOptions struct {
-	release, pkg string
-	port         int
-	withData     bool
-}
-
-// install lädt einen Stand und richtet ihn ein. Mit Datenbestand: nur in eine leere
-// Installation; das Passwort des Bestands wird sofort ersetzt.
-func install(src *source, in *installation, o installOptions, progress func(string)) error {
-	ix, err := src.Index()
-	if err != nil {
-		return err
-	}
-	rel, err := ix.resolve(o.release)
-	if err != nil {
-		return err
-	}
-	m, err := src.Manifest(ix, rel)
-	if err != nil {
-		return err
-	}
-	pkg, ok := m.Packages[o.pkg]
-	if !ok {
-		return fmt.Errorf("Stand %s hat keine Ausprägung %q", rel, o.pkg)
-	}
-	art, ok := m.Platforms[platform()]
-	if !ok {
-		return fmt.Errorf("Stand %s gibt es nicht für %s", rel, platform())
-	}
-	if err := os.MkdirAll(in.path("downloads"), 0o755); err != nil {
-		return err
-	}
-	remember(in.dir)
-	progress("lade " + art.File)
-	archive, err := download(src, ix, rel, art, in.path("downloads"))
-	if err != nil {
-		return err
-	}
-	if in.running() {
-		progress("beende laufenden Host")
-		if err := in.stop(); err != nil {
-			return err
-		}
-	}
-	progress("entpacke nach releases/" + rel)
-	if err := in.unpack(archive, rel); err != nil {
-		return err
-	}
-	user, password := "admin", newPassword()
-	dbFile := in.path("data", "coremesh.db")
-	seeded := false
-	if o.withData && pkg.Data != nil {
-		if _, err := os.Stat(dbFile); err == nil {
-			return errors.New("es gibt schon eine Datenbank – den Testbestand nur in ein neues Verzeichnis einrichten")
-		}
-		progress("lade " + pkg.Data.File)
-		f, err := download(src, ix, rel, pkg.Data.Artifact, in.path("downloads"))
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(in.path("data"), 0o755); err != nil {
-			return err
-		}
-		if err := gunzipFile(f, dbFile); err != nil {
-			return err
-		}
-		user, seeded = pkg.Data.User, true
-	}
-	if err := in.configure(rel, o.port, user, password); err != nil {
-		return err
-	}
-	if seeded {
-		// Zugang zuerst mit dem Passwort des Bestands, dann das eigene setzen
-		addr, _, own := in.access()
-		if err := in.writeAccess(addr, user, pkg.Data.Password); err != nil {
-			return err
-		}
-		progress("starte")
-		if err := in.start(); err != nil {
-			return err
-		}
-		progress("setze eigenes Passwort")
-		if out, err := in.console("handle", "Account.ChangePassword", "--current="+pkg.Data.Password, "--new="+own); err != nil {
-			// ohne die Aufrufzeile: sie enthält das neue Passwort
-			return fmt.Errorf("eigenes Passwort setzen: %s", strings.TrimSpace(string(out)))
-		}
-		return in.writeAccess(addr, user, own)
-	}
-	progress("starte")
-	return in.start()
-}
-
-// download lädt eine Datei des Stands (falls nicht schon vorhanden) und prüft die Prüfsumme.
-func download(src *source, ix *Index, rel string, a Artifact, dir string) (string, error) {
-	dst := filepath.Join(dir, a.File)
-	if ok, _ := checkSum(dst, a.SHA256); ok {
-		return dst, nil
-	}
-	u, err := ix.fileURL(rel, a.File)
-	if err != nil {
-		return "", err
-	}
-	r, err := src.open(u)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-	tmp := dst + ".part"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(f, r); err != nil {
-		f.Close()
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	if ok, err := checkSum(tmp, a.SHA256); !ok {
-		os.Remove(tmp)
-		if err == nil {
-			err = fmt.Errorf("%s: Prüfsumme stimmt nicht", a.File)
-		}
-		return "", err
-	}
-	return dst, os.Rename(tmp, dst)
-}
-
 func checkSum(path, want string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -443,27 +305,4 @@ func untar(archive, dst string) error {
 			return err
 		}
 	}
-}
-
-func unzip(archive, dst string) error {
-	zr, err := zip.OpenReader(archive)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-	for _, f := range zr.File {
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		r, err := f.Open()
-		if err != nil {
-			return err
-		}
-		err = writeEntry(dst, f.Name, f.Mode(), r)
-		r.Close()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

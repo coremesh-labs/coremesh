@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -49,6 +48,7 @@ type packOptions struct {
 	labs, config, out, release, previous, date string
 	build, data                                bool
 	port                                       int
+	src                                        *source // Server mit dem vorherigen Stand (Wiederverwendung)
 }
 
 func platform() string { return runtime.GOOS + "-" + runtime.GOARCH }
@@ -60,9 +60,12 @@ func exe(name string) string {
 	return name
 }
 
-// pack stellt einen Stand für die eigene Plattform zusammen: Archiv, Manifest und
-// (mit data) je Ausprägung den Datenbestand, eingespielt über die Fachobjekte.
-// Ein vorhandenes manifest.json im Zielverzeichnis wird um die Plattform ergänzt.
+// pack stellt einen Stand für die eigene Plattform zusammen: je Baustein eine Datei,
+// manifest.json und (mit data) je Ausprägung den Datenbestand, eingespielt über die
+// Fachobjekte. Bausteine, die der vorherige Stand schon enthält (Plugin in derselben
+// Version, Programm oder Dateien mit derselben Prüfsumme), verweisen auf dessen Datei und
+// werden nicht noch einmal abgelegt. Ein vorhandenes manifest.json im Zielverzeichnis wird
+// um die Plattform ergänzt.
 func pack(o packOptions) error {
 	var pc packConfig
 	b, err := os.ReadFile(o.config)
@@ -84,60 +87,77 @@ func pack(o packOptions) error {
 			}
 		}
 	}
+	// Bühne: programs/ und release/ (zusammen releases/<stand>), plugins/ wie in einer Installation
 	stage, err := os.MkdirTemp("", "coremesh-pack-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(stage)
-
+	relDir := filepath.Join(stage, "release")
+	var programs []string
 	for r, names := range pc.Binaries {
 		for _, n := range names {
-			if err := copyFile(filepath.Join(o.labs, r, "bin", exe(n)), filepath.Join(stage, exe(n))); err != nil {
+			if err := copyFile(filepath.Join(o.labs, r, "bin", exe(n)), filepath.Join(stage, "programs", exe(n))); err != nil {
 				return err
 			}
+			programs = append(programs, n)
 		}
 	}
+	sort.Strings(programs)
 	for dst, src := range pc.Copy {
-		if err := copyTree(filepath.Join(o.labs, src), filepath.Join(stage, dst)); err != nil {
+		if err := copyTree(filepath.Join(o.labs, src), filepath.Join(relDir, dst)); err != nil {
 			return err
 		}
 	}
-	plugins, err := packConfigs(o.labs, stage, pc)
+	plugins, err := packConfigs(o.labs, relDir, pc)
 	if err != nil {
 		return err
 	}
-	if err := packPlugins(o.labs, stage, pc.Repositories, plugins); err != nil {
+	pluginFiles, err := packPlugins(o.labs, stage, pc.Repositories, plugins)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(o.out, 0o755); err != nil {
 		return err
 	}
 
-	m := &Manifest{Release: o.release, Date: o.date, Previous: o.previous, Sources: map[string]string{},
-		Plugins: plugins, Platforms: map[string]Artifact{}, Setup: map[string]Artifact{}, Packages: map[string]Package{}}
+	m := &Manifest{Format: 2, Release: o.release, Date: o.date, Previous: o.previous, Sources: map[string]string{}, Packages: map[string]Package{}}
 	mf := filepath.Join(o.out, "manifest.json")
 	if b, err := os.ReadFile(mf); err == nil {
 		if err := json.Unmarshal(b, m); err != nil {
 			return fmt.Errorf("%s: %w", mf, err)
 		}
-		if m.Release != o.release {
-			return fmt.Errorf("%s gehört zu Stand %s", mf, m.Release)
+		if m.Release != o.release || m.Format != 2 {
+			return fmt.Errorf("%s gehört zu Stand %s (Format %d)", mf, m.Release, m.Format)
 		}
 	}
+	prev := previousManifest(o, m)
 	for _, r := range pc.Repositories {
 		if out, err := exec.Command("git", "-C", filepath.Join(o.labs, r), "rev-parse", "HEAD").Output(); err == nil {
 			m.Sources[r] = strings.TrimSpace(string(out))
 		}
 	}
-	if err := os.MkdirAll(o.out, 0o755); err != nil {
-		return err
+	pk := &packer{out: o.out, prev: prev, m: m}
+
+	// Programme und Plugins: je Datei ein Baustein
+	for _, n := range programs {
+		if err := pk.file(kindProgram, n, "", platform(), filepath.Join(stage, "programs", exe(n)), exe(n)); err != nil {
+			return err
+		}
 	}
-	name := "coremesh-" + o.release + "-" + platform()
-	archive := filepath.Join(o.out, name+".tar.gz")
-	if runtime.GOOS == "windows" {
-		archive = filepath.Join(o.out, name+".zip")
+	names := make([]string, 0, len(plugins))
+	for n := range plugins {
+		names = append(names, n)
 	}
-	if err := writeArchive(stage, archive); err != nil {
-		return err
+	sort.Strings(names)
+	for _, n := range names {
+		rel := pluginFiles[n]
+		if err := pk.file(kindPlugin, n, plugins[n], platform(), filepath.Join(stage, rel), filepath.ToSlash(rel)); err != nil {
+			return err
+		}
 	}
-	if m.Platforms[platform()], err = artifact(archive); err != nil {
+	// Dateien (configs, migrations, Inhalte, Lizenzen): ein Archiv für alle Plattformen
+	if err := pk.files(relDir); err != nil {
 		return err
 	}
 	// das Werkzeug selbst, damit es mit dem Stand geladen werden kann
@@ -145,14 +165,10 @@ func pack(o packOptions) error {
 	if err != nil {
 		return err
 	}
-	setupFile := filepath.Join(o.out, exe("coremesh-setup-"+platform()))
-	if err := copyFile(self, setupFile); err != nil {
+	if err := pk.setup(self); err != nil {
 		return err
 	}
-	if m.Setup[platform()], err = artifact(setupFile); err != nil {
-		return err
-	}
-	logf("Archiv %s (%d Plugins)", filepath.Base(archive), len(plugins))
+	logf("%d Bausteine, %d neu abgelegt, %d aus früheren Ständen", len(m.Components), pk.written, pk.reused)
 
 	for id, p := range pc.Packages {
 		pkg := Package{Title: p.Title, Description: p.Description, Plugins: p.Plugins}
@@ -161,7 +177,7 @@ func pack(o packOptions) error {
 		}
 		if p.Data != nil && o.data {
 			db := filepath.Join(o.out, "data-"+id+"-"+o.release+".db.gz")
-			if err := buildData(o, archive, filepath.Join(o.labs, p.Data.Seed), p.Data.User, p.Data.Password, db); err != nil {
+			if err := buildData(o, stage, filepath.Join(o.labs, p.Data.Seed), p.Data.User, p.Data.Password, db); err != nil {
 				return fmt.Errorf("Datenbestand %s: %w", id, err)
 			}
 			a, err := artifact(db)
@@ -177,6 +193,160 @@ func pack(o packOptions) error {
 		return err
 	}
 	return os.WriteFile(mf, append(b, '\n'), 0o644)
+}
+
+// previousManifest: Manifest des vorherigen Stands (--previous, sonst die Linie preview des
+// Servers), dessen Dateien wiederverwendet werden. Ohne Server oder bei altem Format: keines.
+func previousManifest(o packOptions, m *Manifest) *Manifest {
+	if o.src == nil {
+		return nil
+	}
+	ix, err := o.src.Index()
+	if err != nil {
+		logf("vorheriger Stand nicht lesbar (%v) – alle Bausteine werden abgelegt", err)
+		return nil
+	}
+	id := o.previous
+	if id == "" {
+		id = ix.Lines["preview"]
+	}
+	if id == "" || id == o.release {
+		return nil
+	}
+	prev, err := o.src.Manifest(ix, id)
+	if err != nil {
+		logf("vorheriger Stand %s: %v – alle Bausteine werden abgelegt", id, err)
+		return nil
+	}
+	if m.Previous == "" {
+		m.Previous = id
+	}
+	logf("vorheriger Stand %s: gleiche Bausteine verweisen dorthin", id)
+	return prev
+}
+
+// packer legt die Bausteine eines Stands ab.
+type packer struct {
+	out             string
+	prev, m         *Manifest
+	written, reused int
+}
+
+// add trägt die Datei eines Bausteins für eine Plattform ein.
+func (pk *packer) add(kind, name, version, plat string, a Artifact) {
+	c := pk.m.component(kind, name)
+	if c == nil {
+		pk.m.Components = append(pk.m.Components, Component{Name: name, Kind: kind, Version: version, Platforms: map[string]Artifact{}})
+		c = &pk.m.Components[len(pk.m.Components)-1]
+	}
+	if kind == kindPlugin || c.Version == "" {
+		c.Version = version
+	}
+	c.Platforms[plat] = a
+}
+
+// reuse: Datei des vorherigen Stands, wenn der Baustein dort gleich ist – Plugins nach
+// Version (die Version ist ihre Kennung), alles andere nach Inhalt.
+func (pk *packer) reuse(kind, name, version, plat, content string) (Artifact, bool) {
+	if pk.prev == nil {
+		return Artifact{}, false
+	}
+	c := pk.prev.component(kind, name)
+	if c == nil {
+		return Artifact{}, false
+	}
+	a, ok := c.Platforms[plat]
+	if !ok {
+		return Artifact{}, false
+	}
+	if kind == kindPlugin {
+		if c.Version != version {
+			return Artifact{}, false
+		}
+		if a.Content != content {
+			logf("%s %s: Inhalt anders als im Stand %s, Version gleich – die veröffentlichte Datei bleibt (Version erhöhen!)", name, version, pk.prev.Release)
+		}
+	} else if a.Content != content {
+		return Artifact{}, false
+	}
+	if a.Release == "" {
+		a.Release = pk.prev.Release
+	}
+	pk.reused++
+	return a, true
+}
+
+// file: Programm oder Plugin, gzip-komprimiert abgelegt.
+func (pk *packer) file(kind, name, version, plat, src, path string) error {
+	content, err := fileSHA(src)
+	if err != nil {
+		return err
+	}
+	if version == "" {
+		version = content[:12]
+	}
+	if a, ok := pk.reuse(kind, name, version, plat, content); ok {
+		a.Path = path
+		pk.add(kind, name, version, plat, a)
+		return nil
+	}
+	dst := filepath.Join(pk.out, name+"-"+version+"-"+plat+".gz")
+	if err := gzipFile(src, dst); err != nil {
+		return err
+	}
+	a, err := artifact(dst)
+	if err != nil {
+		return err
+	}
+	a.Path, a.Content = path, content
+	pk.written++
+	pk.add(kind, name, version, plat, a)
+	return nil
+}
+
+// files: alles außer den Programmen als ein Archiv (tar.gz, für alle Plattformen gleich).
+func (pk *packer) files(dir string) error {
+	tmp := filepath.Join(pk.out, "files.tar.gz.part")
+	if err := writeArchive(dir, tmp); err != nil {
+		return err
+	}
+	content, err := fileSHA(tmp)
+	if err != nil {
+		return err
+	}
+	version := content[:12]
+	if a, ok := pk.reuse(kindFiles, "files", version, "any", content); ok {
+		pk.add(kindFiles, "files", version, "any", a)
+		return os.Remove(tmp)
+	}
+	dst := filepath.Join(pk.out, "files-"+version+".tar.gz")
+	if err := os.Rename(tmp, dst); err != nil {
+		return err
+	}
+	a, err := artifact(dst)
+	if err != nil {
+		return err
+	}
+	a.Content = content
+	pk.written++
+	pk.add(kindFiles, "files", version, "any", a)
+	return nil
+}
+
+// setup: das Werkzeug unkomprimiert (zum direkten Herunterladen von der Release-Seite).
+func (pk *packer) setup(self string) error {
+	dst := filepath.Join(pk.out, exe("coremesh-setup-"+platform()))
+	if err := copyFile(self, dst); err != nil {
+		return err
+	}
+	a, err := artifact(dst)
+	if err != nil {
+		return err
+	}
+	a.Path, a.Content = exe("coremesh-setup"), a.SHA256
+	pk.written++
+	pk.add(kindSetup, "coremesh-setup", a.SHA256[:12], platform(), a)
+	return nil
 }
 
 // packConfigs übernimmt configs/*.yaml aller Repositories und liefert die Plugin-Versionen.
@@ -261,46 +431,50 @@ next:
 	return strings.Join(out, "\n")
 }
 
-// packPlugins kopiert genau die konfigurierten Versionen nach plugins/<xx>/.
-func packPlugins(labs, stage string, repos []string, want map[string]string) error {
-	found := map[string]bool{}
+// packPlugins kopiert genau die konfigurierten Versionen nach plugins/<xx>/ und liefert je
+// Plugin den Pfad (plugins/<xx>/<datei>).
+func packPlugins(labs, stage string, repos []string, want map[string]string) (map[string]string, error) {
+	found := map[string]string{}
 	for _, r := range repos {
 		paths, _ := filepath.Glob(filepath.Join(labs, r, "bin", "plugins", "*", "*"))
 		for _, p := range paths {
 			for name, v := range want {
 				if filepath.Base(p) == exe(name+"-"+v+"-"+platform()) {
-					if err := copyFile(p, filepath.Join(stage, "plugins", filepath.Base(filepath.Dir(p)), filepath.Base(p))); err != nil {
-						return err
+					rel := filepath.Join("plugins", filepath.Base(filepath.Dir(p)), filepath.Base(p))
+					if err := copyFile(p, filepath.Join(stage, rel)); err != nil {
+						return nil, err
 					}
-					found[name] = true
+					found[name] = rel
 				}
 			}
 		}
 	}
 	var missing []string
 	for name, v := range want {
-		if !found[name] {
+		if found[name] == "" {
 			missing = append(missing, name+" "+v)
 		}
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		return fmt.Errorf("Plugins fehlen (bauen mit --build): %s", strings.Join(missing, ", "))
+		return nil, fmt.Errorf("Plugins fehlen (bauen mit --build): %s", strings.Join(missing, ", "))
 	}
-	return nil
+	return found, nil
 }
 
-// buildData richtet aus dem Archiv eine Installation ein, spielt die Einrichtungsdatei
+// buildData richtet aus der Bühne eine Installation ein, spielt die Einrichtungsdatei
 // über die Konsole ein und legt die Datenbank komprimiert ab.
-func buildData(o packOptions, archive, seedFile, user, password, out string) error {
+func buildData(o packOptions, stage, seedFile, user, password, out string) error {
 	dir, err := os.MkdirTemp("", "coremesh-data-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(dir)
 	inst := &installation{dir: dir}
-	if err := inst.unpack(archive, o.release); err != nil {
-		return err
+	for src, dst := range map[string]string{"release": inst.path("releases", o.release), "programs": inst.path("releases", o.release), "plugins": inst.path("plugins")} {
+		if err := copyTree(filepath.Join(stage, src), dst); err != nil {
+			return err
+		}
 	}
 	if err := inst.configure(o.release, o.port, user, password); err != nil {
 		return err
@@ -316,6 +490,11 @@ func buildData(o packOptions, archive, seedFile, user, password, out string) err
 		return seedErr
 	}
 	return gzipFile(filepath.Join(dir, "data", "coremesh.db"), out)
+}
+
+func fileSHA(path string) (string, error) {
+	a, err := artifact(path)
+	return a.SHA256, err
 }
 
 func artifact(path string) (Artifact, error) {
@@ -400,53 +579,16 @@ func gzipFile(src, dst string) error {
 	return out.Close()
 }
 
-// writeArchive: tar.gz bzw. zip (Windows) mit dem Inhalt von dir.
+// writeArchive: tar.gz mit dem Inhalt von dir – ohne Zeiten und Besitzer, damit gleicher
+// Inhalt dieselbe Prüfsumme ergibt (Wiederverwendung in späteren Ständen).
 func writeArchive(dir, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	var add func(rel string, fi fs.FileInfo, r io.Reader) error
-	var finish func() error
-	if strings.HasSuffix(path, ".zip") {
-		zw := zip.NewWriter(f)
-		add = func(rel string, fi fs.FileInfo, r io.Reader) error {
-			h, err := zip.FileInfoHeader(fi)
-			if err != nil {
-				return err
-			}
-			h.Name, h.Method = rel, zip.Deflate
-			w, err := zw.CreateHeader(h)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(w, r)
-			return err
-		}
-		finish = zw.Close
-	} else {
-		gz := gzip.NewWriter(f)
-		tw := tar.NewWriter(gz)
-		add = func(rel string, fi fs.FileInfo, r io.Reader) error {
-			h, err := tar.FileInfoHeader(fi, "")
-			if err != nil {
-				return err
-			}
-			h.Name, h.Uname, h.Gname, h.Uid, h.Gid, h.ModTime = rel, "", "", 0, 0, time.Unix(0, 0)
-			if err := tw.WriteHeader(h); err != nil {
-				return err
-			}
-			_, err = io.Copy(tw, r)
-			return err
-		}
-		finish = func() error {
-			if err := tw.Close(); err != nil {
-				return err
-			}
-			return gz.Close()
-		}
-	}
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
 	err = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -456,15 +598,31 @@ func writeArchive(dir, path string) error {
 		if err != nil {
 			return err
 		}
+		h, err := tar.FileInfoHeader(fi, "")
+		if err != nil {
+			return err
+		}
+		h.Name, h.Uname, h.Gname, h.Uid, h.Gid, h.ModTime = filepath.ToSlash(rel), "", "", 0, 0, time.Unix(0, 0)
+		h.AccessTime, h.ChangeTime = time.Time{}, time.Time{}
 		r, err := os.Open(p)
 		if err != nil {
 			return err
 		}
 		defer r.Close()
-		return add(filepath.ToSlash(rel), fi, r)
+		if err := tw.WriteHeader(h); err != nil {
+			return err
+		}
+		_, err = io.Copy(tw, r)
+		return err
 	})
 	if err != nil {
 		return err
 	}
-	return finish()
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	if err := gz.Close(); err != nil {
+		return err
+	}
+	return f.Close()
 }
