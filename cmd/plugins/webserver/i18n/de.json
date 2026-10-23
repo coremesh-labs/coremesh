@@ -10,6 +10,7 @@
   "core.action.mergeSlice.confirm": "Diese Zeitscheibe hat dieselben Werte wie die vorherige. Zusammenfassen?",
   "core.action.update": "Bearbeiten",
   "core.app.actions": "Aktionen",
+  "core.app.more": "Weitere",
   "core.app.back": "Zurück",
   "core.app.bad_request": "Ungültige Anfrage",
   "core.app.cancel": "Abbrechen",

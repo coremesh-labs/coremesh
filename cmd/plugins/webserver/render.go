@@ -230,6 +230,8 @@ type pageData struct {
 	Content  template.HTML // bereits gerendertes Fragment
 	User     *user         // angemeldeter Benutzer
 	Path     string        // aktueller Pfad (Rücksprung des Sprachwählers)
+	// VisibleActions: Aktionen nebeneinander, die weiteren im Menü „Weitere“ (0 = kein Menü)
+	VisibleActions int
 }
 
 // navItem ist ein Object in der Navigation des aktiven Moduls.

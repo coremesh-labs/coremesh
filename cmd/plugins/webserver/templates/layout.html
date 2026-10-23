@@ -24,7 +24,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
   {{end}}
 </head>
-<body>
+<body data-visible-actions="{{.VisibleActions}}" data-more-label="{{t "core.app.more"}}">
   <aside class="sidebar">
     <div class="brand-row">
       {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
@@ -105,6 +105,49 @@
         if (u) { e.detail.path = u; b.setAttribute("hx-push-url", u); }
       } catch (x) {}
     });
+    // Mehr Aktionen als visible_actions (Einstellung) in einer Kopfleiste (.toolbar) oder Zeile
+    // (td.actions): die weiteren ins aufklappbare Menü „Weitere“. „Zurück“ zählt nicht mit.
+    // Das Menü liegt fest über der Seite (position: fixed), damit Tabellen und Dialoge es nicht abschneiden.
+    function coremeshActionMenus(root) {
+      var max = parseInt(document.body.dataset.visibleActions, 10);
+      if (!(max > 0)) return;
+      var bars = root.matches && root.matches(".toolbar, td.actions") ? [root] : root.querySelectorAll(".toolbar, td.actions");
+      Array.prototype.forEach.call(bars, function (bar) {
+        if (bar.querySelector(":scope > details.more-menu")) return;
+        var items = Array.prototype.filter.call(bar.children, function (el) {
+          return el.matches("a, button, form") && !el.hasAttribute("data-list-back");
+        });
+        if (items.length <= max) return;
+        var menu = document.createElement("details"), sum = document.createElement("summary"), box = document.createElement("div");
+        menu.className = "more-menu";
+        sum.className = bar.matches(".toolbar") ? "btn" : "link";
+        sum.textContent = document.body.dataset.moreLabel + " ▾";
+        box.className = "more-menu-items";
+        items.slice(max).forEach(function (el) { box.appendChild(el); });
+        menu.append(sum, box);
+        bar.appendChild(menu);
+      });
+    }
+    function coremeshCloseMenus(except) {
+      document.querySelectorAll("details.more-menu[open]").forEach(function (d) { if (d !== except) d.open = false; });
+    }
+    document.addEventListener("toggle", function (e) {
+      var d = e.target;
+      if (!d.matches || !d.matches("details.more-menu") || !d.open) return;
+      coremeshCloseMenus(d);
+      var r = d.querySelector("summary").getBoundingClientRect(), box = d.querySelector(".more-menu-items");
+      box.style.top = (r.bottom + 4) + "px";
+      box.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+      box.style.left = "auto";
+    }, true);
+    document.addEventListener("click", function (e) {
+      var d = e.target.closest && e.target.closest("details.more-menu");
+      if (!d) coremeshCloseMenus(null);
+      else if (e.target.closest(".more-menu-items")) d.open = false; // Eintrag gewählt
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") coremeshCloseMenus(null); });
+    document.addEventListener("scroll", function () { coremeshCloseMenus(null); }, true);
+    htmx.onLoad(coremeshActionMenus);
     // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
     // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
     function coremeshPick(row) {

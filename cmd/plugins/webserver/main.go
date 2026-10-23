@@ -18,7 +18,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.44.0"
+	version = "0.45.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -29,6 +29,9 @@ type settings struct {
 	DefaultLocale string `json:"default_locale"` // Standardsprache (de, en, zh-CN), wenn nichts anderes greift
 	TemplatesDir  string `json:"templates_dir"`  // *.html, die eingebettete Blöcke überschreiben
 	StaticDir     string `json:"static_dir"`     // Dateien, die eingebettete /static/-Dateien überschreiben
+	// VisibleActions: so viele Aktionen stehen in Kopfleisten und Zeilen nebeneinander, die
+	// weiteren im aufklappbaren Menü „Weitere“ (Standard 3; 0 = alle nebeneinander).
+	VisibleActions int `json:"visible_actions"`
 
 	// Authentifizierung
 	Database   string `json:"database"`    // Datenbank der Benutzertabellen (Standard main)
@@ -66,7 +69,7 @@ func (w *webserver) Manifest(context.Context) (sdk.Manifest, error) {
 // Configure startet den HTTP(S)-Server und – im Hintergrund – das Anlegen des
 // ersten Benutzers. Ein belegter Port lässt den Start mit klarer Meldung scheitern.
 func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
-	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto", WriteTimeout: "3m"}
+	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto", WriteTimeout: "3m", VisibleActions: 3}
 	if err := sdk.Decode(cfg.Settings, &s); err != nil {
 		return err
 	}
