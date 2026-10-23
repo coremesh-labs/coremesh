@@ -51,6 +51,17 @@ func remember(dir string) {
 	os.WriteFile(registryPath(), b, 0o644)
 }
 
+func forget(dir string) {
+	var keep []string
+	for _, d := range loadRegistry() {
+		if d != dir {
+			keep = append(keep, d)
+		}
+	}
+	b, _ := json.MarshalIndent(keep, "", "  ")
+	os.WriteFile(registryPath(), b, 0o644)
+}
+
 func known(dir string) bool {
 	for _, d := range loadRegistry() {
 		if d == dir {
@@ -80,6 +91,9 @@ func (j *job) add(s string) {
 
 type uiInstall struct {
 	Dir, Release, Line, Address, User string
+	Layout                            string // setup | eigenständig
+	Format                            int
+	Package, PackageTitle             string
 	Running                           bool
 	UpdateTo                          string // neuerer Stand auf der Linie der Installation
 	Previous                          string // Rückfall möglich auf
@@ -119,6 +133,12 @@ type uiPage struct {
 	ReleaseRef            *ReleaseRef
 	PackageRef            *PackageRef
 
+	Detected   *detected
+	PluginList []string
+	Removal    *removal
+	BackupDir  string
+	Confirm    string
+
 	Job      *job
 	JobLines []string
 	JobDone  bool
@@ -128,6 +148,7 @@ type uiPage struct {
 
 var newSteps = []string{"Verzeichnis", "Stand", "Ausprägung", "Übersicht"}
 var updateSteps = []string{"Stand", "Übersicht"}
+var adoptSteps = []string{"Verzeichnis", "Prüfen"}
 
 func steps(titles []string, cur int) []uiStep {
 	var out []uiStep
@@ -180,19 +201,54 @@ func serveUI(listen string, src *source) error {
 		sort.Slice(p.Releases, func(i, j int) bool { return p.Releases[i].ID > p.Releases[j].ID })
 		return p, ix
 	}
-	installInfo := func(ix *Index, d string) *uiInstall {
-		in := &installation{dir: d}
-		rel := in.current()
-		if rel == "" {
+	// latest: Manifest des Release-Stands (Erkennung der Ausprägung); nil ohne Server
+	latest := func(ix *Index) *Manifest {
+		if ix == nil {
 			return nil
 		}
+		m, err := src.Manifest(ix, ix.Lines["release"])
+		if err != nil {
+			return nil
+		}
+		return m
+	}
+	packageTitle := func(ix *Index, id string) string {
+		if ix != nil {
+			for _, p := range ix.Packages {
+				if p.ID == id {
+					return p.Title
+				}
+			}
+		}
+		return id
+	}
+	installInfo := func(ix *Index, lm *Manifest, d string) *uiInstall {
+		in := &installation{dir: d}
+		det, err := detect(d)
+		if err != nil {
+			return &uiInstall{Dir: d, Layout: "fehlt", Release: err.Error()}
+		}
+		rel := in.current()
 		st := in.state()
 		addr, user, _ := in.access()
-		u := &uiInstall{Dir: d, Release: rel, Line: st.Line, Address: addr, User: user, Running: in.running(), Previous: st.Previous}
+		if addr == "" && det.Port != 0 {
+			addr = fmt.Sprintf("http://localhost:%d", det.Port)
+		}
+		u := &uiInstall{Dir: d, Release: rel, Line: st.Line, Address: addr, User: user, Running: in.running(), Previous: st.Previous,
+			Layout: det.Layout, Format: det.Format, Package: st.Package}
+		if det.Layout == layoutSingle {
+			u.Line, u.Release = "", "eigener Build"
+		}
+		if u.Package == "" && lm != nil {
+			u.Package = matchPackage(lm, det.Plugins)
+		}
+		if u.Package != "" {
+			u.PackageTitle = packageTitle(ix, u.Package)
+		}
 		if st.Backup != "" {
 			u.BackupTime = backupTime(st.Backup)
 		}
-		if ix != nil {
+		if ix != nil && det.Layout == layoutSetup {
 			if id, ok := ix.Lines[st.Line]; ok && id != rel {
 				u.UpdateTo = id
 			}
@@ -254,10 +310,9 @@ func serveUI(listen string, src *source) error {
 	mux.HandleFunc("GET /{$}", guard(func(w http.ResponseWriter, r *http.Request) {
 		p, ix := base()
 		p.Page = "home"
+		lm := latest(ix)
 		for _, d := range loadRegistry() {
-			if u := installInfo(ix, d); u != nil {
-				p.Installs = append(p.Installs, *u)
-			}
+			p.Installs = append(p.Installs, *installInfo(ix, lm, d))
 		}
 		p.Error = strings.TrimSpace(p.Error + " " + r.URL.Query().Get("error"))
 		show(w, p)
@@ -358,8 +413,12 @@ func serveUI(listen string, src *source) error {
 			return
 		}
 		in := &installation{dir: p.Dir}
-		p.Inst = installInfo(ix, p.Dir)
+		p.Inst = installInfo(ix, nil, p.Dir)
 		st := in.state()
+		if st.Package == "" {
+			http.Redirect(w, r, "/adopt?step=2&dir="+url.QueryEscape(p.Dir), http.StatusSeeOther)
+			return
+		}
 		p.Release, p.Package, p.Port = q.Get("release"), st.Package, st.Port
 		if p.Release == "" {
 			p.Release = st.Line
@@ -405,8 +464,8 @@ func serveUI(listen string, src *source) error {
 			http.Redirect(w, r, "/?error="+url.QueryEscape("unbekannte Installation"), http.StatusSeeOther)
 			return
 		}
-		p.Inst = installInfo(ix, p.Dir)
-		if p.Inst == nil || p.Inst.Previous == "" {
+		p.Inst = installInfo(ix, nil, p.Dir)
+		if p.Inst.Previous == "" {
 			http.Redirect(w, r, "/?error="+url.QueryEscape("kein vorheriger Stand gespeichert"), http.StatusSeeOther)
 			return
 		}
@@ -423,6 +482,93 @@ func serveUI(listen string, src *source) error {
 		http.Redirect(w, r, "/job", http.StatusSeeOther)
 	}))
 
+	// Vorhandene Installation hinzufügen: 1 Verzeichnis, 2 Erkanntes prüfen, Ausprägung wählen
+	mux.HandleFunc("GET /adopt", guard(func(w http.ResponseWriter, r *http.Request) {
+		p, ix := base()
+		p.Page = "adopt"
+		q := r.URL.Query()
+		p.Dir, p.Package = strings.TrimSpace(q.Get("dir")), q.Get("package")
+		p.Step, _ = strconv.Atoi(q.Get("step"))
+		if p.Step != 2 || p.Dir == "" {
+			p.Step = 1
+		}
+		if p.Step == 2 {
+			abs, _ := filepath.Abs(p.Dir)
+			det, err := detect(abs)
+			if err != nil {
+				p.Step, p.Error = 1, err.Error()
+			} else {
+				p.Dir, p.Detected = abs, det
+				if p.Package == "" {
+					p.Package = (&installation{dir: abs}).state().Package
+				}
+				if lm := latest(ix); p.Package == "" && lm != nil {
+					p.Package = matchPackage(lm, det.Plugins)
+				}
+				for n, v := range det.Plugins {
+					p.PluginList = append(p.PluginList, n+" "+v)
+				}
+				sort.Strings(p.PluginList)
+			}
+		}
+		p.Steps = steps(adoptSteps, p.Step)
+		show(w, p)
+	}))
+	mux.HandleFunc("POST /adopt", guard(func(w http.ResponseWriter, r *http.Request) {
+		dir, _ := filepath.Abs(strings.TrimSpace(r.FormValue("dir")))
+		if _, err := adopt(&installation{dir: dir}, r.FormValue("package")); err != nil {
+			http.Redirect(w, r, "/?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}))
+
+	// Entfernen: aus der Liste (Dateien bleiben) oder löschen (mit Sicherung der Datenbank)
+	mux.HandleFunc("GET /remove", guard(func(w http.ResponseWriter, r *http.Request) {
+		p, ix := base()
+		p.Page, p.Dir = "remove", r.URL.Query().Get("dir")
+		p.Error = strings.TrimSpace(p.Error + " " + r.URL.Query().Get("error"))
+		if !known(p.Dir) {
+			http.Redirect(w, r, "/?error="+url.QueryEscape("unbekannte Installation"), http.StatusSeeOther)
+			return
+		}
+		p.Inst = installInfo(ix, nil, p.Dir)
+		p.Removal, _ = (&installation{dir: p.Dir}).removal()
+		home, _ := os.UserHomeDir()
+		p.BackupDir, p.Confirm = filepath.Join(home, "coremesh-sicherungen"), filepath.Base(p.Dir)
+		show(w, p)
+	}))
+	mux.HandleFunc("POST /remove", guard(func(w http.ResponseWriter, r *http.Request) {
+		dir := r.FormValue("dir")
+		if !known(dir) {
+			http.Redirect(w, r, "/?error="+url.QueryEscape("unbekannte Installation"), http.StatusSeeOther)
+			return
+		}
+		if r.FormValue("how") != "delete" {
+			forget(dir)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		if strings.TrimSpace(r.FormValue("confirm")) != filepath.Base(dir) {
+			http.Redirect(w, r, "/remove?dir="+url.QueryEscape(dir)+"&error="+url.QueryEscape("Zum Löschen den Verzeichnisnamen eintippen"), http.StatusSeeOther)
+			return
+		}
+		if busy() {
+			http.Redirect(w, r, "/job", http.StatusSeeOther)
+			return
+		}
+		backupDir := ""
+		if r.FormValue("backup") == "on" {
+			backupDir = strings.TrimSpace(r.FormValue("backup_dir"))
+		}
+		in := &installation{dir: dir}
+		run("Löschen "+dir, "", func(progress func(string)) error {
+			_, err := remove(in, backupDir, progress)
+			return err
+		})
+		http.Redirect(w, r, "/job", http.StatusSeeOther)
+	}))
+
 	mux.HandleFunc("GET /job", guard(func(w http.ResponseWriter, r *http.Request) {
 		p, _ := base()
 		p.Page = "job"
@@ -433,7 +579,9 @@ func serveUI(listen string, src *source) error {
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
-		p.Address, _, _ = (&installation{dir: j.dir}).access()
+		if j.dir != "" {
+			p.Address, _, _ = (&installation{dir: j.dir}).access()
+		}
 		show(w, p)
 	}))
 

@@ -39,9 +39,6 @@ func (in *installation) state() setupState {
 	if st.Line == "" {
 		st.Line = "release"
 	}
-	if st.Package == "" {
-		st.Package = "erp-vuv"
-	}
 	return st
 }
 
@@ -121,8 +118,11 @@ func makePlan(m *Manifest, in *installation, pkg string, withData bool) (*plan, 
 	}
 	p := &plan{Release: m.Release, Current: in.current()}
 	var old *Manifest
+	var oldPlugins map[string]string // Stände ohne Manifest: Versionen aus der Konfiguration
 	if p.Current != "" {
-		old = in.installed(p.Current)
+		if old = in.installed(p.Current); old == nil {
+			oldPlugins, _ = readConfigs([]string{in.path("releases", p.Current, "configs"), in.path("local")})
+		}
 	}
 	self, _ := os.Executable()
 	for _, c := range comps {
@@ -135,6 +135,8 @@ func makePlan(m *Manifest, in *installation, pkg string, withData bool) (*plan, 
 			if oc := old.component(c.Kind, c.Name); oc != nil {
 				it.Old = oc.Version
 			}
+		} else if c.Kind == kindPlugin {
+			it.Old = oldPlugins[c.Name]
 		}
 		switch c.Kind {
 		case kindPlugin:
@@ -406,6 +408,9 @@ func update(src *source, in *installation, want string, progress func(string)) e
 		want = st.Line
 	}
 	cur := in.current()
+	if st.Package == "" {
+		return fmt.Errorf("Ausprägung von %s unbekannt – zuerst über „Vorhandene hinzufügen“ zuordnen (coremesh-setup adopt --dir=… --package=…)", in.dir)
+	}
 	ix, m, p, err := target(src, in, installOptions{release: want, pkg: st.Package})
 	if err != nil {
 		return err
@@ -492,7 +497,7 @@ var dbFiles = []string{"coremesh.db", "coremesh.db-wal"}
 
 // backupDB kopiert die Datenbank (beendeter Host) nach data/setup-backup/.
 func (in *installation) backupDB(rel string) (string, error) {
-	name := fmt.Sprintf("coremesh-%s-%s", rel, time.Now().Format("20060102-150405"))
+	name := fmt.Sprintf("coremesh-%s-%s", rel, nowStamp())
 	dir := in.path("data", "setup-backup", name)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
@@ -523,6 +528,8 @@ func (in *installation) restoreDB(backup string) error {
 	}
 	return nil
 }
+
+func nowStamp() string { return time.Now().Format("20060102-150405") }
 
 var backupStamp = regexp.MustCompile(`(\d{8})-(\d{6})$`)
 

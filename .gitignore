@@ -17,3 +17,4 @@ sdk/haskell/dist-newstyle/
 
 # Stände von coremesh-setup pack
 /dist/out/
+/cmd/coremesh-setup/coremesh-setup

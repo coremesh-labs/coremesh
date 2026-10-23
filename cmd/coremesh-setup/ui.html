@@ -29,7 +29,7 @@ pre { background: var(--bg); padding: .75rem; border-radius: 6px; overflow: auto
 .steps li { padding: .3rem .75rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: .9rem; }
 .steps li.current { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .steps li.done { color: var(--ok); }
-.field { margin-bottom: .9rem; } .field > label { display: block; font-weight: 600; margin-bottom: .25rem; }
+.field { margin-bottom: .9rem; } .field > label:not(.choice) { display: block; font-weight: 600; margin-bottom: .25rem; }
 .hint { color: var(--muted); font-size: .85rem; margin: .25rem 0 0; }
 .choice { display: flex; gap: .6rem; align-items: flex-start; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: .5rem; cursor: pointer; }
 .choice:has(input:checked) { border-color: var(--accent); background: var(--bg); }
@@ -50,6 +50,8 @@ details summary { cursor: pointer; color: var(--accent); margin-top: .5rem; }
 {{else if eq .Page "new"}}{{template "new" .}}
 {{else if eq .Page "update"}}{{template "update" .}}
 {{else if eq .Page "rollback"}}{{template "rollback" .}}
+{{else if eq .Page "adopt"}}{{template "adopt" .}}
+{{else if eq .Page "remove"}}{{template "remove" .}}
 {{else if eq .Page "job"}}{{template "job" .}}{{end}}
 </main></body>
 </html>
@@ -61,19 +63,23 @@ details summary { cursor: pointer; color: var(--accent); margin-top: .5rem; }
   {{if .Installs}}<table>
     <tr><th>Verzeichnis</th><th>Stand</th><th>Zustand</th><th></th></tr>
     {{range .Installs}}<tr>
-      <td>{{.Dir}}<br><span class="muted">Benutzer {{.User}}, Passwort in ZUGANG.txt</span></td>
-      <td>{{.Release}}<br><span class="muted">Linie {{.Line}}</span>
+      <td>{{.Dir}}<br><span class="muted">{{if .PackageTitle}}{{.PackageTitle}}{{else if eq .Layout "fehlt"}}nicht gefunden{{else}}Ausprägung unbekannt{{end}}{{if .User}} · Benutzer {{.User}}, Passwort in ZUGANG.txt{{end}}</span></td>
+      <td>{{.Release}}
+        {{if eq .Layout "setup"}}<br><span class="muted">Linie {{.Line}}{{if eq .Format 1}} · altes Format{{end}}</span>{{else if eq .Layout "eigenständig"}}<br><span class="muted">eigenständig, ohne Update</span>{{end}}
         {{with .UpdateTo}}<br><span class="warn">Update auf {{.}} verfügbar</span>{{end}}</td>
-      <td>{{if .Running}}<span class="ok">läuft</span><br><a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else}}<span class="muted">beendet</span>{{end}}</td>
+      <td>{{if .Running}}<span class="ok">läuft</span><br><a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else if ne .Layout "fehlt"}}<span class="muted">beendet</span>{{end}}</td>
       <td><div class="actions">
+        {{if eq .Layout "setup"}}
         <form method="post" action="/control"><input type="hidden" name="dir" value="{{.Dir}}">
           {{if .Running}}<button name="do" value="stop">Beenden</button>{{else}}<button name="do" value="start">Starten</button>{{end}}</form>
         <a class="btn{{if .UpdateTo}} primary{{end}}" href="/update?dir={{.Dir}}">Aktualisieren …</a>
         {{if .Previous}}<a class="btn" href="/rollback?dir={{.Dir}}">Zurück auf {{.Previous}} …</a>{{end}}
+        {{end}}
+        <a class="btn" href="/remove?dir={{.Dir}}">Entfernen …</a>
       </div></td>
     </tr>{{end}}
   </table>{{else}}<p class="muted">Noch keine Installation.</p>{{end}}
-  <p><a class="btn primary" href="/new">Neue Installation …</a></p>
+  <p class="actions"><a class="btn primary" href="/new">Neue Installation …</a><a class="btn" href="/adopt">Vorhandene hinzufügen …</a></p>
 </section>
 <section>
   <h2>Stände auf dem Server</h2>
@@ -212,6 +218,67 @@ details summary { cursor: pointer; color: var(--accent); margin-top: .5rem; }
   <p class="warn">Alles, was seit dem Update erfasst wurde, geht dabei verloren.</p>
   <form method="post" action="/rollback"><input type="hidden" name="dir" value="{{.Dir}}">
     <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Zurück auf {{.Inst.Previous}}</button></div>
+  </form>
+</section>
+{{end}}
+
+{{define "adopt"}}
+{{template "steps" .}}
+<section>
+{{if eq .Step 1}}
+  <h2>Vorhandene Installation hinzufügen</h2>
+  <form method="get" action="/adopt">
+    <input type="hidden" name="step" value="2">
+    <div class="field"><label for="dir">Verzeichnis</label><input id="dir" name="dir" value="{{.Dir}}" required>
+      <p class="hint">Eine Installation von coremesh-setup (mit der Datei current) oder ein eigenständiger Stand mit host und configs/ im Verzeichnis.</p></div>
+    <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Weiter</button></div>
+  </form>
+{{else}}
+  <h2>Erkannt: {{.Dir}}</h2>
+  {{with .Detected}}
+  <table>
+    <tr><td>Art</td><td>{{if eq .Layout "setup"}}coremesh-setup{{if eq .Format 1}} (altes Format: ganzes Archiv){{end}}{{else}}eigenständig – Starten, Beenden und Update über die eigenen Skripte{{end}}</td></tr>
+    <tr><td>Stand</td><td>{{or .Release "eigener Build (kein Stand)"}}</td></tr>
+    <tr><td>Port</td><td>{{if .Port}}{{.Port}}{{else}}unbekannt{{end}}</td></tr>
+  </table>
+  {{end}}
+  <details><summary>{{len .PluginList}} Plugins</summary><p class="muted">{{range .PluginList}}{{.}} · {{end}}</p></details>
+  <form method="post" action="/adopt">
+    <input type="hidden" name="dir" value="{{.Dir}}">
+    <div class="field"><label>Ausprägung</label>
+    {{$sel := .Package}}
+    {{range .Packages}}<label class="choice"><input type="radio" name="package" value="{{.ID}}" {{if eq $sel .ID}}checked{{end}}>
+      <span><b>{{.Title}}</b><span class="muted">{{.Description}}</span></span></label>{{end}}
+    <p class="hint">{{if .Package}}Erkannt an den Plugins; bei Bedarf ändern.{{else}}Nicht erkannt – bitte wählen (nötig für Updates).{{end}}</p></div>
+    <div class="nav"><a class="btn" href="/adopt?dir={{.Dir}}">Zurück</a><button class="primary">Hinzufügen</button></div>
+  </form>
+{{end}}
+</section>
+{{end}}
+
+{{define "remove"}}
+<section>
+  <h2>Entfernen: {{.Dir}}</h2>
+  <p class="muted">{{.Inst.Release}}{{with .Inst.PackageTitle}} · {{.}}{{end}}{{if .Inst.Running}} · läuft{{end}}</p>
+  <form method="post" action="/remove">
+    <input type="hidden" name="dir" value="{{.Dir}}">
+    <label class="choice"><input type="radio" name="how" value="forget" checked>
+      <span><b>Nur aus der Liste entfernen</b><span class="muted">Alle Dateien bleiben, das System läuft weiter. Später wieder über „Vorhandene hinzufügen“.</span></span></label>
+    {{with .Removal}}
+    <label class="choice"><input type="radio" name="how" value="delete">
+      <span><b>Löschen</b><span class="muted">Beendet das System und löscht Programme, Plugins, Einstellungen und Daten ({{size .Size}}, davon Datenbank {{size .DBSize}}).
+      {{with .Foreign}}Fremde Dateien bleiben liegen: {{range .}}{{.}} {{end}}{{end}}</span></span></label>
+    <div class="field" style="margin-left:1.6rem">
+      <label class="choice" style="cursor:default"><input type="checkbox" name="backup" checked>
+        <span><b>Datenbank vorher sichern</b><span class="muted">nach</span>
+        <input name="backup_dir" value="{{$.BackupDir}}"></span></label>
+      <label for="confirm">Zum Löschen den Verzeichnisnamen <b>{{$.Confirm}}</b> eintippen</label>
+      <input id="confirm" name="confirm" autocomplete="off">
+    </div>
+    {{else}}
+    <p class="hint">Löschen ist nur bei Installationen von coremesh-setup möglich; eigenständige Stände bitte von Hand entfernen.</p>
+    {{end}}
+    <div class="nav"><a class="btn" href="/">Abbrechen</a><button class="primary">Ausführen</button></div>
   </form>
 </section>
 {{end}}

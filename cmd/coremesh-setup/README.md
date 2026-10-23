@@ -62,6 +62,9 @@ coremesh-setup install --dir=D [--release=release|preview|<stand>] [--package=er
 coremesh-setup plan --dir=D [--release=…]      # was ein Update lädt, übernimmt, behält
 coremesh-setup update --dir=D [--release=…]    # Standard: die Linie der Installation
 coremesh-setup rollback --dir=D                # zurück auf den Stand vor dem letzten Update
+coremesh-setup adopt --dir=D [--package=…]     # vorhandene Installation aufnehmen
+coremesh-setup forget --dir=D                  # aus der Liste entfernen (Dateien bleiben)
+coremesh-setup remove --dir=D [--backup=V]     # beenden, Datenbank nach V sichern, löschen
 coremesh-setup start|stop|status --dir=D
 coremesh-setup seed --dir=D --file=einrichtung.yaml
 coremesh-setup pack --labs=.. --release=<stand> [--build] [--data] [--out=…]
@@ -88,6 +91,24 @@ passt die Datenbank beim Start an). Startet der neue Stand nicht, geht es von se
 (Stand und Datenbank). **rollback** macht das letzte Update rückgängig – Erfasstes seit dem
 Update geht dabei verloren. Alte Stände bleiben in `releases/`, alte Plugin-Versionen in
 `plugins/`.
+
+**Welche Installationen gibt es?** Das Werkzeug sucht nicht auf der Platte. Es führt eine Liste
+(`~/.config/coremesh-setup/installations.json`); hinein kommt ein Verzeichnis bei install,
+start, update und **adopt** („Vorhandene hinzufügen“). Zu jedem Eintrag erkennt es:
+
+| Was | Woher |
+|---|---|
+| Art | `current` vorhanden = Installation von coremesh-setup; `host` und `configs/` direkt im Verzeichnis = eigenständig (z. B. `make_release.sh`) |
+| Stand | `current`; eigenständig: „eigener Build“ |
+| Format | `releases/<stand>/manifest.json` mit Bausteinen = 2, sonst 1 (ganzes Archiv) |
+| Plugins, Port | Konfiguration (`configs/*.yaml`, `local/*.yaml`, wie der Host sie mischt) |
+| Ausprägung | `setup.json`; sonst über `detect` der Ausprägungen im Manifest des Release-Stands (alle genannten Plugins vorhanden, die genaueste gewinnt) – beim Hinzufügen bestätigt oder gewählt |
+| läuft | PID-Datei oder antwortende Konsole |
+
+Eigenständige Stände zeigt die Oberfläche nur an (Starten, Beenden, Update über ihre eigenen
+Skripte). **remove** löscht nur Installationen von coremesh-setup und dort nur dessen Einträge;
+fremde Dateien bleiben samt Verzeichnis liegen. Die Oberfläche verlangt dazu den
+Verzeichnisnamen und sichert die Datenbank vorher (Standard `~/coremesh-sicherungen/`).
 
 **seed** spielt eine Einrichtungsdatei über die Konsole ein – dieselben Fachobjekte und
 Aktionen wie in der Weboberfläche, nie direkt in die Datenbank:

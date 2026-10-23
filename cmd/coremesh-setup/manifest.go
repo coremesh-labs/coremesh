@@ -94,6 +94,7 @@ type Package struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description,omitempty"`
 	Plugins     []string `json:"plugins,omitempty"`
+	Detect      []string `json:"detect,omitempty"` // an diesen Plugins erkennt das Werkzeug die Ausprägung
 	Data        *DataSet `json:"data,omitempty"`
 }
 
