@@ -1,7 +1,9 @@
 # Stand bauen und als GitHub-Release veröffentlichen.
 # Auslöser: Tag <JJJJ.MM.TT>[-n] im Kern-Repository. Dasselbe Tag muss es in coremesh-erp und
-# coremesh-erph geben (zuerst dort pushen). Ergebnis: Archiv je Plattform, coremesh-setup,
-# Testbestände der Ausprägungen und manifest.json (siehe dist/pack.yaml, dist/index.json).
+# coremesh-erph geben (zuerst dort pushen). Ergebnis: neue Bausteine (Programme, Plugins,
+# Dateien), coremesh-setup, Testbestände der Ausprägungen und manifest.json (siehe
+# dist/pack.yaml, dist/index.json). Bausteine, die schon der Stand der Linie preview enthält,
+# verweisen dorthin und werden nicht erneut hochgeladen.
 name: release
 
 on:
@@ -68,7 +70,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: CoreMesh ${{ env.TAG }}
           body: |
-            Stand ${{ env.TAG }}. Einrichten mit coremesh-setup (Datei coremesh-setup-<plattform> laden, ausführbar machen, starten,
+            Stand ${{ env.TAG }} (Bausteine; unveränderte liegen in früheren Ständen). Einrichten und aktualisieren mit coremesh-setup (Datei coremesh-setup-<plattform> laden, ausführbar machen, starten,
             im Browser http://127.0.0.1:9870 öffnen) – oder auf der Kommandozeile:
             `coremesh-setup install --dir=~/coremesh --package=erp-vuv --data`
             Testbestand „Faust“: erfundene Hausverwaltung mit Namen aus Goethes Faust.

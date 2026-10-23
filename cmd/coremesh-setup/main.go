@@ -1,8 +1,11 @@
 // Command coremesh-setup richtet CoreMesh-Systeme ein und stellt Stände zusammen.
 //
-//	coremesh-setup [ui]        Weboberfläche auf 127.0.0.1 (Stand wählen, einrichten, starten)
+//	coremesh-setup [ui]        Weboberfläche auf 127.0.0.1 (Assistent: einrichten, aktualisieren, starten)
 //	coremesh-setup list        Linien, Stände und Ausprägungen des Servers
 //	coremesh-setup install --dir=D [--release=release|preview|<stand>] --package=erp-vuv [--data] [--port=8080]
+//	coremesh-setup plan --dir=D [--release=…]      was ein Update laden würde
+//	coremesh-setup update --dir=D [--release=…]    Standard: die Linie der Installation
+//	coremesh-setup rollback --dir=D                zurück auf den Stand vor dem letzten Update
 //	coremesh-setup start|stop|status --dir=D
 //	coremesh-setup seed --dir=D --file=einrichtung.yaml
 //	coremesh-setup pack --labs=.. --release=2026.10.23 [--build] [--data] [--out=dist/out]
@@ -48,7 +51,7 @@ func run(cmd string, args []string) error {
 	labs := fs.String("labs", "..", "pack: Verzeichnis mit den Repositories")
 	config := fs.String("config", "", "pack: Zusammenstellung (Standard <labs>/coremesh/dist/pack.yaml)")
 	out := fs.String("out", "", "pack: Zielverzeichnis (Standard <labs>/coremesh/dist/out/<stand>)")
-	previous := fs.String("previous", "", "pack: vorheriger Stand (Update-Pfad)")
+	previous := fs.String("previous", "", "pack: vorheriger Stand (Update-Pfad, Wiederverwendung; Standard: Linie preview)")
 	build := fs.Bool("build", false, "pack: vorher bauen")
 	listen := fs.String("listen", "127.0.0.1:9870", "ui: Adresse der Oberfläche")
 	fs.Parse(args)
@@ -61,6 +64,8 @@ func run(cmd string, args []string) error {
 		return &installation{dir: d}, err
 	}
 	src := newSource(*index)
+	releaseSet := false
+	fs.Visit(func(f *flag.Flag) { releaseSet = releaseSet || f.Name == "release" })
 	switch cmd {
 	case "ui":
 		return serveUI(*listen, src)
@@ -95,6 +100,37 @@ func run(cmd string, args []string) error {
 			logf("bereit: %s (Benutzer %s, Passwort in %s)", addr, user, in.path("ZUGANG.txt"))
 		}
 		return err
+	case "plan", "update", "rollback":
+		in, err := inst()
+		if err != nil {
+			return err
+		}
+		if in.current() == "" {
+			return fmt.Errorf("keine Installation in %s", in.dir)
+		}
+		want := ""
+		if releaseSet {
+			want = *release
+		}
+		switch cmd {
+		case "update":
+			return update(src, in, want, func(s string) { logf("%s", s) })
+		case "rollback":
+			return rollback(in, func(s string) { logf("%s", s) })
+		}
+		st := in.state()
+		if want == "" {
+			want = st.Line
+		}
+		_, _, p, err := target(src, in, installOptions{release: want, pkg: st.Package})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Stand %s → %s: %d Bausteine, zu laden %s\n", p.Current, p.Release, len(p.Items), sizeText(p.LoadSize()))
+		for _, it := range p.Items {
+			fmt.Printf("  %-8s %-16s %-14s → %-14s %s\n", it.Kind, it.Name, it.Old, it.New, it.Action)
+		}
+		return nil
 	case "start", "stop", "status":
 		in, err := inst()
 		if err != nil {
@@ -112,7 +148,11 @@ func run(cmd string, args []string) error {
 		if in.running() {
 			state = "läuft"
 		}
-		fmt.Printf("Stand %s, %s, %s\n", in.current(), state, addr)
+		st := in.state()
+		fmt.Printf("Stand %s (Linie %s), %s, %s\n", in.current(), st.Line, state, addr)
+		if st.Previous != "" {
+			fmt.Printf("vorheriger Stand %s (rollback möglich, Sicherung %s)\n", st.Previous, st.Backup)
+		}
 		return nil
 	case "seed":
 		in, err := inst()
@@ -135,9 +175,9 @@ func run(cmd string, args []string) error {
 			*out = filepath.Join(l, "coremesh", "dist", "out", *release)
 		}
 		return pack(packOptions{labs: l, config: *config, out: *out, release: *release, previous: *previous,
-			date: time.Now().Format("2006-01-02"), build: *build, data: *data, port: 19870})
+			date: time.Now().Format("2006-01-02"), build: *build, data: *data, port: 19870, src: src})
 	}
-	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, start, stop, status, seed, pack)", cmd)
+	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, plan, update, rollback, start, stop, status, seed, pack)", cmd)
 }
 
 func envOr(k, def string) string {
