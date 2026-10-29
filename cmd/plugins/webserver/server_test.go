@@ -512,12 +512,12 @@ func TestReport(t *testing.T) {
 	s, h := newTestServer(t, "")
 	page := do(s, "GET", "/m/crm/Report", nil, false).Body.String()
 	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`)
-	mustContain(t, page, `<select name="kinds" multiple size="3"`)
+	mustContain(t, page, `class="field checks`, `<input type="checkbox" name="kinds" value="MV"`)
 	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"MV", "SP"}}, false)
 	if d, _ := h.find("compute").Payload.(map[string]any)["data"].(map[string]any); d["kinds"] != "MV,SP" {
 		t.Errorf("Mehrfachauswahl: %v", d["kinds"])
 	}
-	mustContain(t, w.Body.String(), `<option value="MV" selected>MV – Miete</option>`, `<option value="GM" >GM – Gewerbe</option>`, `<option value="SP" selected>`)
+	mustContain(t, w.Body.String(), `name="kinds" value="MV" checked`, `name="kinds" value="GM"  `, `name="kinds" value="SP" checked`, `> MV – Miete</label>`)
 	if w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"XX"}}, false); w.Code != 422 {
 		t.Errorf("unbekannter Wert: %d", w.Code)
 	}

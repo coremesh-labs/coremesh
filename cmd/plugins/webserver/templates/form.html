@@ -50,15 +50,20 @@
      Hidden: festes Feld (Fremdschlüssel im Master-Detail).
      Lookup: Eingabe des Schlüssels plus Auswahldialog (/lookup) und lesbarem Text. */}}
 {{define "field"}}
-{{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else}}
+{{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else if and (eq .Type "select") .Field.Multiple}}
+{{/* Mehrfachauswahl als Kästchen zum Ankreuzen (seit webserver 0.46.0; vorher Liste mit Strg-Klick). */}}
+<div class="field checks{{if .Error}} invalid{{end}}{{if .Field.Wide}} wide{{end}}" role="group" aria-label="{{.Field.Label}}">
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
+  <span class="check-list">
+  {{range .Field.Options}}<label class="check"><input type="checkbox" name="{{$.Field.Key}}" value="{{.Value}}" {{if inList .Value $.Value}}checked{{end}} {{if $.ReadOnly}}disabled{{end}} {{with $.Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}}> {{codeLabel .Value .Label}}</label>
+  {{end}}</span>
+  <small class="muted">{{t "core.form.multiple"}}</small>
+  {{with .Error}}<small class="error">{{t .}}</small>{{end}}
+</div>
+{{else}}
 <label class="field{{if .Error}} invalid{{end}}{{if .Field.Wide}} wide{{end}}">
   <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
-  {{if and (eq .Type "select") .Field.Multiple}}
-  <select name="{{.Field.Key}}" multiple size="{{selectSize .Field.Options}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
-    {{range .Field.Options}}<option value="{{.Value}}" {{if inList .Value $.Value}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}
-  </select>
-  <small class="muted">{{t "core.form.multiple"}}</small>
-  {{else if eq .Type "select"}}
+  {{if eq .Type "select"}}
   <select name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
     {{if not .Field.Required}}<option value=""></option>{{else if not (hasOption .Field.Options "")}}<option value="" {{if eq .Value ""}}selected{{end}} disabled>{{t "core.form.choose"}}</option>{{end}}
     {{range .Field.Options}}<option value="{{.Value}}" {{if eq .Value $.Value}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}
