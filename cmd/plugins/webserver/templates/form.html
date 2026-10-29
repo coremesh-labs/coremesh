@@ -58,6 +58,7 @@
   {{range .Field.Options}}<label class="check"><input type="checkbox" name="{{$.Field.Key}}" value="{{.Value}}" {{if inList .Value $.Value}}checked{{end}} {{if $.ReadOnly}}disabled{{end}} {{with $.Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}}> {{codeLabel .Value .Label}}</label>
   {{end}}</span>
   <small class="muted">{{t "core.form.multiple"}}</small>
+  {{with .Field.Help}}<small class="muted field-help">{{.}}</small>{{end}}
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>
 {{else}}
@@ -87,6 +88,7 @@
          {{if eq .Type "number"}}step="any"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>
   {{with .Label}}<small class="lookup-label">{{.}}</small>{{end}}
   {{end}}
+  {{with .Field.Help}}<small class="muted field-help">{{.}}</small>{{end}}
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </label>
 {{end}}

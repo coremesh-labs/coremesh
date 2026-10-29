@@ -119,6 +119,9 @@ type FieldDefinition struct {
 	Binary bool `json:"binary,omitempty"`
 	// Wide: Eingabe über die ganze Breite der Maske (lange Texte, z. B. ein Dateiname).
 	Wide bool `json:"wide,omitempty"`
+	// Help: Hinweis unter der Eingabe im Formular, z. B. die möglichen Platzhalter eines Textes.
+	Help    string `json:"help,omitempty"`
+	HelpKey string `json:"help_key,omitempty"` // Übersetzungsschlüssel, z. B. "…fields.text.help"
 }
 
 // Lookup beschreibt die Auswahl eines Werts aus einem Nachschlage-Object
