@@ -75,7 +75,7 @@
   "core.error.not_in_module": "%s does not belong to module %s",
   "core.error.unavailable": "%s is currently unavailable",
   "core.form.choose": "– please choose –",
-  "core.form.multiple": "Multiple selection with Ctrl or ⌘; none selected = all",
+  "core.form.multiple": "Tick one or more",
   "core.form.title": "%s – %s",
   "core.home.empty": "No modules registered yet, or no permission.",
   "core.home.objects_many": "%d objects",
