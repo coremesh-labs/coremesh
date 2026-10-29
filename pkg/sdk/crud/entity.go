@@ -363,7 +363,8 @@ func Coerce(f *Field, v any) (any, error) {
 			}
 			return strings.Join(vals, ","), nil
 		}
-		if !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == s }) {
+		// ohne feste Werte (Auswahl aus FormState) prüft das Modul – wie bei Multiple
+		if len(f.Options) > 0 && !slices.ContainsFunc(f.Options, func(o metamodel.Option) bool { return o.Value == s }) {
 			return nil, Invalid("%s: ungültiger Wert %q", f.Label, s)
 		}
 		return s, nil
