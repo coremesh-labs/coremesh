@@ -37,6 +37,7 @@ type Record = map[string]any
 type Field struct {
 	Key, Label string
 	Short      string // Spaltenüberschrift, wenn Label zu lang ist (metamodel.FieldDefinition.Short)
+	Help       string // Hinweis unter der Eingabe (metamodel.FieldDefinition.Help)
 	Type       metamodel.FieldType
 	Required   bool
 	Listable   bool

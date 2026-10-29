@@ -60,7 +60,7 @@ var crmModule = map[string]any{"name": "crm", "title": "CRM", "icon": "icon-crm"
 // reportDef: Bericht ohne Übersicht – Maske und Ergebnis auf der Seite des Objects.
 var reportDef = metamodel.ObjectDefinition{
 	Name: "Report", Title: "Bericht",
-	Fields: []metamodel.FieldDefinition{{Key: "period_to", Label: "Bis", Type: metamodel.TypeDate, Required: true, Editable: true, ActionOnly: true},
+	Fields: []metamodel.FieldDefinition{{Key: "period_to", Label: "Bis", Type: metamodel.TypeDate, Required: true, Editable: true, ActionOnly: true, Help: "Stichtag {datum}"},
 		{Key: "kinds", Label: "Arten", Type: metamodel.TypeSelect, Multiple: true, Editable: true, ActionOnly: true,
 			Options: []metamodel.Option{{Value: "MV", Label: "Miete"}, {Value: "GM", Label: "Gewerbe"}, {Value: "SP", Label: "Stellplatz"}}}},
 	Actions: []metamodel.ActionConfig{{Name: "compute", Kind: metamodel.KindCustom, Label: "Berechnen", Fields: []string{"period_to", "kinds"}}},
@@ -511,7 +511,7 @@ func TestKeyDateMetadata(t *testing.T) {
 func TestReport(t *testing.T) {
 	s, h := newTestServer(t, "")
 	page := do(s, "GET", "/m/crm/Report", nil, false).Body.String()
-	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`)
+	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`, `<small class="muted field-help">Stichtag {datum}</small>`)
 	mustContain(t, page, `class="field checks`, `<input type="checkbox" name="kinds" value="MV"`)
 	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"MV", "SP"}}, false)
 	if d, _ := h.find("compute").Payload.(map[string]any)["data"].(map[string]any); d["kinds"] != "MV,SP" {

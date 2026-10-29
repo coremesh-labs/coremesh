@@ -78,6 +78,9 @@ func (d ObjectDefinition) Localize(t Translations, locale string) ObjectDefiniti
 		if f.Short != "" {
 			f.Short = t.Lookup(locale, f.ShortKey, f.Short)
 		}
+		if f.Help != "" {
+			f.Help = t.Lookup(locale, f.HelpKey, f.Help)
+		}
 		if f.Group != "" {
 			f.Group = t.Lookup(locale, f.GroupKey, f.Group)
 		}
@@ -130,6 +133,7 @@ var reservedModules = map[string]bool{"i18n": true, "user": true}
 //	<modul>.<Object>.title                       Object
 //	<modul>.<Object>.fields.<feld>               Feld
 //	<modul>.<Object>.fields.<feld>.short         Spaltenüberschrift (FieldDefinition.Short)
+//	<modul>.<Object>.fields.<feld>.help          Hinweis im Formular (FieldDefinition.Help)
 //	<modul>.<Object>.options.<feld>.<wert>       Auswahlwert
 //	<modul>.<Object>.actions.<action>[.confirm]  Action
 //	<modul>.<Object>.sections.<abschnitt>        Abschnitt der Detailansicht
@@ -151,6 +155,9 @@ func WithKeys(module string, d ObjectDefinition) ObjectDefinition {
 		f.LabelKey = orKey(f.LabelKey, p+".fields."+f.Key)
 		if f.Short != "" {
 			f.ShortKey = orKey(f.ShortKey, p+".fields."+f.Key+".short")
+		}
+		if f.Help != "" {
+			f.HelpKey = orKey(f.HelpKey, p+".fields."+f.Key+".help")
 		}
 		if f.Group != "" {
 			f.GroupKey = orKey(f.GroupKey, p+".groups."+slug(f.Group))
