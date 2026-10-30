@@ -815,7 +815,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if err := parseActionForm(r); err != nil {
+	if err := parseActionForm(r, s.maxUpload()); err != nil {
 		s.fail(w, r, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err))
 		return
 	}
@@ -850,7 +850,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 			def = withExtra(applyFormState(def, *st), st)
 		}
 		data, raw, errs = parseFields(def, r.PostForm)
-		readFiles(r, def, data, errs)
+		readFiles(r, def, s.maxUpload(), data, errs)
 	}
 	inline := r.PostForm.Get("_inline") != ""
 	if len(errs) > 0 {
@@ -962,20 +962,18 @@ func staticHandler(staticDir string) http.Handler {
 	})
 }
 
-// maxUpload begrenzt eine hochgeladene Datei (Aktionsformular mit Dateifeld).
-const maxUpload = 20 << 20
-
-// parseActionForm liest ein normales oder ein Multipart-Formular (Dateifeld).
-func parseActionForm(r *http.Request) error {
+// parseActionForm liest ein normales oder ein Multipart-Formular (Dateifeld,
+// höchstens limit Bytes im Speicher, der Rest in temporären Dateien).
+func parseActionForm(r *http.Request, limit int64) error {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-		return r.ParseMultipartForm(maxUpload)
+		return r.ParseMultipartForm(limit)
 	}
 	return r.ParseForm()
 }
 
 // readFiles übernimmt die Dateifelder: Inhalt als Text (UTF-8; sonst als
 // Latin-1 gelesen), Dateiname in <Feld>_name.
-func readFiles(r *http.Request, d metamodel.ObjectDefinition, data map[string]any, errs map[string]string) {
+func readFiles(r *http.Request, d metamodel.ObjectDefinition, limit int64, data map[string]any, errs map[string]string) {
 	for _, f := range d.Fields {
 		if f.Type != metamodel.TypeFile {
 			continue
@@ -987,13 +985,13 @@ func readFiles(r *http.Request, d metamodel.ObjectDefinition, data map[string]an
 			}
 			continue
 		}
-		b, err := io.ReadAll(io.LimitReader(file, maxUpload+1))
+		b, err := io.ReadAll(io.LimitReader(file, limit+1))
 		file.Close()
 		switch {
 		case err != nil:
 			errs[f.Key] = "core.validation.file"
 			continue
-		case len(b) > maxUpload:
+		case int64(len(b)) > limit:
 			errs[f.Key] = "core.validation.file_size"
 			continue
 		}

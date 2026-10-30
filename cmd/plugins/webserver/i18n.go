@@ -231,7 +231,7 @@ func (s *server) apiProfile(w http.ResponseWriter, r *http.Request) {
 	action, payload := "Me", any(nil)
 	if r.Method == http.MethodPatch {
 		var in map[string]any
-		if err := decodeJSONBody(w, r, &in); err != nil {
+		if err := decodeJSONBody(w, r, s.maxAPIBody(), &in); err != nil {
 			s.apiError(w, r, err)
 			return
 		}

@@ -151,3 +151,26 @@ func TestModuleServiceAPI(t *testing.T) {
 	}
 	mustNotContain(t, do(s, "GET", "/m/crm/Partner", nil, false).Body.String(), "/m/crm/Search")
 }
+
+// TestAPIBodyLimit: Die Grenze des JSON-Bodys folgt max_api_body_mb (Standard 48 MiB) –
+// ein Dokument über 1 MiB (Base64) geht durch, über der Einstellung nicht.
+func TestAPIBodyLimit(t *testing.T) {
+	s, _ := newTestServer(t, "")
+	call := func(size int) int {
+		body := `{"id":"p/1","content":"` + strings.Repeat("A", size) + `"}`
+		r := httptest.NewRequest("POST", "/api/v1/crm/Partner/Item", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		tok, _ := testTokens.Load(s)
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: tok.(string)})
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w.Code
+	}
+	if code := call(3 << 20); code != 200 {
+		t.Fatalf("3 MiB bei Standardgrenze: %d", code)
+	}
+	s.cfg.MaxAPIBodyMB = 2
+	if code := call(3 << 20); code != 422 {
+		t.Fatalf("3 MiB bei max_api_body_mb 2: %d, erwartet 422", code)
+	}
+}
