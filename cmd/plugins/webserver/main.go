@@ -18,7 +18,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.47.0"
+	version = "0.48.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -38,6 +38,11 @@ type settings struct {
 	SessionTTL string `json:"session_ttl"` // Gültigkeit einer Anmeldung (Standard 12h)
 	// WriteTimeout: längste Antwortzeit einer Anfrage (Standard 3m; KI-Schritte brauchen mitunter länger als eine Minute).
 	WriteTimeout string `json:"write_timeout"`
+	// Größengrenzen (seit 0.48.0) in MiB: JSON-Body der API (Dateien reisen dort Base64-kodiert,
+	// z. B. DmsDocument.store; Standard 48) und Datei im Aktionsformular (Standard 32). Beide
+	// höchstens maxSettingMiB – darüber passt die Nachricht nicht mehr durch den Plugin-Kanal.
+	MaxAPIBodyMB int    `json:"max_api_body_mb"`
+	MaxUploadMB  int    `json:"max_upload_mb"`
 	CookieSecure string `json:"cookie_secure"` // auto (bei TLS) | true (z. B. hinter TLS-Proxy) | false
 
 	// TLS: beide gesetzt = HTTPS
@@ -69,7 +74,8 @@ func (w *webserver) Manifest(context.Context) (sdk.Manifest, error) {
 // Configure startet den HTTP(S)-Server und – im Hintergrund – das Anlegen des
 // ersten Benutzers. Ein belegter Port lässt den Start mit klarer Meldung scheitern.
 func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
-	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto", WriteTimeout: "3m", VisibleActions: 3}
+	s := settings{Listen: "127.0.0.1:8080", Title: "CoreMesh", Database: "main", SessionTTL: "12h", CookieSecure: "auto", WriteTimeout: "3m", VisibleActions: 3,
+		MaxAPIBodyMB: defaultAPIBodyMiB, MaxUploadMB: defaultUploadMiB}
 	if err := sdk.Decode(cfg.Settings, &s); err != nil {
 		return err
 	}
@@ -80,6 +86,14 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 	ttl, err := time.ParseDuration(s.SessionTTL)
 	if err != nil || ttl <= 0 {
 		return fmt.Errorf("%w: session_ttl %q", sdk.ErrInvalidArgument, s.SessionTTL)
+	}
+	for _, l := range []struct {
+		key string
+		v   int
+	}{{"max_api_body_mb", s.MaxAPIBodyMB}, {"max_upload_mb", s.MaxUploadMB}} {
+		if l.v < 1 || l.v > maxSettingMiB {
+			return fmt.Errorf("%w: %s %d: 1 bis %d (MiB)", sdk.ErrInvalidArgument, l.key, l.v, maxSettingMiB)
+		}
 	}
 	if (s.TLSCert == "") != (s.TLSKey == "") {
 		return fmt.Errorf("%w: tls_cert und tls_key nur gemeinsam", sdk.ErrInvalidArgument)

@@ -1,7 +1,7 @@
 # Web-Frontend (externes Plugin, eigenes Go-Modul unter cmd/plugins/webserver).
 plugins:
   webserver:
-    version: 0.47.0
+    version: 0.48.0
     # Ingress: darf eigene Wurzelanfragen starten (HTTP-Anfragen von außen).
     ingress: true
     # Session-Tabelle (webserver__sessions) via DBSchema.Init; Benutzer und Rollen: Plugin iam.
@@ -15,6 +15,8 @@ plugins:
       session_ttl: 12h
       visible_actions: 3           # Aktionen nebeneinander, weitere im Menü „Weitere“ (0 = alle nebeneinander)
       write_timeout: 3m              # längste Antwortzeit (KI-Schritte brauchen mitunter über eine Minute)
+      max_api_body_mb: 48          # größter JSON-Body der API in MiB (Dateien Base64, z. B. DMS-Ablage)
+      max_upload_mb: 32            # größte Datei im Aktionsformular in MiB
       # tls_cert: ./certs/server.crt  # beide gesetzt = HTTPS (dringend empfohlen im Netz)
       # tls_key: ./certs/server.key
       # cookie_secure: true         # hinter einem TLS-terminierenden Reverse Proxy

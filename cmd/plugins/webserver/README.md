@@ -807,6 +807,8 @@ plugins:
       tenant: demo                      # Mandant für Benutzer ohne eigenen Mandanten
       session_ttl: 12h                  # Gültigkeit einer Anmeldung
       visible_actions: 3                # Aktionen nebeneinander, weitere im Menü „Weitere“ (0 = alle)
+      max_api_body_mb: 48               # größter JSON-Body der API in MiB (Dateien Base64, z. B. DmsDocument.store)
+      max_upload_mb: 32                 # größte Datei im Aktionsformular in MiB
       tls_cert: ./certs/server.crt      # optional; beide gesetzt = HTTPS
       tls_key: ./certs/server.key
       cookie_secure: auto               # auto (bei TLS) | true (hinter TLS-Proxy) | false
@@ -816,6 +818,10 @@ plugins:
 ```
 
 - **Port belegt:** Der Start des Plugins scheitert mit einer klaren Meldung.
+- **Größengrenzen (seit 0.48.0):** `max_api_body_mb` (Standard 48) und `max_upload_mb`
+  (Standard 32) begrenzen API-Body und Formular-Datei; erlaubt sind 1 bis 60 MiB, denn
+  Host und Plugins tauschen höchstens 64 MiB je Nachricht. Base64 vergrößert eine Datei
+  um ein Drittel – 48 MiB Body tragen also eine Datei von gut 35 MiB.
 - **Netz ohne TLS:** Lauscht der Server nicht nur auf Loopback und hat kein TLS, warnt das Host-Log.
 - **Windows-Firewall:** Beim ersten Start mit `0.0.0.0` fragt Windows unter Umständen nach
   einer Freigabe für `webserver-…exe`.

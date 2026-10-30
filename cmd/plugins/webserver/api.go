@@ -23,7 +23,28 @@ import (
 // POST verlangt Content-Type application/json – fremde Seiten können das
 // ohne CORS-Freigabe nicht senden (CSRF-Schutz zusätzlich zu checkOrigin).
 
-const maxAPIBody = 1 << 20
+// maxSettingMiB: Obergrenze für max_api_body_mb und max_upload_mb – unter der Größe einer
+// gRPC-Nachricht zwischen Host und Plugin (64 MiB), Platz für Base64 und Kopf bleibt.
+const maxSettingMiB = 60
+
+// Standardgrenzen in MiB (Einstellungen leer).
+const (
+	defaultAPIBodyMiB = 48
+	defaultUploadMiB  = 32
+)
+
+// maxAPIBody: erlaubte Größe eines JSON-Bodys (Einstellung max_api_body_mb).
+func (s *server) maxAPIBody() int64 { return mib(s.cfg.MaxAPIBodyMB, defaultAPIBodyMiB) }
+
+// maxUpload: erlaubte Größe einer Datei im Aktionsformular (Einstellung max_upload_mb).
+func (s *server) maxUpload() int64 { return mib(s.cfg.MaxUploadMB, defaultUploadMiB) }
+
+func mib(v, def int) int64 {
+	if v <= 0 {
+		v = def
+	}
+	return int64(v) << 20
+}
 
 func (s *server) apiRoutes() http.Handler {
 	mux := http.NewServeMux()
@@ -79,7 +100,7 @@ func (s *server) apiCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var payload any
-	if err := decodeJSONBody(w, r, &payload); err != nil {
+	if err := decodeJSONBody(w, r, s.maxAPIBody(), &payload); err != nil {
 		s.apiError(w, r, err)
 		return
 	}
@@ -199,10 +220,10 @@ func (s *server) allowedActions(r *http.Request, object string) ([]string, error
 
 var errUnsupportedMedia = errors.New("Content-Type application/json erwartet")
 
-// decodeJSONBody liest einen JSON-Body (höchstens maxAPIBody). Ein leerer
+// decodeJSONBody liest einen JSON-Body (höchstens limit Bytes). Ein leerer
 // Body ist erlaubt; sonst ist Content-Type application/json Pflicht.
-func decodeJSONBody(w http.ResponseWriter, r *http.Request, v any) error {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAPIBody))
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, limit int64, v any) error {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 	if err != nil {
 		return fmt.Errorf("%w: Body: %v", sdk.ErrInvalidArgument, err)
 	}
