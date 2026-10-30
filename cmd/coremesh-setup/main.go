@@ -10,6 +10,8 @@
 //	coremesh-setup forget --dir=D                  aus der Liste entfernen (Dateien bleiben)
 //	coremesh-setup remove --dir=D [--backup=V]     beenden, Datenbank nach V sichern, löschen
 //	coremesh-setup start|stop|status --dir=D
+//	coremesh-setup service --dir=D [--name=coremesh-<verzeichnis>] [--remove]   Benutzerdienst (Linux, systemd --user)
+//	coremesh-setup run --dir=D                     Host im Vordergrund (Aufruf des Dienstes)
 //	coremesh-setup seed --dir=D --file=einrichtung.yaml
 //	coremesh-setup pack --labs=.. --release=2026.10.23 [--build] [--data] [--out=dist/out]
 //
@@ -58,6 +60,8 @@ func run(cmd string, args []string) error {
 	build := fs.Bool("build", false, "pack: vorher bauen")
 	listen := fs.String("listen", "127.0.0.1:9870", "ui: Adresse der Oberfläche")
 	backup := fs.String("backup", "", "remove: Verzeichnis für die Sicherung der Datenbank (leer = keine)")
+	unit := fs.String("name", "", "service: Name des Benutzerdienstes (Standard coremesh-<Verzeichnisname>)")
+	unitRemove := fs.Bool("remove", false, "service: Benutzerdienst entfernen")
 	fs.Parse(args)
 
 	inst := func() (*installation, error) {
@@ -200,6 +204,24 @@ func run(cmd string, args []string) error {
 			fmt.Printf("vorheriger Stand %s (rollback möglich, Sicherung %s)\n", st.Previous, st.Backup)
 		}
 		return nil
+	case "service", "run":
+		in, err := inst()
+		if err != nil {
+			return err
+		}
+		if cmd == "run" {
+			return runForeground(in)
+		}
+		progress := func(s string) { logf("%s", s) }
+		if *unitRemove {
+			return removeService(in, progress)
+		}
+		remember(in.dir)
+		if err := installService(in, *unit, progress); err != nil {
+			return err
+		}
+		logf("Dienst %s: startet mit der Anmeldung (ohne Anmeldung: loginctl enable-linger)", in.state().Service)
+		return nil
 	case "seed":
 		in, err := inst()
 		if err != nil {
@@ -223,7 +245,7 @@ func run(cmd string, args []string) error {
 		return pack(packOptions{labs: l, config: *config, out: *out, release: *release, previous: *previous,
 			date: time.Now().Format("2006-01-02"), build: *build, data: *data, port: 19870, src: src})
 	}
-	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, plan, update, rollback, adopt, forget, remove, start, stop, status, seed, pack)", cmd)
+	return fmt.Errorf("unbekannter Befehl %q (ui, list, install, plan, update, rollback, adopt, forget, remove, start, stop, status, service, run, seed, pack)", cmd)
 }
 
 func or(s, def string) string {

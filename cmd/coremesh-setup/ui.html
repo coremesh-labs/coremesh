@@ -67,11 +67,12 @@ details summary { cursor: pointer; color: var(--accent); margin-top: .5rem; }
       <td>{{.Release}}
         {{if eq .Layout "setup"}}<br><span class="muted">Linie {{.Line}}{{if eq .Format 1}} · altes Format{{end}}</span>{{else if eq .Layout "eigenständig"}}<br><span class="muted">eigenständig, ohne Update</span>{{end}}
         {{with .UpdateTo}}<br><span class="warn">Update auf {{.}} verfügbar</span>{{end}}</td>
-      <td>{{if .Running}}<span class="ok">läuft</span><br><a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else if ne .Layout "fehlt"}}<span class="muted">beendet</span>{{end}}</td>
+      <td>{{if .Running}}<span class="ok">läuft</span>{{if .Service}} <span class="muted">(Autostart)</span>{{end}}<br><a href="{{.Address}}" target="_blank" rel="noopener">{{.Address}}</a>{{else if ne .Layout "fehlt"}}<span class="muted">beendet</span>{{end}}</td>
       <td><div class="actions">
         {{if eq .Layout "setup"}}
         <form method="post" action="/control"><input type="hidden" name="dir" value="{{.Dir}}">
-          {{if .Running}}<button name="do" value="stop">Beenden</button>{{else}}<button name="do" value="start">Starten</button>{{end}}</form>
+          {{if .Running}}<button name="do" value="stop">Beenden</button>{{else}}<button name="do" value="start">Starten</button>{{end}}
+          {{if .Service}}<button name="do" value="service-off" title="Benutzerdienst {{.Service}} entfernen">Autostart aus</button>{{else if .CanService}}<button name="do" value="service-on" title="Benutzerdienst: startet mit der Anmeldung, beendet beim Abmelden">Autostart ein</button>{{end}}</form>
         <a class="btn{{if .UpdateTo}} primary{{end}}" href="/update?dir={{.Dir}}">Aktualisieren …</a>
         {{if .Previous}}<a class="btn" href="/rollback?dir={{.Dir}}">Zurück auf {{.Previous}} …</a>{{end}}
         {{end}}

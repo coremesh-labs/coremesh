@@ -216,6 +216,9 @@ func remove(in *installation, backupDir string, progress func(string)) (string, 
 			return "", err
 		}
 	}
+	if err := removeService(in, progress); err != nil {
+		return "", err
+	}
 	saved := ""
 	if backupDir != "" && r.DBSize > 0 {
 		saved = filepath.Join(backupDir, fmt.Sprintf("%s-%s-%s.db", filepath.Base(in.dir), in.current(), nowStamp()))

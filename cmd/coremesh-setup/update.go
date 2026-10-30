@@ -22,7 +22,8 @@ type setupState struct {
 	Port     int    `json:"port"`               // Port der Weboberfläche
 	Previous string `json:"previous,omitempty"` // Stand vor dem letzten Update (Rückfall)
 	PrevLine string `json:"previous_line,omitempty"`
-	Backup   string `json:"backup,omitempty"`   // Sicherung der Datenbank vor dem letzten Update
+	Backup   string `json:"backup,omitempty"`  // Sicherung der Datenbank vor dem letzten Update
+	Service  string `json:"service,omitempty"` // Benutzerdienst (systemd --user), der den Host startet und beendet
 }
 
 func (in *installation) state() setupState {
