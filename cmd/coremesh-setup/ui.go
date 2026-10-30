@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -98,6 +99,8 @@ type uiInstall struct {
 	UpdateTo                          string // neuerer Stand auf der Linie der Installation
 	Previous                          string // Rückfall möglich auf
 	BackupTime                        string
+	Service                           string // Benutzerdienst (Autostart), leer = keiner
+	CanService                        bool   // Autostart möglich (Linux)
 }
 
 type uiLine struct{ Name, Release string }
@@ -235,7 +238,7 @@ func serveUI(listen string, src *source) error {
 			addr = fmt.Sprintf("http://localhost:%d", det.Port)
 		}
 		u := &uiInstall{Dir: d, Release: rel, Line: st.Line, Address: addr, User: user, Running: in.running(), Previous: st.Previous,
-			Layout: det.Layout, Format: det.Format, Package: st.Package}
+			Layout: det.Layout, Format: det.Format, Package: st.Package, Service: st.Service, CanService: runtime.GOOS == "linux"}
 		if det.Layout == layoutSingle {
 			u.Line, u.Release = "", "eigener Build"
 		}
@@ -598,6 +601,10 @@ func serveUI(listen string, src *source) error {
 			err = in.start()
 		case "stop":
 			err = in.stop()
+		case "service-on":
+			err = installService(in, "", func(string) {})
+		case "service-off":
+			err = removeService(in, func(string) {})
 		}
 		if err != nil {
 			http.Redirect(w, r, "/?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)

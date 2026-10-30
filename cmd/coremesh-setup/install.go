@@ -129,35 +129,52 @@ func (in *installation) socket() string {
 	return filepath.Join(os.TempDir(), "coremesh-"+hex.EncodeToString(h[:6])+".sock")
 }
 
-// start startet den Host im Hintergrund und wartet, bis die Konsole antwortet.
-func (in *installation) start() error {
-	if in.running() {
-		return nil
-	}
+// hostCmd: Aufruf des Hosts im aktiven Stand (Arbeitsverzeichnis, Log, Zugang).
+// Der Aufrufer schließt die Log-Datei.
+func (in *installation) hostCmd() (*exec.Cmd, *os.File, error) {
 	rel := in.current()
 	if rel == "" {
-		return errors.New("keine Installation in " + in.dir)
+		return nil, nil, errors.New("keine Installation in " + in.dir)
 	}
 	_, _, pw := in.access()
 	log, err := os.OpenFile(in.path("data", "host.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	defer log.Close()
 	os.Remove(in.socket())
 	cmd := exec.Command(in.path("releases", rel, exe("host")), "-config",
 		filepath.Join("releases", rel, "configs")+","+"local")
 	cmd.Dir, cmd.Stdout, cmd.Stderr = in.dir, log, log
 	cmd.Env = append(os.Environ(), "COREMESH_ADMIN_PASSWORD="+pw)
-	detach(cmd)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	if err := os.WriteFile(in.path("data", "host.pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o644); err != nil {
-		return err
+	return cmd, log, nil
+}
+
+// start startet den Host im Hintergrund (bzw. über den Benutzerdienst) und
+// wartet, bis die Konsole antwortet.
+func (in *installation) start() error {
+	if in.running() {
+		return nil
 	}
 	exited := make(chan struct{})
-	go func() { cmd.Wait(); close(exited) }() // kein Zombie, solange coremesh-setup läuft
+	if unit := in.state().Service; unit != "" {
+		if err := systemctl("start", unit); err != nil {
+			return err
+		}
+	} else {
+		cmd, log, err := in.hostCmd()
+		if err != nil {
+			return err
+		}
+		defer log.Close()
+		detach(cmd)
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		if err := os.WriteFile(in.path("data", "host.pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o644); err != nil {
+			return err
+		}
+		go func() { cmd.Wait(); close(exited) }() // kein Zombie, solange coremesh-setup läuft
+	}
 	for i := 0; i < 120; i++ {
 		select {
 		case <-exited:
@@ -189,6 +206,13 @@ func (in *installation) running() bool {
 }
 
 func (in *installation) stop() error {
+	if unit := in.state().Service; unit != "" {
+		if err := systemctl("stop", unit); err != nil {
+			return err
+		}
+		os.Remove(in.path("data", "host.pid"))
+		return nil
+	}
 	pid := in.pid()
 	if pid == 0 || !alive(pid) {
 		return nil

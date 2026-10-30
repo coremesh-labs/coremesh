@@ -66,6 +66,8 @@ coremesh-setup adopt --dir=D [--package=…]     # vorhandene Installation aufne
 coremesh-setup forget --dir=D                  # aus der Liste entfernen (Dateien bleiben)
 coremesh-setup remove --dir=D [--backup=V]     # beenden, Datenbank nach V sichern, löschen
 coremesh-setup start|stop|status --dir=D
+coremesh-setup service --dir=D [--name=…] [--remove]   # Autostart als Benutzerdienst (Linux)
+coremesh-setup run --dir=D                     # Host im Vordergrund (Aufruf des Dienstes)
 coremesh-setup seed --dir=D --file=einrichtung.yaml
 coremesh-setup pack --labs=.. --release=<stand> [--build] [--data] [--out=…]
 ```
@@ -129,6 +131,14 @@ steps:
 
 Werte mit `./` oder `../` sind Dateien relativ zur Einrichtungsdatei. Kurz belegte Datenbank
 („database is locked“) wiederholt den Schritt.
+
+**service** (Linux, „Autostart ein“ in der Oberfläche) richtet einen Benutzerdienst ein
+(`~/.config/systemd/user/coremesh-<verzeichnis>.service`, ohne Root): der Host startet mit der
+Anmeldung und endet sauber beim Abmelden oder Herunterfahren; stürzt er ab, startet systemd ihn
+nach 10 s neu. Der Dienst ruft `coremesh-setup run` der Installation auf und folgt so jedem Stand.
+Ist er eingerichtet (`service` in `setup.json`), starten und beenden start, stop, update,
+rollback und remove über `systemctl --user`. Auch ohne Anmeldung: einmal `loginctl enable-linger`.
+`--remove` (bzw. „Autostart aus“) entfernt ihn.
 
 **pack** stellt aus den nebeneinander liegenden Repositories (`dist/pack.yaml`) einen Stand für
 die eigene Plattform zusammen: je Baustein eine Datei (Programme, genau die konfigurierten
