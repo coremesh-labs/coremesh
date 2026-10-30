@@ -31,6 +31,7 @@ func defaultUnit(dir string) string {
 }
 
 // unitFile: Inhalt der Unit; Pfade in Anführungszeichen, % verdoppelt (systemd-Kennzeichner).
+// Ohne WorkingDirectory (nimmt keine Anführungszeichen) – run setzt das Verzeichnis selbst.
 func (in *installation) unitFile() string {
 	q := func(s string) string {
 		return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "%", "%%").Replace(s) + `"`
@@ -41,7 +42,6 @@ Description=CoreMesh (%s)
 
 [Service]
 Type=simple
-WorkingDirectory=%s
 ExecStart=%s run --dir=%s
 KillMode=mixed
 TimeoutStopSec=60
@@ -50,7 +50,7 @@ RestartSec=10
 
 [Install]
 WantedBy=default.target
-`, strings.ReplaceAll(in.dir, "%", "%%"), strings.ReplaceAll(in.dir, "%", "%%"), q(in.dir), q(in.path(exe("coremesh-setup"))), q(in.dir))
+`, strings.ReplaceAll(in.dir, "%", "%%"), strings.ReplaceAll(in.dir, "%", "%%"), q(in.path(exe("coremesh-setup"))), q(in.dir))
 }
 
 // installService richtet den Benutzerdienst ein und startet den Host darüber
