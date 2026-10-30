@@ -49,7 +49,7 @@ func TestService(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `ExecStart="` + strings.ReplaceAll(in.path("coremesh-setup"), "%", "%%") + `" run --dir="` + strings.ReplaceAll(dir, "%", "%%") + `"`
-	if !strings.Contains(string(b), want+"\n") || !strings.Contains(string(b), "WantedBy=default.target") {
+	if !strings.Contains(string(b), want+"\n") || !strings.Contains(string(b), "WantedBy=default.target") || strings.Contains(string(b), "WorkingDirectory") {
 		t.Fatalf("Unit:\n%s\nerwartet %s", b, want)
 	}
 	if in.state().Service != "coremesh-mein-100" {
