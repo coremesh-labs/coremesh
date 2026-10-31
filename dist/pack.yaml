@@ -39,3 +39,14 @@ packages:
       seed: coremesh-erp/testdata/vuv-faust.yaml
       user: admin
       password: faust-demo-2026
+  erp-privat:
+    title: Privat (Haushalt)
+    description: Haushaltsbuch, Objekte (Wohnung, Auto, Handy, Reise), Verträge, Bank, Dokumente, Vorlagen
+    # Alle Plugins wie erp-vuv (die Konfiguration ist gemeinsam); erkannt am Plugin asset,
+    # solange erp-vuv mit seinen drei Plugins nicht ebenso passt.
+    detect: [asset]
+    data:
+      title: Testbestand „Abraham“ (erfundener Haushalt, Namen aus dem 1. Buch Mose)
+      seed: coremesh-erp/testdata/privat-abraham.yaml
+      user: admin
+      password: abraham-demo-2026
