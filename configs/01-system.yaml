@@ -17,7 +17,7 @@ host:
 databases:
   main:
     driver: sqlite
-    dsn: "file:coremesh.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+    dsn: "file:coremesh.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
     max_open_conns: 10
   # PostgreSQL (Treiber "pgx"); für isolation: schema in 02-db-plugin.yaml:
   # main:

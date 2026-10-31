@@ -90,7 +90,7 @@ host:
   plugin_dir: %q
 databases:
   main:
-    dsn: "file:data/coremesh.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+    dsn: "file:data/coremesh.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
 plugins:
   dbschema:
     settings:
