@@ -50,6 +50,9 @@ type Field struct {
 	// ActionOnly: nur Eingabe in Formularen eigener Aktionen (Action.Fields),
 	// z. B. ein Stichtag; kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	ActionOnly bool
+	// FilterOnly: nur in der Filterleiste (Entity.Filters, verarbeitet von
+	// FilterExpr bzw. FilterCtx); kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
+	FilterOnly bool
 	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
 	Wide       bool // Eingabe über die ganze Breite der Maske (metamodel.FieldDefinition.Wide)
 	Options    []metamodel.Option
@@ -203,7 +206,7 @@ func (e *Entity) Field(key string) *Field {
 func (e *Entity) Columns() []string {
 	var out []string
 	for _, f := range e.Fields {
-		if !f.Virtual && !f.ActionOnly {
+		if !f.Virtual && !f.ActionOnly && !f.FilterOnly {
 			out = append(out, f.Key)
 		}
 	}

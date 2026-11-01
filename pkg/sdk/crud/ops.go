@@ -199,7 +199,7 @@ func (e *Entity) Input(payload any) (Record, error) {
 	for i := range e.Fields {
 		f := &e.Fields[i]
 		v, present := data[f.Key]
-		if !present || f.ReadOnly || f.ActionOnly {
+		if !present || f.ReadOnly || f.ActionOnly || f.FilterOnly {
 			continue
 		}
 		if f.Virtual {
@@ -218,7 +218,7 @@ func (e *Entity) Input(payload any) (Record, error) {
 // Check: Pflichtfelder, Booleans, Zeitscheibe, Überschneidung, Verweise, Validate-Hook.
 func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 	for _, f := range e.Fields {
-		if f.Virtual || f.ReadOnly || f.ActionOnly {
+		if f.Virtual || f.ReadOnly || f.ActionOnly || f.FilterOnly {
 			continue
 		}
 		if f.Type == metamodel.TypeBoolean && rec[f.Key] == nil {
@@ -237,7 +237,7 @@ func (e *Entity) Check(ctx context.Context, rec, old Record) error {
 		}
 	}
 	for _, f := range e.Fields {
-		if f.Virtual || f.ReadOnly || f.ActionOnly {
+		if f.Virtual || f.ReadOnly || f.ActionOnly || f.FilterOnly {
 			continue
 		}
 		if f.Required && rec[f.Key] == nil {

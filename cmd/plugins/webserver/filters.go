@@ -37,12 +37,13 @@ type filterField struct {
 // vor dem Entfernen ausgeblendeter Spalten – Filter bleiben auch dann.
 func (s *server) filterFields(r *http.Request, oc objectCtx, q url.Values) []filterField {
 	var out []filterField
+	fields := append(slices.Clone(oc.Def.Fields), oc.FilterDef...) // auch Felder nur für Filter (FilterOnly)
 	for _, k := range oc.Def.Filters {
-		i := slices.IndexFunc(oc.Def.Fields, func(f metamodel.FieldDefinition) bool { return f.Key == k })
+		i := slices.IndexFunc(fields, func(f metamodel.FieldDefinition) bool { return f.Key == k })
 		if i < 0 {
 			continue
 		}
-		ff := filterField{FieldDefinition: oc.Def.Fields[i], Choices: oc.Def.Fields[i].Options, Select: len(oc.Def.Fields[i].Options) > 0}
+		ff := filterField{FieldDefinition: fields[i], Choices: fields[i].Options, Select: len(fields[i].Options) > 0}
 		if ff.Lookup != nil && len(ff.Choices) == 0 && ff.Type != metamodel.TypeBoolean {
 			s.lookupChoices(r, oc, &ff, q)
 		}
