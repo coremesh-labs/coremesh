@@ -85,6 +85,14 @@ func (e *Entity) List(ctx context.Context, payload any) (sdk.Response, error) {
 func (e *Entity) listWhere(ctx context.Context, query map[string]any) (where []string, args []any, none bool, ac *accessCheck, err error) {
 	for _, f := range e.Filters {
 		if v, ok := query[f]; ok && Str(v) != "" {
+			if fx := e.FilterCtx[f]; fx != nil {
+				w, a, err := fx(ctx, v)
+				if err != nil {
+					return nil, nil, false, nil, err
+				}
+				where, args = append(where, w), append(args, a...)
+				continue
+			}
 			if fx := e.FilterExpr[f]; fx != nil {
 				w, a := fx(v)
 				where, args = append(where, w), append(args, a...)
