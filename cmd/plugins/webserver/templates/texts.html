@@ -11,7 +11,7 @@
     <tbody>{{range .Items}}<tr>
       <td>{{.CategoryName}}</td><td>{{.Position}}</td><td>{{$.LanguageName .Language}}</td>
       <td>{{if or .ValidFrom .ValidTo}}{{or .ValidFrom "…"}} – {{or .ValidTo "…"}}{{else}}{{t "core.texts.unlimited"}}{{end}}</td>
-      <td class="text-content">{{.Content}}</td><td>{{.ChangedAt}}{{with .ChangedBy}} · {{.}}{{end}}</td>
+      <td class="text-content md">{{markdown .Content}}</td><td>{{.ChangedAt}}{{with .ChangedBy}} · {{.}}{{end}}</td>
       {{if $.CanEdit}}<td class="actions">
         <button type="button" class="btn" hx-get="{{$.URL}}?edit={{.ID}}" hx-target="closest .text-list" hx-swap="outerHTML">{{t "core.texts.edit"}}</button>
         <button type="button" class="btn" hx-post="{{$.URL}}/{{.ID}}/remove" hx-target="closest .text-list" hx-swap="outerHTML"
@@ -27,7 +27,7 @@
     <label>{{t "core.texts.language"}}<select name="language" required>{{range .Languages}}<option value="{{.Code}}" {{if eq .Code $.Form.Language}}selected{{end}}>{{.Name}} ({{.Code}})</option>{{end}}</select></label>
     <label>{{t "core.texts.valid_from"}}<input type="date" name="valid_from" value="{{.Form.ValidFrom}}"></label>
     <label>{{t "core.texts.valid_to"}}<input type="date" name="valid_to" value="{{.Form.ValidTo}}"></label>
-    <label class="wide">{{t "core.texts.content"}}<textarea name="content" rows="4" required>{{.Form.Content}}</textarea></label>
+    <label class="wide">{{t "core.texts.content"}}<textarea name="content" rows="6" required>{{.Form.Content}}</textarea><small class="muted field-help">{{t "core.texts.markdown_hint"}}</small></label>
     <div class="buttons">
       <button type="submit" class="btn primary">{{if .Form.ID}}{{t "core.texts.save"}}{{else}}{{t "core.texts.add"}}{{end}}</button>
       {{if .Form.ID}}<button type="button" class="btn" hx-get="{{.URL}}" hx-target="closest .text-list" hx-swap="outerHTML">{{t "core.texts.cancel"}}</button>{{end}}
