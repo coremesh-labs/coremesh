@@ -114,6 +114,10 @@ type FieldDefinition struct {
 	// z. B. „Buchen bis“ an einem Vertrag. Erscheint nicht in Liste, Detail,
 	// Neu oder Bearbeiten und ist kein Datenfeld des Objects.
 	ActionOnly bool `json:"action_only,omitempty"`
+	// FilterOnly: nur in der Filterleiste der Übersicht (ObjectDefinition.Filters),
+	// z. B. eine gespeicherte Sicht. Erscheint nicht in Liste, Detail, Neu oder
+	// Bearbeiten und ist kein Datenfeld des Objects.
+	FilterOnly bool `json:"filter_only,omitempty"`
 	// Binary: Dateifeld (TypeFile) mit beliebigem Inhalt (PDF, Bild) – die Aktion
 	// erhält ihn Base64-kodiert im Feld, Dateiname in <Feld>_name, MIME-Typ in <Feld>_type.
 	Binary bool `json:"binary,omitempty"`

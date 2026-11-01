@@ -223,7 +223,7 @@ func (m *Module) fieldsOf(ctx context.Context, d metamodel.ObjectDefinition, l r
 		return out
 	}
 	for _, f := range d.Fields {
-		if !f.Editable || f.ActionOnly || f.Binary || f.Type == metamodel.TypeFile || f.Type == metamodel.TypePassword ||
+		if !f.Editable || f.ActionOnly || f.FilterOnly || f.Binary || f.Type == metamodel.TypeFile || f.Type == metamodel.TypePassword ||
 			skip[f.Key] || excl[f.Key] || standardSkip[f.Key] {
 			continue
 		}

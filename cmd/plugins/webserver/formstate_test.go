@@ -148,6 +148,25 @@ func TestListFilters(t *testing.T) {
 	}
 }
 
+// TestFilterOnly: Felder nur für die Filterleiste erscheinen dort, aber nicht
+// in Liste und Formular (z. B. eine gespeicherte Sicht).
+func TestFilterOnly(t *testing.T) {
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.Fields = append(d.Fields, metamodel.FieldDefinition{Key: "sicht", Label: "Sicht", Type: metamodel.TypeText,
+			Editable: true, FilterOnly: true, Options: []metamodel.Option{{Value: "MEINE", Label: "Meine"}}})
+		d.Filters = []string{"sicht"}
+	})
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/CustomerContact?sicht=MEINE", nil, true).Body.String()
+	mustContain(t, b, `class="list-filters"`, `<option value="MEINE" selected>`)
+	if q := h.find("list").Payload.(map[string]any)["query"].(map[string]any); q["sicht"] != "MEINE" {
+		t.Fatalf("Query: %v", q)
+	}
+	if b := do(s, "GET", "/m/crm/CustomerContact/new", nil, true).Body.String(); strings.Contains(b, `name="sicht"`) {
+		t.Fatal("Filterfeld im Formular")
+	}
+}
+
 func TestHiddenRecordActions(t *testing.T) {
 	oc := objectCtx{Custom: []metamodel.ActionConfig{{Name: "lock", Record: true}, {Name: "unlock", Record: true}, {Name: "load"}}}
 	got := recordActions(oc, record{"_hidden_actions": []any{"unlock"}})
