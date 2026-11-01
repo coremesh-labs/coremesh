@@ -134,6 +134,7 @@
   "core.texts.category": "Category",
   "core.texts.changed": "Changed",
   "core.texts.content": "Text",
+  "core.texts.markdown_hint": "Structure with Markdown: # heading, ## section, - bullets, 1. list, a) list, **bold**, *italic*, table | col | col | with |---|--:| below the header",
   "core.texts.edit": "Edit",
   "core.texts.empty": "No texts yet",
   "core.texts.language": "Language",

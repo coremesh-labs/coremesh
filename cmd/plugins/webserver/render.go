@@ -255,6 +255,7 @@ func (r *renderer) page(loc string, w io.Writer, fragment string, data any, page
 }
 
 var funcs = template.FuncMap{
+	"markdown":    markdownHTML, // Texte: Markdown als HTML (markdown.go)
 	"listable":    listable,
 	"shortLabel":  shortLabel,
 	"columnLabel": columnLabel,

@@ -134,6 +134,7 @@
   "core.texts.category": "类别",
   "core.texts.changed": "修改时间",
   "core.texts.content": "文本",
+  "core.texts.markdown_hint": "可用 Markdown 排版：# 标题、## 小节、- 项目符号、1. 编号列表、a) 列表、**粗体**、*斜体*、表格 | 列 | 列 |，表头下加 |---|--:|",
   "core.texts.edit": "编辑",
   "core.texts.empty": "暂无文本",
   "core.texts.language": "语言",

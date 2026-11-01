@@ -134,6 +134,7 @@
   "core.texts.category": "Kategorie",
   "core.texts.changed": "Geändert",
   "core.texts.content": "Text",
+  "core.texts.markdown_hint": "Gliederung mit Markdown: # Überschrift, ## Abschnitt, - Aufzählung, 1. Liste, a) Liste, **fett**, *kursiv*, Tabelle | Spalte | Spalte | mit |---|--:| unter dem Kopf",
   "core.texts.edit": "Bearbeiten",
   "core.texts.empty": "Noch keine Texte",
   "core.texts.language": "Sprache",
