@@ -119,6 +119,9 @@ type Entity struct {
 	// FilterExpr: eigene Bedingung für einen Filter statt "feld = ?" (z. B. Kontonummer
 	// mit oder ohne Kontenplan).
 	FilterExpr map[string]func(v any) (string, []any)
+	// FilterCtx: wie FilterExpr, mit Aufrufkontext (Benutzer, Stichtag) und Fehler –
+	// z. B. eine Sicht „Meine Vorgänge“ aus einem Katalog.
+	FilterCtx map[string]func(ctx context.Context, v any) (string, []any, error)
 
 	TitleField string
 	Sections   []metamodel.SectionDefinition
