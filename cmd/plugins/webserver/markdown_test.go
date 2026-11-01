@@ -29,3 +29,13 @@ func TestMarkdownHTML(t *testing.T) {
 		t.Fatal("HTML nicht maskiert")
 	}
 }
+
+// TestMarkdownAlign: ohne Angabe wie in PDFs – erste Spalte links, die übrigen rechts.
+func TestMarkdownAlign(t *testing.T) {
+	got := string(markdownHTML("| A | B | C |\n|---|:--|:-:|\n| a | b | c |\n\nText\n\n| x | y |"))
+	for _, want := range []string{`<th>A</th><th>B</th><th style="text-align:center">C</th>`, `<td>x</td><td style="text-align:right">y</td>`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("fehlt %q in\n%s", want, got)
+		}
+	}
+}

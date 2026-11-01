@@ -186,7 +186,7 @@ func mdTableHTML(rows []string) string {
 					align[i] = "center"
 				case strings.HasSuffix(c, ":"):
 					align[i] = "right"
-				default:
+				case strings.HasPrefix(c, ":"):
 					align[i] = "left"
 				}
 			}
@@ -197,11 +197,19 @@ func mdTableHTML(rows []string) string {
 		}
 		body = append(body, cs)
 	}
+	// ohne Angabe wie in PDFs (mdtex): erste Spalte links, die übrigen rechts
 	style := func(i int) string {
-		if i < len(align) && align[i] != "left" {
-			return ` style="text-align:` + align[i] + `"`
+		a := ""
+		if i < len(align) {
+			a = align[i]
 		}
-		return ""
+		if a == "" && i > 0 {
+			a = "right"
+		}
+		if a == "" || a == "left" {
+			return ""
+		}
+		return ` style="text-align:` + a + `"`
 	}
 	var b strings.Builder
 	b.WriteString(`<table class="md-table">`)
