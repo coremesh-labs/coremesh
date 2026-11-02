@@ -85,6 +85,39 @@
       var m = document.getElementById("main-content"), p = m && m.querySelector(":scope > * > .page-header, :scope > .page-header");
       if (m) m.style.setProperty("--page-head-h", p ? p.offsetHeight + "px" : "0px");
     }
+    // Fokus und Eingabe über Teil-Neuladen hinweg (seit 0.52.0): Ersetzt HTMX einen Bereich
+    // (Formular nach einer Folgeprüfung, Liste nach dem Filtern), kommt der Fokus wieder in
+    // das Feld gleichen Namens im selben Bereich (#modal, #lookup, #main-content), samt Cursor.
+    // Was während der Anfrage getippt wurde, bleibt; Vorbelegungen des Servers sonst auch.
+    (function () {
+      var scopes = "#modal, #lookup, #main-content", typed = null, started = 0, saved = null;
+      function field(el) {
+        if (!el || !el.name || !el.matches || !el.matches("input, select, textarea") || el.type === "hidden") return null;
+        var s = el.closest(scopes);
+        return { name: el.name, scope: s ? s.id : "" };
+      }
+      document.addEventListener("input", function (e) {
+        var f = field(e.target);
+        if (f) typed = { name: f.name, scope: f.scope, at: Date.now() };
+      }, true);
+      document.addEventListener("htmx:beforeRequest", function () { started = Date.now(); });
+      document.addEventListener("htmx:beforeSwap", function () {
+        var a = document.activeElement, f = field(a);
+        saved = f && { f: f, value: a.value, start: a.selectionStart, end: a.selectionEnd,
+          typed: !!typed && typed.name === f.name && typed.scope === f.scope && typed.at >= started };
+      });
+      document.addEventListener("htmx:afterSettle", function () {
+        var s = saved, a = document.activeElement;
+        saved = null;
+        if (!s || (a && a !== document.body && a.isConnected && field(a))) return; // Fokus ist noch da
+        var root = s.f.scope ? document.getElementById(s.f.scope) : document;
+        var el = root && root.querySelector('[name="' + CSS.escape(s.f.name) + '"]:not([type=hidden]):not([disabled])');
+        if (!el) return;
+        if (s.typed && el.value !== s.value && /^(text|search|email|number|tel|url|date|password)$|^textarea$/.test(el.type)) el.value = s.value;
+        el.focus({ preventScroll: true });
+        try { if (s.start != null) el.setSelectionRange(s.start, s.end); } catch (x) {}
+      });
+    })();
     window.addEventListener("load", coremeshStickyHeads);
     window.addEventListener("resize", coremeshStickyHeads);
     document.addEventListener("htmx:afterSettle", coremeshStickyHeads);

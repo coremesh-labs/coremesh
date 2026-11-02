@@ -4,6 +4,8 @@
   Blöcke: list, list-toolbar, table, row, row-actions.
 
   Die Liste lädt sich nach einer custom-Action neu (Ereignis coremesh-changed).
+  Suche und Filter (seit 0.52.0) tauschen nur die Ergebnisse (#list-results) und den
+  Link „Zurücksetzen“ (#list-reset) – Eingabefeld, Fokus und Cursor bleiben.
 */}}
 {{define "list"}}
 <section id="list" class="object-list"
@@ -24,8 +26,9 @@
     {{end}}
   </header>
   {{block "list-filters" .}}{{if or .Def.Search .FilterFields}}
-  <form class="list-filters" method="get" action="{{.URL}}" hx-get="{{.URL}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true"
-        hx-trigger="change, submit, keyup changed delay:400ms from:find input[type=search]">
+  <form class="list-filters" method="get" action="{{.URL}}" hx-get="{{.URL}}" hx-target="#list-results" hx-select="#list-results"
+        hx-select-oob="#list-reset" hx-swap="outerHTML" hx-push-url="true" hx-sync="this:replace"
+        hx-trigger="change, submit, input changed delay:400ms from:find input[type=search]">
     {{if .Def.Search}}<input type="search" name="q" value="{{index .Filter "q"}}" placeholder="{{t "core.list.search"}}" aria-label="{{t "core.list.search"}}">{{end}}
     {{range .FilterFields}}{{$v := index $.Filter .Key}}
     <label title="{{.Label}}"><span>{{columnLabel .FieldDefinition}}</span>
@@ -49,11 +52,11 @@
       {{end}}
     </label>{{end}}
     {{if .History}}<input type="hidden" name="includeHistory" value="true">{{end}}
-    {{if .Filter}}<a class="link" href="{{.URL}}" hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true">{{t "core.list.reset"}}</a>{{end}}
+    <span id="list-reset">{{if .Filter}}<a class="link" href="{{.URL}}" hx-get="{{.URL}}{{if .History}}?includeHistory=true{{end}}" hx-target="#list" hx-swap="outerHTML" hx-push-url="true">{{t "core.list.reset"}}</a>{{end}}</span>
   </form>
   {{end}}{{end}}
   </div>
-  {{template "table" .}}
+  <div id="list-results">{{template "table" .}}</div>
 </section>
 {{end}}
 
