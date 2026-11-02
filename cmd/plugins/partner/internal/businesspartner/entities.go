@@ -70,6 +70,8 @@ func (m *Module) commCategoryCatalog() *entity {
 		Fields: []field{
 			{Key: "code", Label: "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
+			// seit 0.16.1: Inhalt des QR-Codes „Anrufen (QR)“ – {number} = +49…, {display} = +49 341 …
+			{Key: "qr_template", Label: "QR-Code „Anrufen“ (z. B. tel:{number} oder nur {number}; leer = kein QR-Code)", Short: "QR", Type: tText, Listable: true},
 		},
 	}
 }

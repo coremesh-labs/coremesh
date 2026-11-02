@@ -75,6 +75,8 @@
   "businesspartner.PartnerBankDetail.title": "Bankverbindungen",
   "businesspartner.PartnerCommCategory.fields.code": "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)",
   "businesspartner.PartnerCommCategory.fields.description": "Beschreibung",
+  "businesspartner.PartnerCommCategory.fields.qr_template": "QR-Code „Anrufen“ (z. B. tel:{number} oder nur {number}; leer = kein QR-Code)",
+  "businesspartner.PartnerCommCategory.fields.qr_template.short": "QR",
   "businesspartner.PartnerCommCategory.title": "Kommunikationskategorien",
   "businesspartner.PartnerCommType.fields.category_code": "Kategorie",
   "businesspartner.PartnerCommType.fields.code": "Code",

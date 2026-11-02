@@ -327,8 +327,12 @@ nicht gestartet, meldet die Aktion das.
 
 Zwei Aktionen am Geschäftspartner zeigen QR-Codes, die die Kamera des Handys ohne Zusatz-App liest:
 
-- **„Anrufen (QR) …“** – je Telefonnummer (Kategorie PHONE) ein QR-Code `tel:+49…`, beschriftet mit
-  Kommunikationstyp und Nummer; scannen, auf die Nummer tippen, die Telefon-App wählt.
+- **„Anrufen (QR) …“** – je Telefonnummer ein QR-Code, beschriftet mit Kommunikationstyp und
+  Nummer; scannen, auf die Nummer tippen, die Telefon-App wählt. Den Inhalt bestimmt die Vorlage
+  der Kommunikationskategorie (`qr_template`, seit 0.16.1; Telefon: `tel:{number}`). Zeigt der
+  Scanner eines Handys `tel:` nur als Text (z. B. manche Xiaomi/MIUI-Geräte), passt `{number}`
+  (nur +49…) oder `TEL:{number}`; `{display}` ist die Nummer mit Leerzeichen. Kategorien ohne
+  Vorlage (Fax, E-Mail) erscheinen nicht.
 - **„Kontakt aufs Handy (QR) …“** – eine vCard 3.0 (Name bzw. Firma, Hauptanschrift, Telefon, Fax,
   E-Mail, Webseite) als QR-Code; das Handy bietet „Kontakt hinzufügen“ an. Dazu die Datei `.vcf`
   zum Speichern (Übernahme am Rechner, Weitergabe per E-Mail).

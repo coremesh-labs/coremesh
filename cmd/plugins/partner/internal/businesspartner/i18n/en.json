@@ -75,6 +75,8 @@
   "businesspartner.PartnerBankDetail.title": "Bank details",
   "businesspartner.PartnerCommCategory.fields.code": "Code (machine-readable: EMAIL, PHONE, FAX, WEB …)",
   "businesspartner.PartnerCommCategory.fields.description": "Description",
+  "businesspartner.PartnerCommCategory.fields.qr_template": "QR code “Call” (e.g. tel:{number} or just {number}; empty = no QR code)",
+  "businesspartner.PartnerCommCategory.fields.qr_template.short": "QR",
   "businesspartner.PartnerCommCategory.title": "Communication categories",
   "businesspartner.PartnerCommType.fields.category_code": "Category",
   "businesspartner.PartnerCommType.fields.code": "Code",
