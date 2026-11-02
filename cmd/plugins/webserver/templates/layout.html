@@ -62,6 +62,24 @@
   {{block "footer" .}}{{end}}
   {{block "scripts" .}}
   <script>
+    // Knopf „Kopieren“ (data-copy, seit 0.53.0): Text in die Zwischenablage; ohne
+    // sicheren Kontext (http im Netz) über ein verstecktes Textfeld.
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-copy]");
+      if (!b) return;
+      var text = b.getAttribute("data-copy"), done = function () {
+        b.classList.add("copied"); b.textContent = "✓";
+        setTimeout(function () { b.classList.remove("copied"); b.textContent = "⧉"; }, 1500);
+      };
+      var fallback = function () {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); done(); } catch (err) {}
+        document.body.removeChild(ta);
+      };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+    });
     // Aktiven Navigationspunkt im Modul nach HTMX-Navigation nachziehen.
     // Exakter Pfad oder Unterpfad – "/m/x/Role" passt nicht auf "/m/x/RoleType".
     document.addEventListener("htmx:pushedIntoHistory", function (e) {

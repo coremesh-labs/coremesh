@@ -65,3 +65,18 @@ func TestTheme(t *testing.T) {
 		}
 	}
 }
+
+// TestCopyFieldsOf (0.53.0): Werte mit Knopf „Kopieren“; ohne Wert entfallen, copy leer = Wert.
+func TestCopyFieldsOf(t *testing.T) {
+	got := copyFieldsOf(map[string]any{"copy": []any{
+		map[string]any{"label": "IBAN", "value": "DE89 3704 0044 0532 0130 00", "copy": "DE89370400440532013000"},
+		map[string]any{"label": "leer", "value": " "},
+		map[string]any{"label": "Verwendungszweck", "value": "RE 4711"},
+	}})
+	if len(got) != 2 || got[0].Copy != "DE89370400440532013000" || got[1].Copy != "RE 4711" {
+		t.Fatalf("Felder: %+v", got)
+	}
+	if copyFieldsOf(nil) != nil {
+		t.Fatal("ohne Felder")
+	}
+}

@@ -916,11 +916,13 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		v.Message, _ = m["message"].(string)
 	}
 	v.ResultTable, v.Downloads, v.QRCodes = tableOf(resp.Payload), downloadsOf(resp.Payload), qrCodesOf(resp.Payload)
+	v.CopyFields = copyFieldsOf(resp.Payload)
 	if rep := oc.reportAction(); rep != nil && rep.Name == act.Name && id == "" {
 		// Bericht: Maske mit den Eingaben, darunter das Ergebnis.
 		rv := s.actionView(r, oc, act, "", raw, nil)
 		rv.Modal, rv.Report = false, true
 		rv.Result, rv.Message, rv.ResultTable, rv.Downloads, rv.QRCodes = v.Result, v.Message, v.ResultTable, v.Downloads, v.QRCodes
+		rv.CopyFields = v.CopyFields
 		s.render(w, r, http.StatusOK, "report", rv, oc.Def.Title, oc.Object)
 		return
 	}
