@@ -103,3 +103,30 @@ func TestContactQR(t *testing.T) {
 		t.Fatalf("Person: %v", r)
 	}
 }
+
+// TestRoleFilter (0.16.2): Rolle und Finanzrolle als Auswahl der Filterleiste.
+func TestRoleFilter(t *testing.T) {
+	e := setup(t)
+	gretchen := e.newBP("Gretchen")
+	e.newBP("Valentin")
+	e.must("PartnerRoleType", "create", data("code", "NEIGHBOR", "description", "Nachbarin", "valid_from", "2000-01-01"))
+	e.must("PartnerRole", "create", data("bp_id", gretchen, "role_code", "NEIGHBOR", "valid_from", "2000-01-01"))
+	if r := e.items("BusinessPartner", map[string]any{"role": "NEIGHBOR"}); len(r) != 1 || r[0]["id"] != gretchen {
+		t.Fatalf("Rolle: %v", r)
+	}
+	resp, _ := e.p.Handle(e.ctx, sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
+	for _, d := range resp.Payload.(metamodel.DescribeResponse).Objects {
+		if d.Name != "BusinessPartner" {
+			continue
+		}
+		n := 0
+		for _, f := range d.Fields {
+			if (f.Key == "role" && f.Lookup != nil || f.Key == "role_kind" && len(f.Options) == 2) && f.FilterOnly {
+				n++
+			}
+		}
+		if n != 2 {
+			t.Fatalf("Filterfelder: %d", n)
+		}
+	}
+}

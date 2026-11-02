@@ -197,6 +197,10 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "letter_salutation", Label: "Briefanrede", Type: tText, ReadOnly: true, Virtual: true},
 			// Rollen, die der Partner heute hat (kommagetrennt) – z. B. für Bedingungen von Tag Sets
 			field{Key: "roles", Label: "Rollen (heute)", Type: tText, ReadOnly: true, Virtual: true},
+			// seit 0.16.2: Auswahl der Filterleiste zu den Filtern role und role_kind
+			field{Key: "role", Label: "Rolle (heute)", Short: "Rolle", Type: tText, Virtual: true, FilterOnly: true, Ref: refRoleType},
+			field{Key: "role_kind", Label: "Finanzrolle (heute)", Short: "Finanzrolle", Type: tSelect, Virtual: true, FilterOnly: true,
+				Options: []metamodel.Option{{Value: "CREDITOR", Label: "Kreditor"}, {Value: "DEBITOR", Label: "Debitor"}}},
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		), partnerAccountFields...),

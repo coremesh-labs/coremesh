@@ -346,3 +346,9 @@ Kommunikationstypen (`vcard_type`); die Migration belegt ihn bei vorhandenen Typ
 
 In der Kommunikation sind Telefonnummern, E-Mail-Adressen und Webseiten Links (`tel:`, `mailto:`,
 `https:`) – wer CoreMesh auf dem Handy öffnet, ruft mit einem Tipp an.
+
+## Filter nach Rolle (seit 0.16.2)
+
+Die Liste der Geschäftspartner filtert nach **Rolle** (Auswahl aus den Rollentypen, z. B. Mieter,
+Kreditor, Behörde, Schlüsselverwahrer) und nach **Finanzrolle** (Kreditor bzw. Debitor: alle
+Rollen, deren Rollentyp so gekennzeichnet ist). Beide gelten für heute gültige Rollen.
