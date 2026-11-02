@@ -70,6 +70,17 @@ func TestContactQR(t *testing.T) {
 		}
 	}
 
+	// Vorlage der Kategorie: nur die Nummer (Scanner, die tel: nur als Text zeigen)
+	e.must("PartnerCommCategory", "update", map[string]any{"id": "PHONE", "data": map[string]any{"qr_template": "{number}"}})
+	call = e.must("BusinessPartner", "qrCall", map[string]any{"id": id})
+	if qr := call["qr"].([]any); len(qr) != 2 || qr[0].(map[string]any)["text"] != "+491721234567" && qr[1].(map[string]any)["text"] != "+491721234567" {
+		t.Fatalf("Vorlage {number}: %v", call)
+	}
+	e.must("PartnerCommCategory", "update", map[string]any{"id": "PHONE", "data": map[string]any{"qr_template": ""}})
+	if r := e.must("BusinessPartner", "qrCall", map[string]any{"id": id}); r["qr"] != nil {
+		t.Fatalf("ohne Vorlage: %v", r)
+	}
+
 	card := e.must("BusinessPartner", "qrContact", map[string]any{"id": id})
 	text := card["qr"].([]any)[0].(map[string]any)["text"].(string)
 	for _, want := range []string{"BEGIN:VCARD\r\nVERSION:3.0\r\n", `FN:Auerbachs Keller\; Mephisto & Co.` + "\r\n", `ORG:Auerbachs Keller\; Mephisto & Co.` + "\r\n",

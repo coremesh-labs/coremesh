@@ -300,6 +300,10 @@ func (m *Module) Migrate(ctx context.Context) error {
 			return err
 		}
 	}
+	// 0.16.1: QR-Code „Anrufen“ der Kategorie Telefon (vorher fest tel:{number}).
+	if _, err := m.db.Exec(ctx, "UPDATE partner__comm_categories SET qr_template = ? WHERE code = ? AND qr_template IS NULL", "tel:{number}", catPhone); err != nil {
+		return err
+	}
 	res, err := m.db.Query(ctx, "SELECT DISTINCT id FROM partner__bp WHERE group_code IS NULL ORDER BY id")
 	if err != nil || len(res.Rows) == 0 {
 		return err

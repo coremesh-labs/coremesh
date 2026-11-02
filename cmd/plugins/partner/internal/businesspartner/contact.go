@@ -14,8 +14,10 @@ import (
 // Kontakt aufs Handy (seit 0.16.0): Telefonnummern und Kontaktdaten eines
 // Geschäftspartners als QR-Code (der WebServer zeichnet {"qr": [{text, caption}]}).
 //
-//   - „Anrufen (QR)“: je Telefonnummer ein QR-Code tel:+49…; die Kamera des
-//     Handys öffnet damit die Telefon-App.
+//   - „Anrufen (QR)“: je Telefonnummer ein QR-Code nach der Vorlage der
+//     Kommunikationskategorie (Standard tel:{number}); die Kamera des Handys
+//     öffnet damit die Telefon-App. Manche Scanner (z. B. MIUI) zeigen tel: nur
+//     als Text – dann hilft die Vorlage {number} (nur die Nummer).
 //   - „Kontakt aufs Handy (QR)“: eine vCard 3.0 mit Name, Anschrift, Nummern,
 //     E-Mail und Webseite als QR-Code und als .vcf zum Speichern.
 //
@@ -105,15 +107,16 @@ func international(value string, d dialing, ok bool) (dial, display string) {
 
 // partnerContact: eine Kommunikation des Partners mit Kategorie und vCard-Typ.
 type partnerContact struct {
-	category, typeName, vcardType, value string
+	category, typeName, vcardType, value, qrTemplate string
 	isDefault                              bool
 }
 
 // contactsOf: heute gültige Kommunikation, Standard zuerst.
 func (m *Module) contactsOf(ctx context.Context, bp string) ([]partnerContact, error) {
 	d := today()
-	res, err := m.db.Query(ctx, `SELECT t.category_code, t.description, t.vcard_type, c.value, c.is_default
+	res, err := m.db.Query(ctx, `SELECT t.category_code, t.description, t.vcard_type, c.value, c.is_default, k.qr_template
 		FROM partner__contacts c JOIN partner__comm_types t ON t.code = c.comm_type_code AND t.valid_from <= ? AND t.valid_to >= ?
+		LEFT JOIN partner__comm_categories k ON k.code = t.category_code
 		WHERE c.bp_id = ? AND c.valid_from <= ? AND c.valid_to >= ?
 		ORDER BY t.category_code, c.is_default DESC, t.is_main DESC, t.code, c.value`, d, d, bp, d, d)
 	if err != nil {
@@ -121,7 +124,7 @@ func (m *Module) contactsOf(ctx context.Context, bp string) ([]partnerContact, e
 	}
 	var out []partnerContact
 	for _, r := range res.Rows {
-		out = append(out, partnerContact{category: str(r[0]), typeName: str(r[1]), vcardType: str(r[2]), value: str(r[3]), isDefault: asBool(r[4])})
+		out = append(out, partnerContact{category: str(r[0]), typeName: str(r[1]), vcardType: str(r[2]), value: str(r[3]), isDefault: asBool(r[4]), qrTemplate: strings.TrimSpace(str(r[5]))})
 	}
 	return out, nil
 }
@@ -221,11 +224,12 @@ func (m *Module) qrCall(ctx context.Context, req sdk.Request) (sdk.Response, err
 	d, ok := m.dialFor(ctx, m.countryOf(ctx, id))
 	var qr []any
 	for _, c := range contacts {
-		if c.category != catPhone || c.value == "" {
-			continue
+		if c.qrTemplate == "" || c.value == "" {
+			continue // Kategorie ohne QR-Vorlage (z. B. Fax, E-Mail)
 		}
 		dial, display := international(c.value, d, ok)
-		qr = append(qr, map[string]any{"text": "tel:" + dial, "caption": c.typeName + ": " + display})
+		text := strings.NewReplacer("{number}", dial, "{display}", display).Replace(c.qrTemplate)
+		qr = append(qr, map[string]any{"text": text, "caption": c.typeName + ": " + display})
 	}
 	name := displayName(kind, name1, name2)
 	if len(qr) == 0 {

@@ -34,6 +34,10 @@ table "partner__comm_categories" {
   schema = schema.main
   column "code"        { type = text }
   column "description" { type = text }
+  column "qr_template" {
+    type = text
+    null = true
+  }
   primary_key { columns = [column.code] }
 }
 
@@ -326,7 +330,7 @@ var seeds = []sdk.SchemaSeed{
 		row("code", defaultGroup, "description", "Standard", "range_key", defaultGroup, "is_default", true),
 	}},
 	{Table: "partner__comm_categories", Rows: []map[string]any{
-		row("code", "PHONE", "description", "Telefon"),
+		row("code", "PHONE", "description", "Telefon", "qr_template", "tel:{number}"),
 		row("code", "EMAIL", "description", "E-Mail"),
 		row("code", "WEB", "description", "Webseite/URL"),
 		row("code", "FAX", "description", "Telefax"),

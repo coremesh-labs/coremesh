@@ -75,6 +75,8 @@
   "businesspartner.PartnerBankDetail.title": "银行账户",
   "businesspartner.PartnerCommCategory.fields.code": "代码（机器可读：EMAIL、PHONE、FAX、WEB …）",
   "businesspartner.PartnerCommCategory.fields.description": "描述",
+  "businesspartner.PartnerCommCategory.fields.qr_template": "“拨打电话”二维码（例如 tel:{number} 或仅 {number}；空 = 无二维码）",
+  "businesspartner.PartnerCommCategory.fields.qr_template.short": "二维码",
   "businesspartner.PartnerCommCategory.title": "联系方式类别",
   "businesspartner.PartnerCommType.fields.category_code": "类别",
   "businesspartner.PartnerCommType.fields.code": "代码",
