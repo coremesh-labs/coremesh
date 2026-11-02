@@ -11,6 +11,26 @@
   :root { --bg: #111418; --surface: #1a1e24; --text: #e6e8eb; --muted: #9aa3ad;
           --border: #2b3139; --accent: #4f8cff; }
 }
+/* Farbschemata je Installation (settings.theme, seit 0.51.0): Akzentfarbe und
+   ein farbiger Streifen über der Seitenleiste bzw. der Anmeldung – so sieht man
+   auf einen Blick, auf welchem Server man arbeitet. Ohne theme: Blau ohne Streifen. */
+:root[data-theme] { --instance: var(--accent); }
+:root[data-theme="blue"]   { --accent: #2563eb; }
+:root[data-theme="green"]  { --accent: #15803d; }
+:root[data-theme="red"]    { --accent: #b91c1c; }
+:root[data-theme="violet"] { --accent: #7c3aed; }
+:root[data-theme="orange"] { --accent: #c2410c; }
+:root[data-theme="teal"]   { --accent: #0f766e; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="blue"]   { --accent: #4f8cff; }
+  :root[data-theme="green"]  { --accent: #22a356; }
+  :root[data-theme="red"]    { --accent: #e5484d; }
+  :root[data-theme="violet"] { --accent: #9b6dff; }
+  :root[data-theme="orange"] { --accent: #f07a35; }
+  :root[data-theme="teal"]   { --accent: #14a39a; }
+}
+:root[data-theme] .sidebar, :root[data-theme] .login-box { border-top: 6px solid var(--instance); }
+:root[data-theme] .brand { color: var(--instance); }
 * { box-sizing: border-box; }
 body { margin: 0; display: grid; grid-template-columns: 220px 1fr; min-height: 100vh;
        background: var(--bg); color: var(--text); }
@@ -87,6 +107,10 @@ dialog.modal article { background: var(--surface); border-radius: var(--radius);
 .field .error, .form-error { color: var(--danger); }
 form footer, dialog footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
 pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius); overflow: auto; }
+.result-qr { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: .75rem; }
+.result-qr figure { margin: 0; text-align: center; max-width: 16rem; }
+.result-qr .qr svg { width: 14rem; height: 14rem; display: block; margin: 0 auto; }
+.result-qr figcaption { margin-top: .4rem; font-size: .9rem; word-break: break-word; }
 .result-table { max-height: 60vh; overflow: auto; margin-top: .75rem; }
 .result-table td { white-space: nowrap; }
 .doc-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; align-items: end; margin-top: .75rem; }

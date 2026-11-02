@@ -42,6 +42,10 @@ table "partner__comm_types" {
   column "code"          { type = text }
   column "category_code" { type = text }
   column "description"   { type = text }
+  column "vcard_type" {
+    type = text
+    null = true
+  }
   column "is_main" {
     type    = boolean
     default = false
@@ -53,6 +57,22 @@ table "partner__comm_types" {
     columns     = [column.category_code]
     ref_columns = [table.partner__comm_categories.column.code]
   }
+}
+
+table "partner__dial_codes" {
+  schema = schema.main
+  column "country"      { type = text }
+  column "description"  { type = text }
+  column "dial_code"    { type = text }
+  column "trunk_prefix" {
+    type = text
+    null = true
+  }
+  column "is_main" {
+    type    = boolean
+    default = false
+  }
+  primary_key { columns = [column.country] }
 }
 
 table "partner__role_types" {
@@ -312,9 +332,27 @@ var seeds = []sdk.SchemaSeed{
 		row("code", "FAX", "description", "Telefax"),
 	}},
 	{Table: "partner__comm_types", Rows: []map[string]any{
-		row("code", "EMAIL_WORK", "category_code", "EMAIL", "description", "E-Mail geschäftlich", "is_main", true, "valid_from", dateMin, "valid_to", dateMax),
-		row("code", "PHONE_WORK", "category_code", "PHONE", "description", "Telefon geschäftlich", "is_main", true, "valid_from", dateMin, "valid_to", dateMax),
-		row("code", "MOBILE", "category_code", "PHONE", "description", "Mobiltelefon", "is_main", false, "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "EMAIL_WORK", "category_code", "EMAIL", "description", "E-Mail geschäftlich", "is_main", true, "vcard_type", "WORK", "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "PHONE_WORK", "category_code", "PHONE", "description", "Telefon geschäftlich", "is_main", true, "vcard_type", "WORK,VOICE", "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "MOBILE", "category_code", "PHONE", "description", "Mobiltelefon", "is_main", false, "vcard_type", "CELL", "valid_from", dateMin, "valid_to", dateMax),
+	}},
+	// seit 0.16.0: Ländervorwahlen (Nummern international, z. B. für tel:-Links und vCards)
+	{Table: "partner__dial_codes", Rows: []map[string]any{
+		row("country", "DE", "description", "Deutschland", "dial_code", "49", "trunk_prefix", "0", "is_main", true),
+		row("country", "AT", "description", "Österreich", "dial_code", "43", "trunk_prefix", "0", "is_main", false),
+		row("country", "CH", "description", "Schweiz", "dial_code", "41", "trunk_prefix", "0", "is_main", false),
+		row("country", "NL", "description", "Niederlande", "dial_code", "31", "trunk_prefix", "0", "is_main", false),
+		row("country", "BE", "description", "Belgien", "dial_code", "32", "trunk_prefix", "0", "is_main", false),
+		row("country", "LU", "description", "Luxemburg", "dial_code", "352", "trunk_prefix", "", "is_main", false),
+		row("country", "FR", "description", "Frankreich", "dial_code", "33", "trunk_prefix", "0", "is_main", false),
+		row("country", "IT", "description", "Italien", "dial_code", "39", "trunk_prefix", "", "is_main", false),
+		row("country", "ES", "description", "Spanien", "dial_code", "34", "trunk_prefix", "", "is_main", false),
+		row("country", "DK", "description", "Dänemark", "dial_code", "45", "trunk_prefix", "", "is_main", false),
+		row("country", "PL", "description", "Polen", "dial_code", "48", "trunk_prefix", "", "is_main", false),
+		row("country", "CZ", "description", "Tschechien", "dial_code", "420", "trunk_prefix", "", "is_main", false),
+		row("country", "GB", "description", "Vereinigtes Königreich", "dial_code", "44", "trunk_prefix", "0", "is_main", false),
+		row("country", "US", "description", "Vereinigte Staaten", "dial_code", "1", "trunk_prefix", "1", "is_main", false),
+		row("country", "CN", "description", "China", "dial_code", "86", "trunk_prefix", "0", "is_main", false),
 	}},
 	{Table: "partner__address_roles", Rows: []map[string]any{
 		row("code", "MAIN", "description", "Hauptanschrift", "is_main", true, "valid_from", dateMin, "valid_to", dateMax),

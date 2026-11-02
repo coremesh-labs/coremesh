@@ -83,11 +83,11 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 	return template.FuncMap{
 		"t":      t,
 		"locale": func() string { return loc },
-		"value": func(rec record, f metamodel.FieldDefinition) string {
+		"value": func(rec record, f metamodel.FieldDefinition) template.HTML {
 			if hiddenIn(rec, f.Key) {
 				return "—" // keine Berechtigung für die Feldgruppe
 			}
-			return displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))
+			return linked(rec, f.Key, displayValueIn(rec, f, t("core.app.yes"), t("core.app.no")))
 		},
 		// Listen (seit 0.36.0): bei Verweisen der Schlüssel (kurz, lernt man), der Text als Tooltip
 		"cell": func(rec record, f metamodel.FieldDefinition) template.HTML {
@@ -102,7 +102,7 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			if f.Type == metamodel.TypeSelect && labelsOf(rec)[f.Key] == "" {
 				return selectCell(rec, f)
 			}
-			return template.HTML(template.HTMLEscapeString(displayValueIn(rec, f, t("core.app.yes"), t("core.app.no"))))
+			return linked(rec, f.Key, displayValueIn(rec, f, t("core.app.yes"), t("core.app.no")))
 		},
 		// cellClass (seit 0.40.8): Zellen eingebetteter Tabellen – Beträge rechtsbündig,
 		// Datum ohne Umbruch, lange Texte mit Mindestbreite statt Buchstabenturm.
@@ -232,6 +232,7 @@ type pageData struct {
 	Path     string        // aktueller Pfad (Rücksprung des Sprachwählers)
 	// VisibleActions: Aktionen nebeneinander, die weiteren im Menü „Weitere“ (0 = kein Menü)
 	VisibleActions int
+	Theme          string // Farbschema der Installation (settings.theme)
 }
 
 // navItem ist ein Object in der Navigation des aktiven Moduls.
@@ -403,3 +404,31 @@ func scalar(v any) string {
 
 // domID macht aus einer id einen gültigen Teil einer DOM-ID.
 func domID(id string) string { return hex.EncodeToString([]byte(id)) }
+
+// linked (seit 0.51.0): Wert als Link, wenn das Modul in "_links" {<feld>: <href>}
+// einen liefert (z. B. tel:, mailto:) – nur Schemata aus linkSchemes, sonst Text.
+func linked(rec record, key, text string) template.HTML {
+	esc := template.HTMLEscapeString(text)
+	m, _ := rec["_links"].(map[string]any)
+	href, _ := m[key].(string)
+	if text == "" || !safeLink(href) {
+		return template.HTML(esc)
+	}
+	attr := ""
+	if strings.HasPrefix(href, "http") {
+		attr = ` target="_blank" rel="noopener noreferrer"`
+	}
+	return template.HTML(`<a href="` + template.HTMLEscapeString(href) + `"` + attr + `>` + esc + `</a>`)
+}
+
+// linkSchemes: erlaubte Links aus Modulen (kein javascript:, data: …).
+var linkSchemes = []string{"tel:", "mailto:", "https://", "http://"}
+
+func safeLink(href string) bool {
+	for _, s := range linkSchemes {
+		if strings.HasPrefix(href, s) && len(href) > len(s) && !strings.ContainsAny(href, "\"<>\x00\n\r") {
+			return true
+		}
+	}
+	return false
+}

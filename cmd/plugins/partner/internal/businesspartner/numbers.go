@@ -292,6 +292,14 @@ var partnerTables = []string{"partner__roles", "partner__bp_addresses", "partner
 // Migrate vergibt Partnern ohne Gruppe (bis 0.9.0, GUID) eine BP-Nummer der
 // Standardgruppe und stellt die eigenen Verweise um (module.Migrator).
 func (m *Module) Migrate(ctx context.Context) error {
+	// 0.16.0: vCard-Typ der Kommunikationstypen (Kontakt aufs Handy), wo leer –
+	// Mobiltelefon CELL, sonst nach Kategorie; danach im Katalog änderbar.
+	for _, u := range [][2]string{{"code = 'MOBILE'", "CELL"}, {"category_code = 'PHONE'", "WORK,VOICE"},
+		{"category_code = 'FAX'", "WORK,FAX"}, {"category_code = 'EMAIL'", "WORK"}} {
+		if _, err := m.db.Exec(ctx, "UPDATE partner__comm_types SET vcard_type = ? WHERE vcard_type IS NULL AND "+u[0], u[1]); err != nil {
+			return err
+		}
+	}
 	res, err := m.db.Query(ctx, "SELECT DISTINCT id FROM partner__bp WHERE group_code IS NULL ORDER BY id")
 	if err != nil || len(res.Rows) == 0 {
 		return err

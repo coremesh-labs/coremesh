@@ -15,6 +15,7 @@ import (
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
 	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/qrcode"
 )
 
 // Payload-Konventionen zwischen WebServer und Fachmodulen (siehe README.md):
@@ -305,6 +306,9 @@ type view struct {
 	// Downloads: Dateien im Ergebnis ({"download": Content} und/oder
 	// {"downloads": [Content, …]}), je ein Link zum Speichern.
 	Downloads []*download
+	// QRCodes (seit 0.51.0): QR-Codes im Ergebnis ({"qr": [{"text", "caption"}]}),
+	// als SVG erzeugt – z. B. eine Telefonnummer oder eine vCard fürs Handy.
+	QRCodes []*qrImage
 	// Report: Seite eines Berichts (Object ohne Übersicht) – Maske und Ergebnis auf einer Seite.
 	Report  bool
 	Message string
@@ -625,4 +629,40 @@ func extraKeys(st *metamodel.FormState) []string {
 		keys[i] = f.Key
 	}
 	return keys
+}
+
+// qrImage: QR-Code im Ergebnis einer Aktion.
+type qrImage struct {
+	SVG     template.HTML
+	Caption string
+	Text    string
+}
+
+// qrCodesOf liest {"qr": [{"text", "caption", "level" (L, M, Q, H; leer = M)}]}.
+func qrCodesOf(payload any) []*qrImage {
+	m, ok := payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	l, _ := m["qr"].([]any)
+	var out []*qrImage
+	for _, x := range l {
+		var q struct {
+			Text, Caption, Level string
+		}
+		if sdk.Decode(x, &q) != nil || q.Text == "" {
+			continue
+		}
+		level := map[string]qrcode.Level{"L": qrcode.L, "Q": qrcode.Q, "H": qrcode.H}[strings.ToUpper(q.Level)]
+		if q.Level == "" || strings.EqualFold(q.Level, "M") {
+			level = qrcode.M
+		}
+		c, err := qrcode.Encode(q.Text, level)
+		if err != nil {
+			continue
+		}
+		// SVG aus qrcode: nur Zahlen und feste Attribute – sicher einzubetten.
+		out = append(out, &qrImage{SVG: template.HTML(c.SVG(4)), Caption: q.Caption, Text: q.Text})
+	}
+	return out
 }
