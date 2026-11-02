@@ -164,11 +164,20 @@ func selectCell(rec record, f metamodel.FieldDefinition) template.HTML {
 		if x == "" {
 			continue
 		}
-		label, short := x, ""
+		label, short, tone := x, "", ""
 		for _, o := range f.Options {
 			if o.Value == x {
-				label, short = o.Label, o.Short
+				label, short, tone = o.Label, o.Short, o.Tone
 			}
+		}
+		if tone != "" && toneRe.MatchString(tone) {
+			// farbiges Kennzeichen (Option.Tone), langer Text im Tooltip
+			text := label
+			if utf8.RuneCountInString(label) > cellMaxRunes {
+				text = firstNonEmptyStr(short, shortLabel(label))
+			}
+			parts = append(parts, `<span class="badge tone-`+tone+`" title="`+template.HTMLEscapeString(label)+`">`+template.HTMLEscapeString(text)+`</span>`)
+			continue
 		}
 		if utf8.RuneCountInString(label) <= cellMaxRunes {
 			parts = append(parts, template.HTMLEscapeString(label))
@@ -185,6 +194,35 @@ func selectCell(rec record, f metamodel.FieldDefinition) template.HTML {
 		parts = append(parts, template.HTMLEscapeString(abbr)+`&#8288;<span class="info" title="`+template.HTMLEscapeString(label)+`">ⓘ</span>`)
 	}
 	return template.HTML(strings.Join(parts, ", "))
+}
+
+// toneRe: zulässige Farbe (Klasse tone-…).
+var toneRe = regexp.MustCompile(`^[a-z][a-z-]{0,20}$`)
+
+func firstNonEmptyStr(v ...string) string {
+	for _, s := range v {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// rowTone (seit 0.54.0): Farbe einer Zeile – die erste Auswahlspalte, deren Wert eine
+// Farbe hat (Option.Tone); "" = ohne.
+func rowTone(rec record, d metamodel.ObjectDefinition) string {
+	for _, f := range d.Fields {
+		if f.Type != metamodel.TypeSelect || f.Multiple || hiddenIn(rec, f.Key) {
+			continue
+		}
+		v := scalar(rec[f.Key])
+		for _, o := range f.Options {
+			if o.Value == v && o.Tone != "" && toneRe.MatchString(o.Tone) {
+				return o.Tone
+			}
+		}
+	}
+	return ""
 }
 
 // columnLabel: Spaltenkopf eines Felds – Short, sonst shortLabel(Label).
@@ -272,6 +310,12 @@ var funcs = template.FuncMap{
 	"peekFor":       peekFor,
 	"locked":        locked,
 	"recordActions": recordActions,
+	"rowTone":       rowTone,
+	// recordActionAt (seit 0.54.0): Aktion einer Zeile – ref "row=<dom-id>" bzw.
+	// "section=<element-id>": danach lädt nur diese Zeile bzw. dieser Abschnitt neu.
+	"recordActionAt": func(url, id string, a metamodel.ActionConfig, class, ref string) recordActionCtx {
+		return recordActionCtx{URL: url, ID: id, Action: a, Class: class, Ref: ref}
+	},
 	"recordAction": func(url, id string, a metamodel.ActionConfig, class string) recordActionCtx {
 		return recordActionCtx{URL: url, ID: id, Action: a, Class: class}
 	},

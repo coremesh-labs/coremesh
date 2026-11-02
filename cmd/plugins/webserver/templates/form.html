@@ -28,6 +28,8 @@
   {{with .Locked}}<input type="hidden" name="_lock" value="{{.}}">{{end}}
   {{with .Access}}<input type="hidden" name="_access" value="{{.}}">{{end}}
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  {{with .RowRef}}<input type="hidden" name="_row" value="{{.}}">{{end}}
+  {{with .SectionRef}}<input type="hidden" name="_section" value="{{.}}">{{end}}
   {{if eq .Mode "action"}}<input type="hidden" name="_action" value="{{.Action.Name}}">{{end}}
   {{if .FormStateURL}}<input type="hidden" name="_mode" value="{{.Mode}}">{{if eq .Mode "edit"}}<input type="hidden" name="_rid" value="{{.ID}}">{{end}}{{end}}
   {{template "form-body" .}}

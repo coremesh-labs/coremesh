@@ -303,7 +303,7 @@ func TestDetailSections(t *testing.T) {
 		`<details class="section" id="section-base" open>`,      // Stammdaten
 		`<details class="section" id="section-archive" >`,       // zugeklappt
 		`hx-get="/m/crm/Customer/c1/rel/contacts"`,              // eingebettete Tabelle
-		`hx-trigger="load, coremesh-changed from:body"`,         // lädt neu nach dem Speichern
+		`hx-trigger="load, coremesh-changed from:body, coremesh-section-changed[detail.id=='rel-`, // lädt neu nach dem Speichern
 		`<dt>Notiz</dt><dd class="multiline">geheim</dd>`,
 	)
 }
@@ -319,7 +319,7 @@ func TestRelationSection(t *testing.T) {
 		`<td title="E-Mail">MAIL&#8288;<span class="peek" hx-get="/peek/ContactKind/MAIL?vf=`,                                                                                          // Schlüssel, Text als Tooltip, Kopfdaten-Vorschau
 		`hx-get="/m/crm/Address/a1/edit?view=refresh"`, // verknüpfte Adresse bearbeiten
 		`hx-get="/m/crm/CustomerContact/new?customer_id=c1&amp;_lock=customer_id&amp;_view=refresh"`,
-		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`,
+		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id&section=rel-`,
 		`hx-get="/m/crm/CustomerContact/k1/end?view=refresh"`,                    // Typ A: Beenden …
 		`hx-get="/m/crm/Customer/c1/rel/contacts" hx-target="closest .relation"`, // „historische Einträge“ mit Modulpfad
 	)
@@ -681,7 +681,7 @@ func TestRelationRowActions(t *testing.T) {
 	s, _ := newMDServer(t)
 	b := do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
 	mustContain(t, b, `>Aktion 1</button>`, `>Aktion 4</button>`,
-		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id"`)
+		`hx-get="/m/crm/CustomerContact/k1/edit?view=refresh&_lock=customer_id&section=rel-`)
 	mustNotContain(t, b, `<details`)
 
 	b = do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String()

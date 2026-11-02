@@ -368,3 +368,26 @@ table.data.sub td.long { min-width: 14rem; }
 /* seit 0.40.9: breite Felder (FieldDefinition.Wide) über die ganze Zeile der Maske */
 .form-grid > .field.wide { grid-column: 1 / -1; }
 .form-grid > .field.wide input { max-width: min(100%, 60rem); }
+
+/* Farben einer Auswahl (Option.Tone, seit 0.54.0): Kennzeichen in der Zelle, Zeile hinterlegt,
+   wo etwas zu tun ist (attention, danger). */
+:root { --tone-success: #15803d; --tone-success-bg: #dcfce7; --tone-info: #1d4ed8; --tone-info-bg: #dbeafe;
+        --tone-attention: #92400e; --tone-attention-bg: #fef3c7; --tone-danger: #b91c1c; --tone-danger-bg: #fee2e2;
+        --tone-muted: #6b7280; --tone-muted-bg: #f3f4f6; --row-attention: #fffbeb; --row-danger: #fef2f2; }
+@media (prefers-color-scheme: dark) {
+  :root { --tone-success: #86efac; --tone-success-bg: #14532d; --tone-info: #93c5fd; --tone-info-bg: #1e3a8a;
+          --tone-attention: #fcd34d; --tone-attention-bg: #713f12; --tone-danger: #fca5a5; --tone-danger-bg: #7f1d1d;
+          --tone-muted: #9aa3ad; --tone-muted-bg: #2b3139; --row-attention: #2a2312; --row-danger: #2a1515; }
+}
+.badge.tone-success   { color: var(--tone-success);   background: var(--tone-success-bg); }
+.badge.tone-info      { color: var(--tone-info);      background: var(--tone-info-bg); }
+.badge.tone-attention { color: var(--tone-attention); background: var(--tone-attention-bg); font-weight: 600; }
+.badge.tone-danger    { color: var(--tone-danger);    background: var(--tone-danger-bg); font-weight: 600; }
+.badge.tone-muted     { color: var(--tone-muted);     background: var(--tone-muted-bg); }
+table.data tr.tone-row-attention > td { background: var(--row-attention); }
+table.data tr.tone-row-attention > td:first-child { box-shadow: inset 3px 0 0 var(--tone-attention); }
+table.data tr.tone-row-danger > td { background: var(--row-danger); }
+table.data tr.tone-row-danger > td:first-child { box-shadow: inset 3px 0 0 var(--tone-danger); }
+table.data tr.tone-row-muted > td { color: var(--muted); }
+table.data tr.row-flash > td { animation: row-flash 1.8s ease-out; }
+@keyframes row-flash { from { background: var(--tone-info-bg); } }

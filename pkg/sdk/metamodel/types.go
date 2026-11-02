@@ -256,7 +256,20 @@ type Option struct {
 	// Short: Abkürzung in Listen, wenn der Text lang ist (z. B. „Verb.“ für
 	// „Verbindlichkeit (wir zahlen)“); der Text steht dann im Tooltip.
 	Short string `json:"short,omitempty"`
+	// Tone (seit WebServer 0.54.0): Farbe des Werts in Listen – der Status wird als
+	// farbiges Kennzeichen gezeigt, die Zeile bei attention/danger hinterlegt, damit man
+	// sieht, wo etwas zu tun ist. Werte: ToneSuccess, ToneInfo, ToneAttention, ToneDanger, ToneMuted.
+	Tone string `json:"tone,omitempty"`
 }
+
+// Farben einer Auswahl (Option.Tone).
+const (
+	ToneSuccess   = "success"   // erledigt (z. B. gebucht)
+	ToneInfo      = "info"      // bereit, läuft maschinell weiter (z. B. zugeordnet)
+	ToneAttention = "attention" // hier ist jemand gefragt (z. B. Vorschlag bestätigen)
+	ToneDanger    = "danger"    // Fehler oder offen ohne Lösung
+	ToneMuted     = "muted"     // ohne Bedeutung für die Arbeit (z. B. ignoriert)
+)
 
 // ActionConfig beschreibt eine Aktion, die die Oberfläche anbietet.
 // Name ist die Action im Dispatcher: {Name: "list"} → Object.list.

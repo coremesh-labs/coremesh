@@ -646,6 +646,16 @@ abhängen:
 - **QR-Codes im Ergebnis (seit 0.51.0):** `{"qr": [{"text", "caption", "level"}]}` zeigt je Eintrag
   einen QR-Code mit Beschriftung (z. B. `tel:+49…` oder eine vCard fürs Handy). Der WebServer
   erzeugt das SVG selbst (`pkg/sdk/qrcode`, ohne fremde Bibliothek); `level` L, M (Standard), Q, H.
+- **Nur die Zeile neu (seit 0.54.0):** Die Aktionen eines Datensatzes stehen auch in der
+  Listenzeile (die weiteren unter „Weitere“). Nach einer Aktion aus einer Zeile lädt nur diese
+  Zeile neu (`HX-Trigger: {"coremesh-row-changed": {"id": "<dom-id>"}}`, Zeile über
+  `GET …/{id}?view=row`), aus einem Abschnitt der Detailansicht nur dieser Abschnitt und die
+  Kopfdaten (`coremesh-section-changed`, `coremesh-head-changed`); Aktionen ohne Datensatz laden
+  die Liste wie bisher (`coremesh-changed`). „Zurück“ aus dem Datensatz bzw. Browser-Zurück
+  kehrt an die Zeile zurück, von der aus er geöffnet wurde (kurz markiert).
+- **Farbiger Status (seit 0.54.0):** `Option.Tone` (success, info, attention, danger, muted)
+  zeigt den Wert als farbiges Kennzeichen; die Zeile ist bei attention/danger hinterlegt –
+  man sieht, wo etwas zu tun ist. Es zählt die erste Auswahlspalte mit Farbe.
 - **Kopierfelder im Ergebnis (seit 0.53.0):** `{"copy": [{"label", "value", "copy"}]}` zeigt die
   Werte untereinander, jeder mit Kopier-Zeichen (⧉) für die Zwischenablage; `copy` ist der kopierte
   Text, wenn er von der Anzeige abweicht (z. B. IBAN ohne Leerzeichen).

@@ -148,8 +148,32 @@
     document.addEventListener("htmx:pushedIntoHistory", coremeshRememberList);
     document.addEventListener("htmx:replacedInHistory", coremeshRememberList);
     document.addEventListener("htmx:historyRestore", coremeshRememberList);
+    // Seit 0.54.0: „Zurück“ aus dem Datensatz (bzw. Browser zurück) kehrt an die Zeile zurück,
+    // von der aus er geöffnet wurde – die Liste ist frisch geladen, die Zeile kurz markiert.
+    document.addEventListener("click", function (e) {
+      var tr = e.target.closest && e.target.closest(".object-list tr.open-row");
+      if (!tr || !tr.id) return;
+      try { sessionStorage.setItem("coremesh.pos:" + location.pathname, JSON.stringify({ row: tr.id, at: Date.now() })); } catch (x) {}
+    }, true);
+    var coremeshBack = false;
+    function coremeshRestorePos() {
+      if (!coremeshBack || !document.querySelector(".object-list")) return;
+      coremeshBack = false;
+      var k = "coremesh.pos:" + location.pathname, p = null;
+      try { p = JSON.parse(sessionStorage.getItem(k) || "null"); sessionStorage.removeItem(k); } catch (x) { return; }
+      if (!p || Date.now() - p.at > 3600000) return;
+      var tr = document.getElementById(p.row);
+      if (!tr) return;
+      tr.scrollIntoView({ block: "center" });
+      tr.classList.add("row-flash");
+      setTimeout(function () { tr.classList.remove("row-flash"); }, 1800);
+    }
+    window.addEventListener("popstate", function () { coremeshBack = true; });
+    document.addEventListener("htmx:historyRestore", coremeshRestorePos);
+    document.addEventListener("htmx:afterSettle", coremeshRestorePos);
     document.addEventListener("htmx:configRequest", function (e) {
       var b = e.detail.elt;
+      if (b && b.dataset && b.dataset.listBack) coremeshBack = true;
       if (!b || !b.dataset || !b.dataset.listBack) return;
       try {
         var u = sessionStorage.getItem("coremesh.list:" + b.dataset.listBack);

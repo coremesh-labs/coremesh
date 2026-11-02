@@ -277,6 +277,8 @@ type view struct {
 	ViewParam     string // row | detail – wohin die Antwort von update gehört
 	CancelURL     string
 	ActionID      string // id für custom-Actions
+	RowRef        string // seit 0.54.0: Aktion aus einer Listenzeile (dom-id) – danach nur die Zeile neu
+	SectionRef    string // seit 0.54.0: aus einem Abschnitt (element-id) – danach nur der Abschnitt neu
 	FormFields    []fieldCtx
 	FormError     string
 	Filter        map[string]string      // Liste: aktive Filter (q und ObjectDefinition.Filters)
@@ -447,7 +449,12 @@ func actionDef(d metamodel.ObjectDefinition, keys []string) metamodel.ObjectDefi
 type recordActionCtx struct {
 	URL, ID, Class string
 	Action         metamodel.ActionConfig
+	Ref            string // seit 0.54.0: row=<dom-id> | section=<element-id> (nur das neu laden)
 }
+
+// RefKey, RefValue: Teile von Ref ("row", "abc").
+func (c recordActionCtx) RefKey() string   { k, _, _ := strings.Cut(c.Ref, "="); return k }
+func (c recordActionCtx) RefValue() string { _, v, _ := strings.Cut(c.Ref, "="); return v }
 
 // formStateURL: Neuauswertung der Maske ("" = Formular ohne dynamische Maske).
 func formStateURL(oc objectCtx) string {

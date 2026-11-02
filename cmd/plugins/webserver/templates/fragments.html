@@ -90,8 +90,8 @@
      Ohne Fields mit Confirm oder ohne FormState: Knopf, der (nach der Sicherheitsabfrage)
      direkt ausführt (z. B. „Buchen“, „Rechnen“); sonst Link auf das Formular der Action im Dialog. */}}
 {{define "record-action"}}{{if and (not .Action.Fields) (or .Action.Confirm (not .Action.FormState))}}
-<button type="button" class="{{.Class}}" hx-post="{{.URL}}/{{.Action.Name}}" hx-vals='{"_id": "{{.ID}}"}'
+<button type="button" class="{{.Class}}" hx-post="{{.URL}}/{{.Action.Name}}" hx-vals='{{if .Ref}}{"_id": "{{.ID}}", "_{{.RefKey}}": "{{.RefValue}}"}{{else}}{"_id": "{{.ID}}"}{{end}}'
         {{with .Action.Confirm}}hx-confirm="{{.}}" {{end}}hx-target="#modal">{{.Action.Label}}</button>
 {{- else}}
-<a class="{{.Class}}" href="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-get="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-target="#modal">{{.Action.Label}}</a>
+<a class="{{.Class}}" href="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-get="{{.URL}}/{{.Action.Name}}?id={{.ID}}{{with .Ref}}&{{.}}{{end}}" hx-target="#modal">{{.Action.Label}}</a>
 {{- end}}{{end}}

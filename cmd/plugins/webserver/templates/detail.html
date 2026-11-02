@@ -11,7 +11,8 @@
 {{define "detail"}}
 <section id="detail" class="detail" hx-get="{{.URL}}/{{pathEscape .ID}}" hx-trigger="coremesh-record-changed from:body"
   hx-select="#detail" hx-target="this" hx-swap="outerHTML" hx-disinherit="*">
-  <header class="page-header">
+  <header class="page-header" id="detail-head" hx-get="{{.URL}}/{{pathEscape .ID}}" hx-trigger="coremesh-head-changed from:body"
+    hx-select="#detail-head" hx-target="this" hx-swap="outerHTML">
     <h1>{{with .Def.Icon}}<i class="{{.}}"></i>{{end}}{{.Def.Title}}{{with .RecordTitle}}<span class="subtitle">{{.}}</span>{{end}}</h1>
     {{block "detail-toolbar" .}}
     <div class="toolbar">
@@ -33,7 +34,8 @@
     <details class="section" id="section-{{.Section.Key}}" {{if not .Section.Collapsed}}open{{end}}>
       <summary>{{.Section.Title}}</summary>
       {{if .Section.Relation}}
-      <div class="relation" hx-get="{{.Section.URL}}" hx-trigger="load, coremesh-changed from:body" hx-swap="innerHTML">
+      <div class="relation" id="rel-{{.Section.Key}}" hx-get="{{.Section.URL}}" hx-swap="innerHTML"
+           hx-trigger="load, coremesh-changed from:body, coremesh-section-changed[detail.id=='rel-{{.Section.Key}}'] from:body">
         <p class="muted">{{t "core.app.loading"}}</p>
       </div>
       {{else if .Section.Tags}}
