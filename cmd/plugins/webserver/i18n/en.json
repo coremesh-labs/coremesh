@@ -165,5 +165,14 @@
   "core.validation.option": "Invalid selection",
   "core.validation.required": "Required",
   "core.viewer.download": "Download",
-  "core.viewer.open": "Open in new window"
+  "core.viewer.open": "Open in new window",
+  "core.bulk.select_all": "Tick all rows",
+  "core.bulk.select": "Tick row",
+  "core.bulk.selected": "ticked:",
+  "core.bulk.confirm": "Run “%s” for the ticked entries?",
+  "core.bulk.done": "“%s”: %d of %d done",
+  "core.bulk.none": "No row ticked",
+  "core.bulk.entry": "Entry",
+  "core.bulk.error": "Message",
+  "core.bulk.clear": "Clear selection"
 }

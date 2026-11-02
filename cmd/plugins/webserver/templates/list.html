@@ -60,10 +60,19 @@
 </section>
 {{end}}
 
-{{define "table"}}
+{{define "table"}}{{$bulk := .BulkActions}}
+{{/* Sammelaktionen (seit 0.55.0): Zeilen ankreuzen, dann eine Aktion für alle. */}}
+{{if $bulk}}<div class="bulk-bar" data-bulk-bar hidden>
+  <span>{{t "core.bulk.selected"}} <strong data-bulk-count>0</strong></span>
+  {{range $bulk}}<button type="button" class="btn primary" hx-post="{{$.ActionURL}}/{{.Name}}/_bulk"
+    hx-include="#rows input[name=_ids]:checked" hx-target="#modal" hx-disabled-elt="this"
+    hx-confirm="{{t "core.bulk.confirm" .Label}}">{{.Label}}</button>{{end}}
+  <button type="button" class="link" data-bulk-clear>{{t "core.bulk.clear"}}</button>
+</div>{{end}}
 <table class="data">
   <thead>
     <tr>
+      {{if $bulk}}<th class="bulk"><input type="checkbox" data-bulk-all title="{{t "core.bulk.select_all"}}" aria-label="{{t "core.bulk.select_all"}}"></th>{{end}}
       {{range listable .Def}}<th title="{{.Label}}"><span class="th-label">{{columnLabel .}}</span></th>{{end}}
       <th class="actions"><span class="sr-only">{{t "core.app.actions"}}</span></th>
     </tr>
@@ -82,6 +91,7 @@
 {{define "row"}}{{$tone := rowTone $.Record $.Def}}
 <tr id="row-{{domID .ID}}"{{if or .Has.item $tone}} class="{{if .Has.item}}open-row{{end}}{{with $tone}} tone-row-{{.}}{{end}}"{{end}}{{with .Has.item}} hx-get="{{$.URL}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
     hx-trigger="click[!event.target.closest('a,button,input,select,label,summary,.more-menu,.peek,.info')]"{{end}}>
+  {{if .BulkActions}}<td class="bulk">{{if rowBulk $.Ctx $.Record}}<label class="bulk-hit"><input type="checkbox" name="_ids" value="{{$.ID}}" title="{{t "core.bulk.select"}}" aria-label="{{t "core.bulk.select"}}"></label>{{end}}</td>{{end}}
   {{range listable .Def}}<td title="{{cellTitle $.Record .}}">{{cell $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</td>{{end}}
   <td class="actions" hx-get="{{$.URL}}/{{pathEscape $.ID}}?view=row" hx-trigger="coremesh-row-changed[detail.id=='{{domID .ID}}'] from:body"
       hx-target="closest tr" hx-swap="outerHTML" hx-disinherit="*">{{block "row-actions" .}}

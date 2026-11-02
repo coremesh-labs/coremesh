@@ -310,6 +310,18 @@ var funcs = template.FuncMap{
 	"peekFor":       peekFor,
 	"locked":        locked,
 	"recordActions": recordActions,
+	// rowBulk (seit 0.55.0): Zeile bietet eine Sammelaktion (nicht ausgeblendet).
+	"rowBulk": func(oc objectCtx, rec record) bool {
+		if locked(rec) {
+			return false
+		}
+		for _, a := range recordActions(oc, rec) {
+			if a.Bulk && len(a.Fields) == 0 {
+				return true
+			}
+		}
+		return false
+	},
 	"rowTone":       rowTone,
 	// recordActionAt (seit 0.54.0): Aktion einer Zeile – ref "row=<dom-id>" bzw.
 	// "section=<element-id>": danach lädt nur diese Zeile bzw. dieser Abschnitt neu.

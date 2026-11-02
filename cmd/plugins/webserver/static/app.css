@@ -391,3 +391,13 @@ table.data tr.tone-row-danger > td:first-child { box-shadow: inset 3px 0 0 var(-
 table.data tr.tone-row-muted > td { color: var(--muted); }
 table.data tr.row-flash > td { animation: row-flash 1.8s ease-out; }
 @keyframes row-flash { from { background: var(--tone-info-bg); } }
+
+/* Sammelaktionen (seit 0.55.0): Kästchen je Zeile, Leiste mit Anzahl und Aktionen */
+table.data th.bulk, table.data td.bulk { width: 2.2rem; padding: 0; text-align: center; }
+table.data td.bulk .bulk-hit { display: flex; align-items: center; justify-content: center; padding: .55rem .5rem; cursor: pointer; }
+table.data th.bulk input, table.data td.bulk input { width: 1.05rem; height: 1.05rem; cursor: pointer; }
+table.data tr.bulk-picked > td { background: var(--row-info, rgba(37, 99, 235, .08)); }
+.bulk-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+  margin: 0 0 .5rem; padding: .5rem .75rem; border-radius: 8px; background: var(--surface, #fff);
+  border: 1px solid var(--border, #d0d7de); box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
+.bulk-bar[hidden] { display: none; }
