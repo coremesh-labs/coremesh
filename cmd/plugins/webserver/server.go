@@ -363,7 +363,7 @@ func (s *server) refreshed(w http.ResponseWriter, r *http.Request, msg string) {
 }
 
 func (s *server) refreshedToast(w http.ResponseWriter, r *http.Request, t *toast) {
-	w.Header().Set("HX-Trigger", "coremesh-changed")
+	w.Header().Set("HX-Trigger", changedTrigger(r, false))
 	s.render(w, r, http.StatusOK, "toast", t, "", "")
 }
 
@@ -446,10 +446,56 @@ func (s *server) item(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if r.URL.Query().Get("view") == "row" {
+		// seit 0.54.0: nur die Listenzeile (nach einer Aktion an ihr)
+		s.fillLookupLabels(r, listableFields(oc.Def), rec)
+		oc = oc.forRow(rec, "row")
+		s.render(w, r, http.StatusOK, "row", view{objectCtx: oc, Record: rec}, "", "")
+		return
+	}
 	s.fillLookupLabels(r, oc.Def.Fields, rec)
 	oc.applyDisplay(rec)
 	oc.Def = withoutFields(oc.Def, accessOf(rec).hidden)
 	s.render(w, r, http.StatusOK, "detail", view{objectCtx: oc, Record: rec}, oc.Def.Title, oc.Object)
+}
+
+// refOf (seit 0.54.0): Herkunft einer Aktion bzw. eines Formulars – Listenzeile (dom-id)
+// oder Abschnitt (element-id); aus der Adresse des Formulars bzw. dem abgeschickten Formular.
+func refOf(r *http.Request) (row, section string) {
+	row, section = r.FormValue("_row"), r.FormValue("_section")
+	if row == "" {
+		row = r.URL.Query().Get("row")
+	}
+	if section == "" {
+		section = r.URL.Query().Get("section")
+	}
+	if !domRefRe.MatchString(row) {
+		row = ""
+	}
+	if !domRefRe.MatchString(section) {
+		section = ""
+	}
+	return row, section
+}
+
+var domRefRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,200}$`)
+
+// changedTrigger (seit 0.54.0): HX-Trigger nach einer Änderung – aus einer Listenzeile
+// lädt nur die Zeile neu, aus einem Abschnitt nur der Abschnitt und die Kopfdaten; sonst
+// wie bisher alles (coremesh-changed, bei einem Datensatz auch die Detailansicht).
+func changedTrigger(r *http.Request, record bool) string {
+	row, section := refOf(r)
+	switch {
+	case row != "":
+		b, _ := json.Marshal(map[string]any{"coremesh-row-changed": map[string]string{"id": row}})
+		return string(b)
+	case section != "":
+		b, _ := json.Marshal(map[string]any{"coremesh-section-changed": map[string]string{"id": section}, "coremesh-head-changed": map[string]string{}})
+		return string(b)
+	case record:
+		return "coremesh-changed, coremesh-record-changed"
+	}
+	return "coremesh-changed"
 }
 
 func (s *server) loadItem(r *http.Request) (objectCtx, record, error) {
@@ -511,8 +557,9 @@ func (s *server) editView(r *http.Request, oc objectCtx, rec record, values, err
 		acc = decodeAccess(r.FormValue("_access")) // Neuauswertung, erneutes Anzeigen
 	}
 	m := s.mask(r, oc, "edit", id, values, locked, acc)
+	_, section := refOf(r)
 	return view{
-		Access:    acc.encode(),
+		Access: acc.encode(), SectionRef: section,
 		objectCtx: oc, Record: rec, Mode: "edit", Modal: isHTMX(r), ViewParam: viewParam, Target: target, Locked: lockList,
 		FormTitle:  s.T(r, "core.form.title", oc.Def.Title, oc.Has["update"].Label),
 		FormAction: oc.URL + "/" + pathEscape(id), CancelURL: oc.URL + "/" + pathEscape(id),
@@ -650,6 +697,7 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 	def, trigger, readonly := oc.ActionDef, "", map[string]bool{}
 	v := view{objectCtx: oc, Mode: "action", Modal: isHTMX(r), Action: *act, ActionID: id,
 		FormTitle: s.T(r, "core.form.title", oc.Def.Title, act.Label), FormAction: oc.ActionURL + "/" + act.Name, CancelURL: oc.URL}
+	v.RowRef, v.SectionRef = refOf(r)
 	keys := act.Fields
 	if st != nil {
 		def = withExtra(applyFormState(oc.ActionDef, *st), st)
@@ -928,11 +976,7 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	}
 	// Übersicht neu laden: Die Liste hört auf dieses Ereignis; bei einer Aktion
 	// am Datensatz lädt auch die Detailansicht neu (Kopfdaten, Abschnitte).
-	if id != "" {
-		w.Header().Set("HX-Trigger", "coremesh-changed, coremesh-record-changed")
-	} else {
-		w.Header().Set("HX-Trigger", "coremesh-changed")
-	}
+	w.Header().Set("HX-Trigger", changedTrigger(r, id != ""))
 	s.render(w, r, http.StatusOK, "result", v, act.Label, oc.Object)
 }
 

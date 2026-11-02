@@ -75,17 +75,22 @@
 {{if not .Rows}}<p class="empty">{{t "core.list.empty"}}</p>{{end}}
 {{end}}
 
-{{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>". */}}
-{{define "row"}}
-<tr id="row-{{domID .ID}}"{{with .Has.item}} class="open-row" hx-get="{{$.URL}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
+{{/* Eine Tabellenzeile. Ziel für PUT (outerHTML) über id="row-<hex(id)>".
+     Seit 0.54.0: Aktionen des Datensatzes in der Zeile; danach lädt nur die Zeile neu
+     (Ereignis coremesh-row-changed mit ihrer id, GET …/{id}?view=row). Farbe der Zeile
+     aus dem Status (Option.Tone). */}}
+{{define "row"}}{{$tone := rowTone $.Record $.Def}}
+<tr id="row-{{domID .ID}}"{{if or .Has.item $tone}} class="{{if .Has.item}}open-row{{end}}{{with $tone}} tone-row-{{.}}{{end}}"{{end}}{{with .Has.item}} hx-get="{{$.URL}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
     hx-trigger="click[!event.target.closest('a,button,input,select,label,summary,.more-menu,.peek,.info')]"{{end}}>
   {{range listable .Def}}<td title="{{cellTitle $.Record .}}">{{cell $.Record .}}{{template "peek-icon" (peekFor $.Record .)}}</td>{{end}}
-  <td class="actions">{{block "row-actions" .}}
+  <td class="actions" hx-get="{{$.URL}}/{{pathEscape $.ID}}?view=row" hx-trigger="coremesh-row-changed[detail.id=='{{domID .ID}}'] from:body"
+      hx-target="closest tr" hx-swap="outerHTML" hx-disinherit="*">{{block "row-actions" .}}
     {{/* „Anzeigen“ entfällt: die Zeile öffnet den Datensatz (seit 0.36.0) */}}
     {{if not (locked $.Record)}}{{with .Has.update}}
     <a href="{{$.URL}}/{{pathEscape $.ID}}/edit" hx-get="{{$.URL}}/{{pathEscape $.ID}}/edit?view=row"
        hx-target="#modal">{{.Label}}</a>
-    {{end}}{{end}}
+    {{end}}
+    {{range recordActions $.Ctx $.Record}}{{template "record-action" (recordActionAt $.ActionURL $.ID . "link" (printf "row=%s" (domID $.ID)))}}{{end}}{{end}}
     {{template "end-button" (endBtn $.Ctx $.Record "row" "link danger")}}
   {{end}}</td>
 </tr>

@@ -25,7 +25,7 @@
   </thead>
   <tbody>
     {{range $row := .Rows}}{{block "relation-row" (relRow $ $row)}}
-    <tr{{with .Rel.DetailURL}} class="open-row" hx-get="{{.}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
+    {{$tone := rowTone .Row .Rel.Child.Def}}<tr{{if or .Rel.DetailURL $tone}} class="{{if .Rel.DetailURL}}open-row{{end}}{{with $tone}} tone-row-{{.}}{{end}}"{{end}}{{with .Rel.DetailURL}} hx-get="{{.}}/{{pathEscape $.ID}}" hx-target="#main-content" hx-push-url="true"
         hx-trigger="click[!event.target.closest('a,button,input,select,label,summary,.more-menu,.peek,.info')]"{{end}}>
       {{range $f := .Rel.Columns}}
       <td{{with cellClass $.Row $f}} class="{{.}}"{{end}} title="{{cellTitle $.Row $f}}">{{cell $.Row $f}}{{template "peek-icon" (peekFor $.Row $f)}}{{with index $.Rel.LookupEdit $f.Key}}{{$v := raw $.Row $f.Key}}{{if $v}}
@@ -35,9 +35,9 @@
       <td class="actions">
         {{if not (locked .Row)}}{{with .Rel.Child.Has.update}}
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
-           hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}" hx-target="#modal">{{.Label}}</a>
+           hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}&section=rel-{{$.Rel.Section.Key}}" hx-target="#modal">{{.Label}}</a>
         {{end}}
-        {{range recordActions .Rel.Child .Row}}{{template "record-action" (recordAction $.Rel.Child.ActionURL $.ID . "link")}}{{end}}{{end}}
+        {{range recordActions .Rel.Child .Row}}{{template "record-action" (recordActionAt $.Rel.Child.ActionURL $.ID . "link" (printf "section=rel-%s" $.Rel.Section.Key))}}{{end}}{{end}}
         {{template "end-button" (endBtn .Rel.Child .Row "refresh" "link danger")}}
       </td>
     </tr>
