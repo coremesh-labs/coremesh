@@ -646,6 +646,9 @@ abhängen:
 - **QR-Codes im Ergebnis (seit 0.51.0):** `{"qr": [{"text", "caption", "level"}]}` zeigt je Eintrag
   einen QR-Code mit Beschriftung (z. B. `tel:+49…` oder eine vCard fürs Handy). Der WebServer
   erzeugt das SVG selbst (`pkg/sdk/qrcode`, ohne fremde Bibliothek); `level` L, M (Standard), Q, H.
+- **Kopierfelder im Ergebnis (seit 0.53.0):** `{"copy": [{"label", "value", "copy"}]}` zeigt die
+  Werte untereinander, jeder mit Kopier-Zeichen (⧉) für die Zwischenablage; `copy` ist der kopierte
+  Text, wenn er von der Anzeige abweicht (z. B. IBAN ohne Leerzeichen).
 - **Links in Feldern (seit 0.51.0):** Liefert ein Modul am Datensatz `"_links": {<feld>: <href>}`,
   wird der Wert in Liste, Unterzeilen und Detail ein Link. Erlaubt sind `tel:`, `mailto:`,
   `https://` und `http://` (diese in neuem Tab); andere Schemata bleiben Text.

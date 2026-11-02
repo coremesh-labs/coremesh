@@ -107,6 +107,12 @@ dialog.modal article { background: var(--surface); border-radius: var(--radius);
 .field .error, .form-error { color: var(--danger); }
 form footer, dialog footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
 pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius); overflow: auto; }
+.result-copy { display: grid; gap: .15rem; margin: .75rem 0 0; }
+.result-copy dt { font-size: .85rem; color: var(--muted, #666); margin-top: .5rem; }
+.result-copy dd { margin: 0; display: flex; align-items: center; gap: .5rem; font-size: 1.1rem; }
+.result-copy .copy-value { font-family: ui-monospace, monospace; word-break: break-word; }
+.btn-copy { border: 1px solid var(--border, #ccc); background: var(--surface, #fff); border-radius: var(--radius, 4px); cursor: pointer; padding: .1rem .45rem; font-size: 1rem; line-height: 1.2; }
+.btn-copy.copied { border-color: var(--success, #15803d); color: var(--success, #15803d); }
 .result-qr { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: .75rem; }
 .result-qr figure { margin: 0; text-align: center; max-width: 16rem; }
 .result-qr .qr svg { width: 14rem; height: 14rem; display: block; margin: 0 auto; }

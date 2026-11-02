@@ -309,6 +309,9 @@ type view struct {
 	// QRCodes (seit 0.51.0): QR-Codes im Ergebnis ({"qr": [{"text", "caption"}]}),
 	// als SVG erzeugt – z. B. eine Telefonnummer oder eine vCard fürs Handy.
 	QRCodes []*qrImage
+	// CopyFields (seit 0.53.0): Werte untereinander mit Knopf „Kopieren“
+	// ({"copy": [{"label", "value", "copy"}]}; copy leer = value), z. B. eine Überweisung.
+	CopyFields []copyField
 	// Report: Seite eines Berichts (Object ohne Übersicht) – Maske und Ergebnis auf einer Seite.
 	Report  bool
 	Message string
@@ -663,6 +666,30 @@ func qrCodesOf(payload any) []*qrImage {
 		}
 		// SVG aus qrcode: nur Zahlen und feste Attribute – sicher einzubetten.
 		out = append(out, &qrImage{SVG: template.HTML(c.SVG(4)), Caption: q.Caption, Text: q.Text})
+	}
+	return out
+}
+
+// copyField: Bezeichnung, angezeigter Wert und Text für die Zwischenablage.
+type copyField struct{ Label, Value, Copy string }
+
+// copyFieldsOf liest {"copy": [{"label", "value", "copy"}]} – Felder ohne Wert entfallen.
+func copyFieldsOf(payload any) []copyField {
+	m, ok := payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	l, _ := m["copy"].([]any)
+	var out []copyField
+	for _, x := range l {
+		var f struct{ Label, Value, Copy string }
+		if sdk.Decode(x, &f) != nil || strings.TrimSpace(f.Value) == "" {
+			continue
+		}
+		if f.Copy == "" {
+			f.Copy = f.Value
+		}
+		out = append(out, copyField{Label: f.Label, Value: f.Value, Copy: f.Copy})
 	}
 	return out
 }
