@@ -643,6 +643,12 @@ abhängen:
 - **Dateien im Ergebnis (seit 0.33.0):** `{"download": {"content" (Base64), "content_type",
   "file_name"}}` bietet einen Link zum Speichern an (z. B. CSV), ohne dass etwas gespeichert wird.
   Seit 0.40.5 auch mehrere: `{"downloads": [Content, …]}` (z. B. PDF und CSV), je ein Link.
+- **QR-Codes im Ergebnis (seit 0.51.0):** `{"qr": [{"text", "caption", "level"}]}` zeigt je Eintrag
+  einen QR-Code mit Beschriftung (z. B. `tel:+49…` oder eine vCard fürs Handy). Der WebServer
+  erzeugt das SVG selbst (`pkg/sdk/qrcode`, ohne fremde Bibliothek); `level` L, M (Standard), Q, H.
+- **Links in Feldern (seit 0.51.0):** Liefert ein Modul am Datensatz `"_links": {<feld>: <href>}`,
+  wird der Wert in Liste, Unterzeilen und Detail ein Link. Erlaubt sind `tel:`, `mailto:`,
+  `https://` und `http://` (diese in neuem Tab); andere Schemata bleiben Text.
 - **Zusatzfelder der Maske (seit 0.35.0):** `FormState.Extra` liefert weitere Felder nur für das
   Formular einer Aktion (z. B. ein von der KI vorbelegtes Objekt, Gruppen je Unter-Objekt); sie
   werden wie die Felder der Aktion ausgewertet. `FormState.HideButtons` blendet Knöpfe des
@@ -807,6 +813,7 @@ plugins:
       tenant: demo                      # Mandant für Benutzer ohne eigenen Mandanten
       session_ttl: 12h                  # Gültigkeit einer Anmeldung
       visible_actions: 3                # Aktionen nebeneinander, weitere im Menü „Weitere“ (0 = alle)
+      theme: green                      # Farbschema der Installation (seit 0.51.0): blue, green, red, violet, orange, teal
       max_api_body_mb: 48               # größter JSON-Body der API in MiB (Dateien Base64, z. B. DmsDocument.store)
       max_upload_mb: 32                 # größte Datei im Aktionsformular in MiB
       tls_cert: ./certs/server.crt      # optional; beide gesetzt = HTTPS
@@ -939,3 +946,12 @@ Der Dateiname folgt der Konvention des Resolvers (`<name>-<version>-<os>-<arch>`
   Fließtext wie Vertragsklauseln lässt sich in der Tabelle lesen.
 - Klick auf eine Zeile (auch auf ihren Schlüssel) öffnet den Datensatz; Links, Knöpfe und ⓘ behalten
   ihre Aktion.
+
+## Farbschema je Installation (seit 0.51.0)
+
+Laufen mehrere CoreMesh-Server (z. B. Vermietung und Privat), unterscheidet `theme` sie auf einen
+Blick: Akzentfarbe (Knöpfe, aktive Navigation), Name oben in der Seitenleiste und ein farbiger
+Streifen über Seitenleiste und Anmeldung. Mitgeliefert sind `blue`, `green`, `red`, `violet`,
+`orange` und `teal` (je mit einer Variante für den dunklen Modus); ohne `theme` bleibt das
+Standard-Blau ohne Streifen. Weitere Schemata: eigene Regeln `:root[data-theme="…"] { --accent: … }`
+in einer `app.css` unter `static_dir`. Den Namen der Installation setzt `title`.

@@ -201,7 +201,7 @@ func (s *server) renderLogin(w http.ResponseWriter, r *http.Request, status int,
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	if err := s.views.fragment(localeFrom(r), w, "login", map[string]any{
-		"AppTitle": s.cfg.Title, "Error": msg, "Username": username, "Next": safeNext(next), "Path": originalURI(r),
+		"AppTitle": s.cfg.Title, "Theme": s.cfg.Theme, "Error": msg, "Username": username, "Next": safeNext(next), "Path": originalURI(r),
 	}); err != nil {
 		s.logError(r, "Template login", err)
 	}

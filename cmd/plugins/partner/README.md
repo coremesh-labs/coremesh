@@ -322,3 +322,23 @@ des Partners mit laufendem Saldo, vorneweg je Vertrag der Stand (ausgeglichen
 bzw. Soll-/Haben-Saldo). Eingaben: Buchungskreis, Von, Bis (alle optional).
 Gerechnet wird im GuV-Modul (profit-loss, `LedgerReport.partnerAccount`); ist es
 nicht gestartet, meldet die Aktion das.
+
+## Kontakt aufs Handy (seit 0.16.0)
+
+Zwei Aktionen am Geschäftspartner zeigen QR-Codes, die die Kamera des Handys ohne Zusatz-App liest:
+
+- **„Anrufen (QR) …“** – je Telefonnummer (Kategorie PHONE) ein QR-Code `tel:+49…`, beschriftet mit
+  Kommunikationstyp und Nummer; scannen, auf die Nummer tippen, die Telefon-App wählt.
+- **„Kontakt aufs Handy (QR) …“** – eine vCard 3.0 (Name bzw. Firma, Hauptanschrift, Telefon, Fax,
+  E-Mail, Webseite) als QR-Code; das Handy bietet „Kontakt hinzufügen“ an. Dazu die Datei `.vcf`
+  zum Speichern (Übernahme am Rechner, Weitergabe per E-Mail).
+
+Nummern stehen international: Die Ländervorwahl kommt aus dem Katalog **Ländervorwahlen**
+(`PartnerDialCode`: Land, Vorwahl, Verkehrsausscheidungsziffer, Heimatland) zum Land der
+Hauptanschrift; ohne Anschrift gilt das Heimatland (mitgeliefert: Deutschland). „0341 216100“
+wird so „+49 341 216100“, „0041 44 …“ bleibt Schweiz, „(0)“ nach der Landesvorwahl entfällt.
+Den Typ in der vCard (WORK,VOICE · CELL · WORK,FAX · WORK) nennt der Katalog der
+Kommunikationstypen (`vcard_type`); die Migration belegt ihn bei vorhandenen Typen vor.
+
+In der Kommunikation sind Telefonnummern, E-Mail-Adressen und Webseiten Links (`tel:`, `mailto:`,
+`https:`) – wer CoreMesh auf dem Handy öffnet, ruft mit einem Tipp an.

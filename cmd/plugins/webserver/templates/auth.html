@@ -3,9 +3,9 @@
   Blöcke: login (eigenständige Seite ohne Sidebar), password, user-menu.
 */}}
 
-{{/* Daten: {AppTitle, Error, Username, Next}. Normales Formular ohne HTMX. */}}
+{{/* Daten: {AppTitle, Theme, Error, Username, Next}. Normales Formular ohne HTMX. */}}
 {{define "login"}}<!doctype html>
-<html lang="{{locale}}">
+<html lang="{{locale}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

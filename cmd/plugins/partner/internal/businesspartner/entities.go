@@ -38,7 +38,7 @@ func (m *Module) entities() []*entity {
 	return []*entity{
 		m.businessPartner(), m.partnerRole(), m.partnerCompanyCode(),
 		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(),
-		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(), m.salutationCatalog(),
+		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.dialCodeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(), m.salutationCatalog(),
 	}
 }
 
@@ -83,6 +83,8 @@ func (m *Module) commTypeCatalog() *entity {
 			field{Key: "category_code", Label: "Kategorie", Type: tText, Required: true, Listable: true, Ref: refCommCat},
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
 			field{Key: "is_main", Label: "Haupttyp der Kategorie", Short: "Haupt", Type: tBool, Listable: true},
+			// seit 0.16.0: Typ in der vCard (Kontakt aufs Handy), z. B. WORK,VOICE · CELL · WORK,FAX · WORK
+			field{Key: "vcard_type", Label: "Typ in der vCard (z. B. WORK,VOICE · CELL · WORK,FAX; leer = ohne)", Short: "vCard", Type: tText, Listable: true},
 		),
 		// Pro Kategorie höchstens ein Haupt-Kommunikationstyp.
 		Validate: func(ctx context.Context, rec, _ record) error {
@@ -196,7 +198,7 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
 		), partnerAccountFields...),
-		Actions:   []crud.Action{m.partnerAccountAction()},
+		Actions:   append([]crud.Action{m.partnerAccountAction()}, m.contactActions()...),
 		Prepare:   m.preparePartner,
 		FormState: m.partnerFormState,
 		Decorate:  m.decoratePerson,
@@ -274,6 +276,7 @@ func (m *Module) partnerContact() *entity {
 			field{Key: "value", Label: "Wert", Type: tText, Required: true, Listable: true},
 			field{Key: "is_default", Label: "Standard", Type: tBool, Listable: true},
 		),
+		Decorate: m.decorateContact, // Link tel:/mailto:/https: (contact.go)
 		// Prüfung des Werts anhand der Kategorie des Kommunikationstyps.
 		Validate: func(ctx context.Context, rec, _ record) error {
 			res, err := m.db.Query(ctx, "SELECT category_code FROM partner__comm_types WHERE code = ?", rec["comm_type_code"])

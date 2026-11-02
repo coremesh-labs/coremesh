@@ -24,9 +24,10 @@
 </div>
 {{end}}
 
-{{/* Ergebnis einer custom-Action: Meldung, Tabelle, Datei zum Speichern. */}}
+{{/* Ergebnis einer custom-Action: Meldung, QR-Codes, Tabelle, Datei zum Speichern. */}}
 {{define "result-body"}}
-{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not (or .ResultTable .Downloads)}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
+{{with .Message}}<p class="result-message">{{.}}</p>{{else}}{{if not (or .ResultTable .Downloads .QRCodes)}}<pre class="result">{{json .Result}}</pre>{{end}}{{end}}
+{{with .QRCodes}}<div class="result-qr">{{range .}}<figure><div class="qr" role="img" aria-label="QR-Code: {{.Caption}}">{{.SVG}}</div>{{with .Caption}}<figcaption>{{.}}</figcaption>{{end}}</figure>{{end}}</div>{{end}}
 {{with .Downloads}}<p class="result-download">{{range .}}<a class="btn" href="{{.URL}}" download="{{.FileName}}">{{t "core.app.download"}}: {{.FileName}}</a> {{end}}</p>{{end}}
 {{with .ResultTable}}<div class="result-table"><table class="data">
   <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>

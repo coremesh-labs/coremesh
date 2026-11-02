@@ -498,7 +498,7 @@ func TestMetamodel(t *testing.T) {
 	}
 	desc := resp.Payload.(metamodel.DescribeResponse)
 	defs := desc.Objects
-	if len(defs) != 13 {
+	if len(defs) != 14 {
 		t.Fatalf("Objects: %d", len(defs))
 	}
 	for _, d := range defs {
@@ -525,13 +525,13 @@ func newPlugin(t *testing.T) *module.Plugin {
 	return p
 }
 
-// TestModule: Das Modul bündelt alle 13 Objects unter einem Namensraum,
+// TestModule: Das Modul bündelt alle 14 Objects unter einem Namensraum,
 // Kataloge in einer eigenen Gruppe; das Schema kommt mit schema-Block.
 func TestModule(t *testing.T) {
 	p := newPlugin(t)
 	resp, _ := p.Handle(context.Background(), sdk.Request{Object: sdk.ObjectCatalog, Action: sdk.ActionDescribe})
 	desc := resp.Payload.(metamodel.DescribeResponse)
-	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 13 {
+	if len(desc.Modules) != 1 || desc.Modules[0].Name != Name || len(desc.Modules[0].Objects) != 14 {
 		t.Fatalf("Module: %+v", desc.Modules)
 	}
 	defined := map[string]bool{}
@@ -545,7 +545,7 @@ func TestModule(t *testing.T) {
 	for _, o := range desc.Modules[0].Objects {
 		sections[o.Section]++
 	}
-	if sections["Kataloge"] != 6 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
+	if sections["Kataloge"] != 7 || sections["Partnerdaten"] != 7 || desc.Modules[0].Objects[0].Object != "BusinessPartner" {
 		t.Fatalf("Navigation: %+v", desc.Modules[0].Objects)
 	}
 

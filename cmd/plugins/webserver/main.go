@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +20,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.50.0"
+	version = "0.51.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -32,6 +34,10 @@ type settings struct {
 	// VisibleActions: so viele Aktionen stehen in Kopfleisten und Zeilen nebeneinander, die
 	// weiteren im aufklappbaren Menü „Weitere“ (Standard 3; 0 = alle nebeneinander).
 	VisibleActions int `json:"visible_actions"`
+	// Theme (seit 0.51.0): Farbschema dieser Installation, um mehrere Server
+	// auseinanderzuhalten – blue (Standard), green, red, violet, orange, teal; die
+	// Farben stehen in app.css ([data-theme=…]), weitere über static_dir.
+	Theme string `json:"theme"`
 
 	// Authentifizierung
 	Database   string `json:"database"`    // Datenbank der Benutzertabellen (Standard main)
@@ -94,6 +100,9 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 		if l.v < 1 || l.v > maxSettingMiB {
 			return fmt.Errorf("%w: %s %d: 1 bis %d (MiB)", sdk.ErrInvalidArgument, l.key, l.v, maxSettingMiB)
 		}
+	}
+	if s.Theme = strings.ToLower(strings.TrimSpace(s.Theme)); s.Theme != "" && !themeRe.MatchString(s.Theme) {
+		return fmt.Errorf("%w: theme %q: Name aus Kleinbuchstaben, z. B. green", sdk.ErrInvalidArgument, s.Theme)
 	}
 	if (s.TLSCert == "") != (s.TLSKey == "") {
 		return fmt.Errorf("%w: tls_cert und tls_key nur gemeinsam", sdk.ErrInvalidArgument)
@@ -186,3 +195,6 @@ func isLoopback(a net.Addr) bool {
 func main() {
 	plugin.Main(&webserver{})
 }
+
+// themeRe: Name eines Farbschemas (Attribut data-theme, Regeln in app.css).
+var themeRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)

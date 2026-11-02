@@ -1,6 +1,6 @@
 {{/*
   Base-Layout für Full-Page-Requests (Seitenaufruf, F5).
-  Daten: pageData {AppTitle, Title, Active, Nav, Content, User}.
+  Daten: pageData {AppTitle, Title, Active, Nav, Content, User, Theme}.
   Nav: Module (navModule {Name, Title, Icon, Active, Sections}); nur das aktive
   Modul zeigt seine Objects, gruppiert nach Section (navItem {Object, Title, Icon, URL, Active}).
 
@@ -8,7 +8,7 @@
   Pflicht-IDs für HTMX: #main-content, #modal, #lookup (Auswahldialog über dem Dialog), #toast-container.
 */}}
 {{define "layout"}}<!doctype html>
-<html lang="{{locale}}">
+<html lang="{{locale}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
