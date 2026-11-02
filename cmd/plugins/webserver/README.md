@@ -955,3 +955,14 @@ Streifen über Seitenleiste und Anmeldung. Mitgeliefert sind `blue`, `green`, `r
 `orange` und `teal` (je mit einer Variante für den dunklen Modus); ohne `theme` bleibt das
 Standard-Blau ohne Streifen. Weitere Schemata: eigene Regeln `:root[data-theme="…"] { --accent: … }`
 in einer `app.css` unter `static_dir`. Den Namen der Installation setzt `title`.
+
+## Fokus beim Filtern und in Formularen (seit 0.52.0)
+
+- **Listen:** Suche und Filter laden nur die Ergebnisse (`#list-results`) und den Link
+  „Zurücksetzen“ (`#list-reset`, per `hx-select-oob`) nach; das Suchfeld bleibt, man tippt
+  einfach weiter. Eine neue Eingabe bricht die noch laufende Suche ab (`hx-sync`).
+- **Überall (Formulare, Dialoge, Auswahl):** Ersetzt HTMX einen Bereich, in dem der Fokus lag
+  (z. B. das Formular nach der Folgeprüfung eines Felds), setzt das Layout ihn wieder in das Feld
+  gleichen Namens im selben Bereich (`#modal`, `#lookup`, `#main-content`), mit Cursorstellung.
+  Was während der Anfrage in dieses Feld getippt wurde, bleibt erhalten; sonst gilt der Wert
+  vom Server (Vorbelegungen).
