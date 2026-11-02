@@ -243,6 +243,18 @@ func (oc objectCtx) visibleFor(u *user) objectCtx {
 func (oc objectCtx) ObjectActions() []metamodel.ActionConfig { return oc.customs(false) }
 func (oc objectCtx) RecordActions() []metamodel.ActionConfig { return oc.customs(true) }
 
+// BulkActions (seit 0.55.0): Aktionen am Datensatz, die auch für mehrere angekreuzte
+// Zeilen laufen (ActionConfig.Bulk, ohne Felder).
+func (oc objectCtx) BulkActions() []metamodel.ActionConfig {
+	var out []metamodel.ActionConfig
+	for _, a := range oc.customs(true) {
+		if a.Bulk && len(a.Fields) == 0 {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 func (oc objectCtx) customs(record bool) []metamodel.ActionConfig {
 	var out []metamodel.ActionConfig
 	for _, a := range oc.Custom {

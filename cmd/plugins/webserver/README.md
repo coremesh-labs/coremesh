@@ -653,6 +653,13 @@ abhängen:
   Kopfdaten (`coremesh-section-changed`, `coremesh-head-changed`); Aktionen ohne Datensatz laden
   die Liste wie bisher (`coremesh-changed`). „Zurück“ aus dem Datensatz bzw. Browser-Zurück
   kehrt an die Zeile zurück, von der aus er geöffnet wurde (kurz markiert).
+- **Sammelaktionen (seit 0.55.0):** Eine Aktion am Datensatz ohne Felder mit `Bulk: true`
+  (z. B. „Buchen“ der Vorerfassung) bekommt in der Übersicht ein Kästchen je Zeile, „alle“ im
+  Tabellenkopf und Umschalt-Klick für einen Bereich. Die Leiste über der Tabelle zeigt die Anzahl
+  und die Aktion; `POST /action/{module}/{object}/{name}/_bulk` mit `_ids` führt sie Zeile für
+  Zeile aus (höchstens 500). Fehler einer Zeile halten die anderen nicht auf – das Ergebnis nennt
+  „n von m ausgeführt“ und die Meldungen je Zeile; danach lädt die Liste neu. Gesperrte Zeilen
+  (`_locked`) und solche, die die Aktion ausblenden (`_hidden_actions`), bekommen kein Kästchen.
 - **Farbiger Status (seit 0.54.0):** `Option.Tone` (success, info, attention, danger, muted)
   zeigt den Wert als farbiges Kennzeichen; die Zeile ist bei attention/danger hinterlegt –
   man sieht, wo etwas zu tun ist. Es zählt die erste Auswahlspalte mit Farbe.

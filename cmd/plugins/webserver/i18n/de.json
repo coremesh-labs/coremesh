@@ -165,5 +165,14 @@
   "core.validation.option": "Ungültige Auswahl",
   "core.validation.required": "Pflichtfeld",
   "core.viewer.download": "Herunterladen",
-  "core.viewer.open": "In neuem Fenster öffnen"
+  "core.viewer.open": "In neuem Fenster öffnen",
+  "core.bulk.select_all": "Alle Zeilen ankreuzen",
+  "core.bulk.select": "Zeile ankreuzen",
+  "core.bulk.selected": "angekreuzt:",
+  "core.bulk.confirm": "„%s“ für die angekreuzten Einträge ausführen?",
+  "core.bulk.done": "„%s“: %d von %d ausgeführt",
+  "core.bulk.none": "Keine Zeile angekreuzt",
+  "core.bulk.entry": "Eintrag",
+  "core.bulk.error": "Meldung",
+  "core.bulk.clear": "Auswahl aufheben"
 }

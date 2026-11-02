@@ -47,6 +47,7 @@ var partnerDef = metamodel.ObjectDefinition{
 		{Name: "Deactivate", Kind: metamodel.KindDeactivate, Label: "Inaktivieren", Confirm: "Partner inaktivieren?"},
 		{Name: "Notify", Kind: metamodel.KindCustom, Label: "Benachrichtigen"},
 		{Name: "Remind", Kind: metamodel.KindCustom, Label: "Erinnern …", Record: true, Fields: []string{"remind_on"}},
+		{Name: "Approve", Kind: metamodel.KindCustom, Label: "Freigeben", Record: true, Bulk: true},
 	},
 	// Typ B: Status-Flag active – „Inaktivieren“ statt Löschen.
 	Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
@@ -130,6 +131,11 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	case "Report.compute":
 		return sdk.Response{Payload: map[string]any{"table": map[string]any{"columns": []any{"Konto", "Betrag"}, "rows": []any{[]any{"4000", "-1.250,00"}}},
 			"download": map[string]any{"content": "S29udG87QmV0cmFnCg==", "content_type": "text/csv;charset=utf-8", "file_name": "../guv.csv"}}}, nil
+	case "Partner.Approve":
+		if req.Payload.(map[string]any)["id"] == "p/9" {
+			return sdk.Response{}, fmt.Errorf("%w: schon freigegeben", sdk.ErrInvalidArgument)
+		}
+		return sdk.Response{Payload: map[string]any{"message": "freigegeben"}}, nil
 	case "Partner.Notify":
 		return sdk.Response{Payload: map[string]any{"message": "Benachrichtigung verschickt",
 			"table": map[string]any{"columns": []any{"Fällig", "Betrag"}, "rows": []any{[]any{"30.01.2026", "300.00"}, []any{"28.02.2026", nil}}}}}, nil

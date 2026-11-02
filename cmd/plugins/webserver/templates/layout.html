@@ -180,6 +180,42 @@
         if (u) { e.detail.path = u; b.setAttribute("hx-push-url", u); }
       } catch (x) {}
     });
+    // Seit 0.55.0: Sammelaktionen – Zeilen ankreuzen (Umschalt-Klick: Bereich), Leiste mit
+    // Anzahl und Aktionen; „alle“ im Tabellenkopf kreuzt die sichtbaren Zeilen an.
+    var coremeshBulkLast = null;
+    function coremeshBulkSync(root) {
+      var list = root && root.closest ? root.closest("#list-results") : document.getElementById("list-results");
+      if (!list) return;
+      var bar = list.querySelector("[data-bulk-bar]");
+      if (!bar) return;
+      var boxes = list.querySelectorAll("#rows input[name=_ids]");
+      var n = 0;
+      boxes.forEach(function (b) { if (b.checked) n++; var tr = b.closest("tr"); if (tr) tr.classList.toggle("bulk-picked", b.checked); });
+      bar.querySelector("[data-bulk-count]").textContent = n;
+      bar.hidden = n === 0;
+      var all = list.querySelector("[data-bulk-all]");
+      if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+    }
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      if (t.matches && t.matches("#rows input[name=_ids]")) {
+        if (e.shiftKey && coremeshBulkLast && coremeshBulkLast !== t) {
+          var boxes = Array.prototype.slice.call(t.closest("tbody").querySelectorAll("input[name=_ids]"));
+          var a = boxes.indexOf(coremeshBulkLast), b = boxes.indexOf(t);
+          if (a >= 0 && b >= 0) boxes.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(function (x) { x.checked = t.checked; });
+        }
+        coremeshBulkLast = t;
+        coremeshBulkSync(t);
+      } else if (t.matches && t.matches("[data-bulk-all]")) {
+        t.closest("#list-results").querySelectorAll("#rows input[name=_ids]").forEach(function (x) { x.checked = t.checked; });
+        coremeshBulkSync(t);
+      } else if (t.closest && t.closest("[data-bulk-clear]")) {
+        var l = t.closest("#list-results");
+        l.querySelectorAll("#rows input[name=_ids]").forEach(function (x) { x.checked = false; });
+        coremeshBulkSync(l);
+      }
+    });
+    document.addEventListener("htmx:afterSettle", function () { coremeshBulkSync(null); });
     // Mehr Aktionen als visible_actions (Einstellung) in einer Kopfleiste (.toolbar) oder Zeile
     // (td.actions): die weiteren ins aufklappbare Menü „Weitere“. „Zurück“ zählt nicht mit.
     // Das Menü liegt fest über der Seite (position: fixed), damit Tabellen und Dialoge es nicht abschneiden.

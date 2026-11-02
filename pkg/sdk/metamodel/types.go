@@ -292,6 +292,11 @@ type ActionConfig struct {
 	// Objects ab (ObjectDefinition.FormState, Mode "action", Action = Name) –
 	// Vorbelegung und Hinweis, z. B. „Buchen bis“ = heute und der letzte Lauf.
 	FormState bool `json:"form_state,omitempty"`
+	// Bulk (seit 0.55.0 webserver): Aktion am Datensatz ohne Felder, die auch für
+	// mehrere angekreuzte Zeilen der Übersicht nacheinander läuft (z. B. „Buchen“
+	// vorerfasster Belege). Jede Zeile einzeln – Fehler einer Zeile halten die
+	// anderen nicht auf; das Ergebnis nennt sie.
+	Bulk bool `json:"bulk,omitempty"`
 }
 
 // ActionKind sagt dem WebServer, wie er eine Aktion einbindet.
