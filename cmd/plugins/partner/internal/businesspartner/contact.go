@@ -46,6 +46,8 @@ func (m *Module) dialCodeCatalog() *entity {
 			{Key: "dial_code", Label: "Ländervorwahl (ohne +, z. B. 49)", Short: "Vorwahl", Type: tText, Required: true, Listable: true},
 			{Key: "trunk_prefix", Label: "Verkehrsausscheidungsziffer (entfällt international, z. B. 0; leer = keine)", Short: "Präfix", Type: tText, Listable: true},
 			{Key: "is_main", Label: "Heimatland (für Nummern ohne Anschrift)", Short: "Heimat", Type: tBool, Listable: true},
+			// seit 0.17.0: Postleitzahl erkennen beim Übernehmen aus Text
+			{Key: "zip_pattern", Label: "Aufbau der Postleitzahl (regulärer Ausdruck, z. B. \\d{5}; leer = nicht erkennen)", Short: "PLZ", Type: tText, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, _ record) error {
 			rec["country"] = strings.ToUpper(strings.TrimSpace(str(rec["country"])))
@@ -55,6 +57,14 @@ func (m *Module) dialCodeCatalog() *entity {
 			rec["dial_code"] = strings.TrimPrefix(strings.TrimSpace(str(rec["dial_code"])), "+")
 			if !onlyDigitsRe.MatchString(str(rec["dial_code"])) {
 				return invalid("Ländervorwahl %q: nur Ziffern", str(rec["dial_code"]))
+			}
+			if z := strings.TrimSpace(str(rec["zip_pattern"])); z != "" {
+				if _, err := regexp.Compile(z); err != nil {
+					return invalid("Aufbau der Postleitzahl %q: kein gültiger regulärer Ausdruck", z)
+				}
+				rec["zip_pattern"] = z
+			} else {
+				rec["zip_pattern"] = nil
 			}
 			if t := strings.TrimSpace(str(rec["trunk_prefix"])); t != "" && !onlyDigitsRe.MatchString(t) {
 				return invalid("Verkehrsausscheidungsziffer %q: nur Ziffern", t)
@@ -108,7 +118,7 @@ func international(value string, d dialing, ok bool) (dial, display string) {
 // partnerContact: eine Kommunikation des Partners mit Kategorie und vCard-Typ.
 type partnerContact struct {
 	category, typeName, vcardType, value, qrTemplate string
-	isDefault                              bool
+	isDefault                                        bool
 }
 
 // contactsOf: heute gültige Kommunikation, Standard zuerst.
