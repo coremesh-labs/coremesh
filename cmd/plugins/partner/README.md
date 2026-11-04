@@ -352,3 +352,25 @@ In der Kommunikation sind Telefonnummern, E-Mail-Adressen und Webseiten Links (`
 Die Liste der Geschäftspartner filtert nach **Rolle** (Auswahl aus den Rollentypen, z. B. Mieter,
 Kreditor, Behörde, Schlüsselverwahrer) und nach **Finanzrolle** (Kreditor bzw. Debitor: alle
 Rollen, deren Rollentyp so gekennzeichnet ist). Beide gelten für heute gültige Rollen.
+
+## Kontaktdaten aus Text übernehmen (seit 0.17.0)
+
+Aktion am Geschäftspartner: einen kopierten Block (Impressum, Briefkopf, E-Mail-Signatur)
+einfügen – CoreMesh erkennt Anschrift, Telefon, Fax, Mobil, E-Mail und Webseite und legt an,
+was fehlt. „Nur prüfen“ zeigt das Ergebnis, ohne zu speichern.
+
+- **Kommunikation:** der Typ ergibt sich aus dem Wort vor dem Wert („Telefax: …“, „Tel. …“) –
+  die **Erkennungswörter** stehen im Katalog Kommunikationstypen (`keywords`, mitgeliefert für
+  Telefon, Mobil, Fax, E-Mail, Web). Ohne Wort: E-Mail und Webseite an ihrer Form, eine
+  Ziffernfolge als Telefon (jeweils der Haupttyp der Kategorie). Der erste Eintrag einer
+  Kategorie wird Standard; vorhandene Werte (Telefon: gleiche Ziffern) werden übersprungen.
+- **Anschrift:** die Zeile „PLZ Ort“ nach dem **Aufbau der Postleitzahl** im Katalog
+  Ländervorwahlen (`zip_pattern`, z. B. `\d{5}` für Deutschland; Heimatland zuerst, eine Zeile
+  mit dem Ländernamen wählt das Land), die Zeile davor als Straße und Hausnummer. Hat der
+  Partner noch keine Hauptanschrift, wird sie angelegt (gleiche Adresse wird wiederverwendet);
+  eine abweichende wird nur gemeldet – ein Umzug bleibt eine bewusste Änderung unter „Adressen“.
+- **Name:** Zeilen vor der Anschrift; weicht er ab, wird das gemeldet, die Stammdaten bleiben.
+- Nicht erkannte Zeilen stehen im Ergebnis.
+
+Die Migration belegt Erkennungswörter und PLZ-Aufbau bei vorhandenen Katalogeinträgen vor, wo
+sie leer sind.

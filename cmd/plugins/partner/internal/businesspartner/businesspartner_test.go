@@ -291,7 +291,9 @@ func TestSeedsAndCatalogRules(t *testing.T) {
 	expect(t, err, sdk.ErrInvalidArgument, "zweite Hauptanschrift")
 	_, err = e.do("PartnerCommType", "create", data("code", "EMAIL_PRIV", "category_code", "EMAIL", "description", "privat", "is_main", true))
 	expect(t, err, sdk.ErrInvalidArgument, "zweiter Haupt-E-Mail-Typ")
-	e.must("PartnerCommType", "create", data("code", "FAX_WORK", "category_code", "FAX", "description", "Fax", "is_main", true)) // andere Kategorie: ok
+	_, err = e.do("PartnerCommType", "create", data("code", "FAX_HOME", "category_code", "FAX", "description", "Fax privat", "is_main", true))
+	expect(t, err, sdk.ErrInvalidArgument, "zweiter Haupt-Fax-Typ (FAX_WORK im Grundbestand seit 0.17.0)")
+	e.must("PartnerCommType", "create", data("code", "FAX_HOME", "category_code", "FAX", "description", "Fax privat")) // kein Haupttyp: ok
 	_, err = e.do("PartnerCommType", "create", data("code", "X", "category_code", "GIBTSNICHT", "description", "x"))
 	expect(t, err, sdk.ErrInvalidArgument, "unbekannte Kategorie")
 

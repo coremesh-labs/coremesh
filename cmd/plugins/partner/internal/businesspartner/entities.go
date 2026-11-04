@@ -87,9 +87,12 @@ func (m *Module) commTypeCatalog() *entity {
 			field{Key: "is_main", Label: "Haupttyp der Kategorie", Short: "Haupt", Type: tBool, Listable: true},
 			// seit 0.16.0: Typ in der vCard (Kontakt aufs Handy), z. B. WORK,VOICE · CELL · WORK,FAX · WORK
 			field{Key: "vcard_type", Label: "Typ in der vCard (z. B. WORK,VOICE · CELL · WORK,FAX; leer = ohne)", Short: "vCard", Type: tText, Listable: true},
+			// seit 0.17.0: Wörter vor dem Wert, an denen „Kontaktdaten aus Text übernehmen“ den Typ erkennt
+			field{Key: "keywords", Label: "Erkennungswörter beim Übernehmen aus Text (kommagetrennt, z. B. Telefon, Tel, Fon)", Short: "Erkennung", Type: tText, Listable: true},
 		),
 		// Pro Kategorie höchstens ein Haupt-Kommunikationstyp.
 		Validate: func(ctx context.Context, rec, _ record) error {
+			rec["keywords"] = normalizeKeywords(rec["keywords"])
 			if !asBool(rec["is_main"]) {
 				return nil
 			}
@@ -203,8 +206,8 @@ func (m *Module) businessPartner() *entity {
 				Options: []metamodel.Option{{Value: "CREDITOR", Label: "Kreditor"}, {Value: "DEBITOR", Label: "Debitor"}}},
 			field{Key: "legacy_id", Label: "Frühere ID (bis 0.9.0)", Type: tText, ReadOnly: true},
 			field{Key: "is_blocked", Label: "Gesperrt", Type: tBool, Listable: true},
-		), partnerAccountFields...),
-		Actions:   append([]crud.Action{m.partnerAccountAction()}, m.contactActions()...),
+		), append(partnerAccountFields, pasteFields...)...),
+		Actions:   append(append([]crud.Action{m.partnerAccountAction()}, m.contactActions()...), m.pasteAction()),
 		Prepare:   m.preparePartner,
 		FormState: m.partnerFormState,
 		Decorate:  m.decoratePerson,

@@ -304,6 +304,17 @@ func (m *Module) Migrate(ctx context.Context) error {
 	if _, err := m.db.Exec(ctx, "UPDATE partner__comm_categories SET qr_template = ? WHERE code = ? AND qr_template IS NULL", "tel:{number}", catPhone); err != nil {
 		return err
 	}
+	// 0.17.0: Erkennungswörter und PLZ-Aufbau für „Kontaktdaten aus Text übernehmen“, wo leer.
+	for code, kw := range commKeywords {
+		if _, err := m.db.Exec(ctx, "UPDATE partner__comm_types SET keywords = ? WHERE code = ? AND keywords IS NULL", kw, code); err != nil {
+			return err
+		}
+	}
+	for country, z := range zipPatterns {
+		if _, err := m.db.Exec(ctx, "UPDATE partner__dial_codes SET zip_pattern = ? WHERE country = ? AND zip_pattern IS NULL", z, country); err != nil {
+			return err
+		}
+	}
 	res, err := m.db.Query(ctx, "SELECT DISTINCT id FROM partner__bp WHERE group_code IS NULL ORDER BY id")
 	if err != nil || len(res.Rows) == 0 {
 		return err
