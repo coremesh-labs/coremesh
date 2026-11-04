@@ -151,6 +151,9 @@ type relationView struct {
 	// DetailURL: Hat das Unter-Object selbst eingebettete Unter-Objects
 	// (verschachteltes Master-Detail), führt „Anzeigen“ zu seiner Detailseite.
 	DetailURL string
+	// Filterleiste des Abschnitts (Relation.Filters, seit 0.58.0) mit den Werten der Anfrage.
+	FilterBar []filterField
+	Filter    map[string]string
 }
 
 // GET /m/{module}/{object}/{id}/rel/{section}
@@ -208,6 +211,27 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	}
 	for k, v := range link {
 		query[k] = v
+	}
+	// Filterleiste des Abschnitts: nur die genannten Filter des Unter-Objects;
+	// Verknüpfung und feste Filter lassen sich nicht überschreiben.
+	if len(rel.Filters) > 0 {
+		q := r.URL.Query()
+		rv.Filter = map[string]string{}
+		for _, k := range rel.Filters {
+			if _, fixed := query[k]; fixed {
+				continue
+			}
+			if v := strings.TrimSpace(q.Get(k)); v != "" {
+				query[k], rv.Filter[k] = v, v
+			}
+		}
+		fq := url.Values{}
+		for k, v := range query {
+			fq.Set(k, scalar(v))
+		}
+		fc := child
+		fc.Def.Filters = slices.DeleteFunc(slices.Clone(rel.Filters), func(k string) bool { _, fixed := link[k]; return fixed || rel.Filter[k] != "" })
+		rv.FilterBar = s.filterFields(r, fc, fq)
 	}
 	if includeHistory(r) {
 		query["includeHistory"] = "true"

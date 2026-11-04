@@ -231,6 +231,10 @@ type Relation struct {
 	// "techobj") – die Oberfläche zeigt die Zeilen über dessen Liste, nicht Teil des
 	// Aggregats; ohne Zugriff oder ohne das Modul ein Hinweis statt der Tabelle.
 	Module string `json:"module,omitempty"`
+	// Filters (seit 0.58.0 webserver): Filter des Unter-Objects (aus dessen
+	// ObjectDefinition.Filters), die der Abschnitt als Filterleiste zeigt – z. B.
+	// Sparte und Ableseart bei „Zählerstände mit Teilanlagen“.
+	Filters []string `json:"filters,omitempty"`
 }
 
 // FieldType bestimmt Darstellung und Eingabe eines Felds.

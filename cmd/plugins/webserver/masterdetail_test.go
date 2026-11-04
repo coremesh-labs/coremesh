@@ -219,6 +219,9 @@ func (h mdHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, erro
 			st.Message = "Telefon: ohne Adresse"
 		}
 		return sdk.Response{Payload: st}, nil
+	case "Meter.list":
+		h.fakeHost.record(ctx, req)
+		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "m1", "customer_id": "c1", "number": "4711", "kind": "HKV"}}}}, nil
 	case "Address.list":
 		h.fakeHost.record(ctx, req)
 		return sdk.Response{Payload: map[string]any{"items": []any{map[string]any{"id": "a1", "city": "Zürich"}}}}, nil
@@ -765,4 +768,27 @@ func TestActionRequires(t *testing.T) {
 	b := do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String()
 	mustContain(t, b, "Aus Adressen")
 	mustNotContain(t, b, "Aus Immobilien")
+}
+
+// Seit 0.58.0: Filterleiste im Abschnitt (Relation.Filters) – Werte gehen in die
+// Abfrage des Unter-Objects, die Verknüpfung bleibt fest.
+func TestRelationFilters(t *testing.T) {
+	old := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = old; delete(mdDefs, "Meter") })
+	mdDefs["Meter"] = metamodel.ObjectDefinition{Name: "Meter", Title: "Zähler", Actions: mdDefs["Address"].Actions, Filters: []string{"number", "kind"},
+		Fields: []metamodel.FieldDefinition{{Key: "customer_id", Label: "Kunde", Type: metamodel.TypeText},
+			{Key: "number", Label: "Nummer", Type: metamodel.TypeText, Listable: true},
+			{Key: "kind", Label: "Sparte", Type: metamodel.TypeSelect, Listable: true, Options: []metamodel.Option{{Value: "KW", Label: "Kaltwasser"}, {Value: "HKV", Label: "Heizkostenverteiler"}}}}}
+	d := old
+	d.Sections = append(slices.Clone(old.Sections), metamodel.SectionDefinition{Key: "meters", Title: "Zähler",
+		Relation: &metamodel.Relation{Object: "Meter", ForeignKey: "customer_id", Filters: []string{"kind", "customer_id"}}})
+	mdDefs["Customer"] = d
+	s, h := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1/rel/meters?kind=HKV&customer_id=fremd", nil, true).Body.String()
+	q := h.find("list").Payload.(map[string]any)["query"].(map[string]any)
+	if q["kind"] != "HKV" || q["customer_id"] != "c1" {
+		t.Fatalf("Abfrage mit Filter: %v", q)
+	}
+	mustContain(t, b, `class="list-filters relation-filters"`, `<option value="HKV" selected>`)
+	mustNotContain(t, b, `name="customer_id"`)
 }
