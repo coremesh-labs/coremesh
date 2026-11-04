@@ -58,8 +58,8 @@ func addAggregates(m *mounted) {
 		}
 		var rels []relationRoute
 		for _, s := range o.def.Sections {
-			if s.Relation == nil {
-				continue
+			if s.Relation == nil || s.Relation.Module != "" {
+				continue // Unter-Object eines anderen Moduls: kein Teil des Aggregats
 			}
 			i := slices.IndexFunc(r.objects, func(c *ObjectRoutes) bool { return c.name == s.Relation.Object })
 			if i < 0 || r.objects[i].def == nil {

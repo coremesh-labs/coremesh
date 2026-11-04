@@ -237,7 +237,7 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 	if child.Has[string(metamodel.KindItem)] != nil && slices.ContainsFunc(child.Def.Sections, func(sd metamodel.SectionDefinition) bool { return sd.Relation != nil }) {
 		rv.DetailURL = child.URL
 	}
-	if child.Has["create"] != nil {
+	if child.Has["create"] != nil && rel.Module == "" { // anderes Modul: dort anlegen (Pflichtfelder kennt nur es)
 		keys := slices.Sorted(maps.Keys(link))
 		var q []string
 		for _, k := range keys {
