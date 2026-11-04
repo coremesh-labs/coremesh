@@ -80,6 +80,28 @@
       };
       if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
     });
+    // Zeile eines Berichtsergebnisses (data-drill, seit 0.56.0): Eingaben der Zeile in
+    // die Maske des Berichts setzen und ihn erneut ausführen (Klick oder Eingabetaste).
+    function coremeshDrill(row) {
+      var sec = row.closest(".report-result"), form = sec && sec.parentElement.querySelector("form");
+      if (!form) return;
+      var vals; try { vals = JSON.parse(row.getAttribute("data-drill")); } catch (err) { return; }
+      Object.keys(vals).forEach(function (k) {
+        var el = form.elements.namedItem(k);
+        if (el && el.length !== undefined && !el.tagName) el = el[0];
+        if (!el) { el = document.createElement("input"); el.type = "hidden"; el.name = k; form.appendChild(el); }
+        el.value = vals[k];
+        var l = form.querySelector('[data-lookup-label="' + k + '"]'); if (l) l.textContent = "";
+      });
+      if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    }
+    document.addEventListener("click", function (e) {
+      var row = e.target.closest && e.target.closest("tr[data-drill]");
+      if (row && !e.target.closest("a, button")) coremeshDrill(row);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-drill]")) coremeshDrill(e.target);
+    });
     // Aktiven Navigationspunkt im Modul nach HTMX-Navigation nachziehen.
     // Exakter Pfad oder Unterpfad – "/m/x/Role" passt nicht auf "/m/x/RoleType".
     document.addEventListener("htmx:pushedIntoHistory", function (e) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/mail"
@@ -492,6 +493,18 @@ func (v view) FilterFields() []filterField { return v.FilterBar }
 type resultTable struct {
 	Columns []string   `json:"columns"`
 	Rows    [][]string `json:"rows"`
+	// Drill (seit 0.56.0): je Zeile Eingaben des Berichts als JSON („" = keine) –
+	// ein Klick auf die Zeile setzt sie in die Maske und führt den Bericht erneut
+	// aus, z. B. vom Partner der Liste in sein Partnerkonto.
+	Drill []string `json:"-"`
+}
+
+// DrillOf: Eingaben der Zeile i (JSON) oder "".
+func (t *resultTable) DrillOf(i int) string {
+	if t == nil || i < 0 || i >= len(t.Drill) {
+		return ""
+	}
+	return t.Drill[i]
 }
 
 // download: Datei im Ergebnis einer Aktion (z. B. CSV), als data:-URL zum Speichern.
@@ -563,8 +576,9 @@ func tableOf(payload any) *resultTable {
 		return nil
 	}
 	var raw struct {
-		Columns []string `json:"columns"`
-		Rows    [][]any  `json:"rows"`
+		Columns []string         `json:"columns"`
+		Rows    [][]any          `json:"rows"`
+		Drill   []map[string]any `json:"drill"`
 	}
 	if err := sdk.Decode(m["table"], &raw); err != nil || len(raw.Columns) == 0 {
 		return nil
@@ -578,6 +592,21 @@ func tableOf(payload any) *resultTable {
 			}
 		}
 		t.Rows = append(t.Rows, row)
+	}
+	for i := range t.Rows {
+		d := ""
+		if i < len(raw.Drill) && len(raw.Drill[i]) > 0 {
+			vals := map[string]string{}
+			for k, v := range raw.Drill[i] {
+				if v != nil {
+					vals[k] = fmt.Sprint(v)
+				}
+			}
+			if b, err := json.Marshal(vals); err == nil {
+				d = string(b)
+			}
+		}
+		t.Drill = append(t.Drill, d)
 	}
 	return t
 }

@@ -17,6 +17,7 @@
   "core.app.close": "关闭",
   "core.app.download": "下载",
   "core.app.copy": "复制",
+  "core.app.drill": "打开详情",
   "core.app.error": "错误",
   "core.app.error_title": "错误 %d",
   "core.app.foreign_origin": "已拒绝来自其他站点的请求",

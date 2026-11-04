@@ -129,7 +129,8 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	case "Search.run":
 		return sdk.Response{Payload: map[string]any{"hits": 1}}, nil
 	case "Report.compute":
-		return sdk.Response{Payload: map[string]any{"table": map[string]any{"columns": []any{"Konto", "Betrag"}, "rows": []any{[]any{"4000", "-1.250,00"}}},
+		return sdk.Response{Payload: map[string]any{"table": map[string]any{"columns": []any{"Konto", "Betrag"}, "rows": []any{[]any{"4000", "-1.250,00"}, []any{"Summe", "-1.250,00"}},
+			"drill": []any{map[string]any{"account": "4000"}, nil}},
 			"download": map[string]any{"content": "S29udG87QmV0cmFnCg==", "content_type": "text/csv;charset=utf-8", "file_name": "../guv.csv"}}}, nil
 	case "Partner.Approve":
 		if req.Payload.(map[string]any)["id"] == "p/9" {
@@ -529,4 +530,6 @@ func TestReport(t *testing.T) {
 	}
 	mustContain(t, w.Body.String(), `name="period_to"`, `value="2026-12-31"`, `<td class="num">-1.250,00</td>`,
 		`href="data:text/csv;charset=utf-8;base64,S29udG87QmV0cmFnCg=="`, `download="guv.csv"`)
+	// 0.56.0: Zeile mit Eingaben ist anklickbar, die Summenzeile nicht
+	mustContain(t, w.Body.String(), `<tr class="drill" tabindex="0" data-drill="{&#34;account&#34;:&#34;4000&#34;}"`, `<tr><td>Summe</td>`, `function coremeshDrill(row)`)
 }

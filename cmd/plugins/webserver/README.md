@@ -666,6 +666,10 @@ abhängen:
 - **Kopierfelder im Ergebnis (seit 0.53.0):** `{"copy": [{"label", "value", "copy"}]}` zeigt die
   Werte untereinander, jeder mit Kopier-Zeichen (⧉) für die Zwischenablage; `copy` ist der kopierte
   Text, wenn er von der Anzeige abweicht (z. B. IBAN ohne Leerzeichen).
+- **Verzweigen aus Berichtszeilen (seit 0.56.0):** `{"table": {"columns", "rows", "drill": [{<eingabe>: <wert>} | null, …]}}`
+  – je Zeile Eingaben des Berichts. Auf der Berichtsseite ist eine solche Zeile anklickbar (auch
+  Eingabetaste): die Werte kommen in die Maske, der Bericht läuft erneut, z. B. von der Liste der
+  Debitoren und Kreditoren ins Partnerkonto. Felder, die die Maske nicht hat, gehen versteckt mit.
 - **Links in Feldern (seit 0.51.0):** Liefert ein Modul am Datensatz `"_links": {<feld>: <href>}`,
   wird der Wert in Liste, Unterzeilen und Detail ein Link. Erlaubt sind `tel:`, `mailto:`,
   `https://` und `http://` (diese in neuem Tab); andere Schemata bleiben Text.
