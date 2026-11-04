@@ -32,7 +32,7 @@
 {{with .Downloads}}<p class="result-download">{{range .}}<a class="btn" href="{{.URL}}" download="{{.FileName}}">{{t "core.app.download"}}: {{.FileName}}</a> {{end}}</p>{{end}}
 {{with .ResultTable}}<div class="result-table"><table class="data">
   <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
-  <tbody>{{range .Rows}}<tr>{{range .}}<td{{if numeric .}} class="num"{{end}}>{{.}}</td>{{end}}</tr>{{end}}</tbody>
+  <tbody>{{$t := .}}{{range $i, $r := .Rows}}<tr{{with $t.DrillOf $i}} class="drill" tabindex="0" data-drill="{{.}}" title="{{t "core.app.drill"}}"{{end}}>{{range $r}}<td{{if numeric .}} class="num"{{end}}>{{.}}</td>{{end}}</tr>{{end}}</tbody>
 </table></div>{{end}}
 {{end}}
 

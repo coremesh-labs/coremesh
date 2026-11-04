@@ -119,6 +119,9 @@ pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius
 .result-qr figcaption { margin-top: .4rem; font-size: .9rem; word-break: break-word; }
 .result-table { max-height: 60vh; overflow: auto; margin-top: .75rem; }
 .result-table td { white-space: nowrap; }
+.result-table tr.drill { cursor: pointer; }
+.result-table tr.drill:hover td, .result-table tr.drill:focus td { background: var(--bg); }
+.result-table tr.drill:focus { outline: 2px solid var(--accent, #2563eb); outline-offset: -2px; }
 .doc-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; align-items: end; margin-top: .75rem; }
 .doc-form label { display: grid; gap: .25rem; }
 .doc-viewer iframe { width: 100%; height: 80vh; min-height: 30rem; border: 1px solid var(--border, #ccc); background: #fff; }

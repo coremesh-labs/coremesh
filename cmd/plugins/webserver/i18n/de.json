@@ -17,6 +17,7 @@
   "core.app.close": "Schließen",
   "core.app.download": "Herunterladen",
   "core.app.copy": "Kopieren",
+  "core.app.drill": "Details öffnen",
   "core.app.error": "Fehler",
   "core.app.error_title": "Fehler %d",
   "core.app.foreign_origin": "Anfrage von fremder Seite abgelehnt",
