@@ -752,7 +752,7 @@ func TestRelationOtherModule(t *testing.T) {
 	}
 }
 
-// Seit 0.57.0: Aktion mit Requires nur, wenn die Objects der anderen Module da sind.
+// Seit 0.57.1: Aktion mit Requires nur, wenn die Objects der anderen Module da sind.
 func TestActionRequires(t *testing.T) {
 	orig := mdDefs["Customer"]
 	defer func() { mdDefs["Customer"] = orig }()
