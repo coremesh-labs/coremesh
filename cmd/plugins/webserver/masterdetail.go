@@ -175,15 +175,17 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 		ForeignKey: rel.ForeignKey,
 		LookupEdit: map[string]string{}, History: includeHistory(r)}
 
-	if _, ok := mod.object(rel.Object); !ok {
-		// Unter-Object läuft nicht oder der Benutzer darf es gar nicht sehen.
+	var child objectCtx
+	if _, ok := mod.object(rel.Object); ok {
+		if child, err = s.definition(r, rel.Object); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	} else if child, err = s.targetDef(r, rel.Object); err != nil {
+		// Unter-Object eines anderen Moduls (seit 0.57.0, z. B. Zähler am Mietobjekt):
+		// läuft nicht oder der Benutzer darf es gar nicht sehen.
 		rv.Message = s.T(r, "core.relation.no_access")
 		s.render(w, r, http.StatusOK, "relation", rv, "", "")
-		return
-	}
-	child, err := s.definition(r, rel.Object)
-	if err != nil {
-		s.fail(w, r, err)
 		return
 	}
 	rv.Child = child

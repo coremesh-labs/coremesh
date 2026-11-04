@@ -732,3 +732,22 @@ func TestLookupLabelsInList(t *testing.T) {
 		t.Fatalf("technische ID: Text in der Zelle erwartet: %v", m)
 	}
 }
+
+// TestRelationOtherModule (0.57.0): Das Unter-Object liegt in einem anderen Modul
+// (z. B. Zähler am Mietobjekt) – der Abschnitt lädt es über seine Definition statt
+// „kein Zugriff“ zu melden.
+func TestRelationOtherModule(t *testing.T) {
+	old := mdDefs["Customer"]
+	t.Cleanup(func() { mdDefs["Customer"] = old; delete(mdDefs, "Meter") })
+	mdDefs["Meter"] = metamodel.ObjectDefinition{Name: "Meter", Title: "Zähler", Actions: mdDefs["Address"].Actions,
+		Fields: []metamodel.FieldDefinition{{Key: "customer_id", Label: "Kunde", Type: metamodel.TypeText}, {Key: "number", Label: "Nummer", Type: metamodel.TypeText, Listable: true}}}
+	d := old
+	d.Sections = append(slices.Clone(old.Sections), metamodel.SectionDefinition{Key: "meters", Title: "Zähler",
+		Relation: &metamodel.Relation{Object: "Meter", ForeignKey: "customer_id"}})
+	mdDefs["Customer"] = d
+	s, h := newMDServer(t)
+	do(s, "GET", "/m/crm/Customer/c1/rel/meters", nil, true)
+	if l := h.find("list"); l.Object != "Meter" || l.Payload.(map[string]any)["query"].(map[string]any)["customer_id"] != "c1" {
+		t.Fatalf("Unter-Object aus anderem Modul: %v", l)
+	}
+}

@@ -55,6 +55,15 @@ func TestPeekIconInViews(t *testing.T) {
 	if u := peekFor(record{"kind": "A/B"}, f); u != "/peek/ContactKind/A%2FB" {
 		t.Fatalf("URL: %s", u)
 	}
+	// Variante nach einem anderen Feld (Lookup.By, seit 0.57.0): Ziel je Objektart.
+	v := metamodel.FieldDefinition{Key: "object_id", Lookup: &metamodel.Lookup{By: "object_type", Variants: map[string]metamodel.Lookup{
+		"BUILDING": {Object: "Building", ValueField: "building_id", Filters: map[string]string{"company_code": "company_code"}}}}}
+	if u := peekFor(record{"object_type": "BUILDING", "object_id": "Lpz1", "company_code": "2000"}, v); u != "/peek/Building/Lpz1?f.company_code=2000&vf=building_id" {
+		t.Fatalf("Variante: %s", u)
+	}
+	if u := peekFor(record{"object_type": "PARTNER", "object_id": "1"}, v); u != "" {
+		t.Fatalf("ohne Variante: %s", u)
+	}
 }
 
 func TestHeaderFields(t *testing.T) {
