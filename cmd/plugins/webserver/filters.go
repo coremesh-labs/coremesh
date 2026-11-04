@@ -55,6 +55,15 @@ func (s *server) filterFields(r *http.Request, oc objectCtx, q url.Values) []fil
 // lookupChoices: Auswahl bei kleinem Ziel, sonst Eingabe mit Dialog.
 func (s *server) lookupChoices(r *http.Request, oc objectCtx, ff *filterField, q url.Values) {
 	lk := ff.Lookup
+	if lk.By != "" {
+		// Verweis je Art (seit 0.57.0): Variante nach dem Filterwert des Felds By;
+		// ohne gewählte Art bleibt es eine einfache Eingabe.
+		v := lk.For(func(k string) string { return strings.TrimSpace(q.Get(k)) })
+		if v.Object == "" || v.By != "" {
+			return
+		}
+		ff.Lookup, lk = v, v
+	}
 	ff.Search = true
 	if v := strings.TrimSpace(q.Get(ff.Key)); v != "" {
 		ff.ValueLabel = s.lookupLabels(r, metamodel.ObjectDefinition{Fields: []metamodel.FieldDefinition{ff.FieldDefinition}},
