@@ -301,6 +301,11 @@ func TestRelationsOnlyToOwnObjects(t *testing.T) {
 	if _, err := e.register("partner", "1.2.0", bp); !errors.Is(err, sdk.ErrPermissionDenied) {
 		t.Fatalf("Relation auf fremdes Object: %v", err)
 	}
+	// ausdrücklich aus einem anderen Modul (Relation.Module): erlaubt
+	bp.Sections[0].Relation.Module = "realestate"
+	if _, err := e.register("partner", "1.2.0", bp); err != nil {
+		t.Fatalf("Relation mit Module: %v", err)
+	}
 }
 
 func TestTranslations(t *testing.T) {

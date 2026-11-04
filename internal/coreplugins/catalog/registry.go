@@ -73,8 +73,8 @@ func checkOwnership(module string, defs []metamodel.ObjectDefinition, mods []met
 	}
 	for _, d := range defs {
 		for _, s := range d.Sections {
-			if s.Relation == nil {
-				continue
+			if s.Relation == nil || s.Relation.Module != "" {
+				continue // Unter-Object eines anderen Moduls (Relation.Module): prüft dieses
 			}
 			child, ok := byName[s.Relation.Object]
 			if !ok {
