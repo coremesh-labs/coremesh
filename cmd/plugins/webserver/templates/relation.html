@@ -14,6 +14,26 @@
 {{with .Message}}<p class="empty">{{.}}</p>{{else}}
 {{block "relation-toolbar" .}}
 <div class="relation-toolbar">
+  {{if .FilterBar}}{{$rel := .}}
+  <form class="list-filters relation-filters" method="get" action="{{.Section.URL}}" hx-get="{{.Section.URL}}" hx-target="closest .relation" hx-swap="innerHTML"
+        hx-trigger="change, submit" hx-sync="this:replace">
+    {{range .FilterBar}}{{$v := index $rel.Filter .Key}}
+    <label title="{{.Label}}"><span>{{columnLabel .FieldDefinition}}</span>
+      {{if eq .Type "boolean"}}
+      <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
+        <option value="true" {{if eq $v "true"}}selected{{end}}>{{t "core.app.yes"}}</option>
+        <option value="false" {{if eq $v "false"}}selected{{end}}>{{t "core.app.no"}}</option></select>
+      {{else if .Select}}
+      <select name="{{.Key}}"><option value="">{{t "core.list.all"}}</option>
+        {{range .Choices}}<option value="{{.Value}}" {{if eq .Value $v}}selected{{end}}>{{codeLabel .Value .Label}}</option>{{end}}</select>
+      {{else}}
+      <input type="text" name="{{.Key}}" value="{{$v}}" size="10">
+      {{end}}
+    </label>{{end}}
+    {{if $rel.History}}<input type="hidden" name="includeHistory" value="true">{{end}}
+    {{if $rel.Filter}}<a class="link" href="{{$rel.Section.URL}}" hx-get="{{$rel.Section.URL}}" hx-target="closest .relation" hx-swap="innerHTML">{{t "core.list.reset"}}</a>{{end}}
+  </form>
+  {{end}}
   {{if .Child.HasHistory}}{{template "history-toggle" (historyCtx .Section.URL .History "closest .relation" "innerHTML")}}{{end}}
   {{with .AddURL}}<a class="btn small" href="{{.}}" hx-get="{{.}}" hx-target="#modal">{{t "core.relation.add"}}</a>{{end}}
 </div>
