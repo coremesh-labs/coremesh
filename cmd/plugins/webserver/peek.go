@@ -53,12 +53,14 @@ func peekFor(rec record, f metamodel.FieldDefinition) string {
 	if f.Lookup == nil {
 		return ""
 	}
-	u := peekURL(f.Lookup.Object, scalar(rec[f.Key]))
-	if u == "" || f.Lookup.ValueField == "" {
+	// Variante nach dem Wert eines anderen Felds des Datensatzes (Lookup.By, seit 0.57.0)
+	l := f.Lookup.For(func(k string) string { return scalar(rec[k]) })
+	u := peekURL(l.Object, scalar(rec[f.Key]))
+	if u == "" || l.ValueField == "" {
 		return u
 	}
-	q := url.Values{"vf": {f.Lookup.ValueField}}
-	for target, src := range f.Lookup.Filters {
+	q := url.Values{"vf": {l.ValueField}}
+	for target, src := range l.Filters {
 		if strings.HasPrefix(src, "=") { // fester Wert
 			q.Set("f."+target, strings.TrimPrefix(src, "="))
 		} else if v := scalar(rec[src]); v != "" {
