@@ -751,3 +751,18 @@ func TestRelationOtherModule(t *testing.T) {
 		t.Fatalf("Unter-Object aus anderem Modul: %v", l)
 	}
 }
+
+// Seit 0.57.0: Aktion mit Requires nur, wenn die Objects der anderen Module da sind.
+func TestActionRequires(t *testing.T) {
+	orig := mdDefs["Customer"]
+	defer func() { mdDefs["Customer"] = orig }()
+	d := orig
+	d.Actions = append(slices.Clone(orig.Actions),
+		metamodel.ActionConfig{Name: "fromAddress", Kind: metamodel.KindCustom, Label: "Aus Adressen", Record: true, Requires: []string{"Address"}},
+		metamodel.ActionConfig{Name: "fromEstate", Kind: metamodel.KindCustom, Label: "Aus Immobilien", Record: true, Requires: []string{"Building"}})
+	mdDefs["Customer"] = d
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/m/crm/Customer/c1", nil, false).Body.String()
+	mustContain(t, b, "Aus Adressen")
+	mustNotContain(t, b, "Aus Immobilien")
+}

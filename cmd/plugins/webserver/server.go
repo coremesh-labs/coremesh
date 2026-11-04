@@ -158,7 +158,7 @@ func (s *server) loadObject(r *http.Request) (objectCtx, error) {
 	if !def.Available {
 		return objectCtx{}, fmt.Errorf("%w: %s", sdk.ErrUnavailable, s.T(r, "core.error.unavailable", def.Definition.Title))
 	}
-	return s.withDisplay(r, s.withLocale(r, newObjectCtx(mod.Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r)))), nil
+	return s.withRequires(r, s.withDisplay(r, s.withLocale(r, newObjectCtx(mod.Name, object, s.localizeDef(r, def.Definition)).visibleFor(userFrom(r))))), nil
 }
 
 // need liefert die Action eines Kinds oder einen Fehler, wenn das Object sie nicht anbietet.
