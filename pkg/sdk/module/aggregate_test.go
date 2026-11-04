@@ -300,6 +300,16 @@ func TestAggregateRelationOutsideModule(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "kein beschriebenes Object dieses Moduls") {
 		t.Fatalf("Relation über Modulgrenze: %v", err)
 	}
+	// ausdrücklich aus einem anderen Modul: erlaubt, nicht im Aggregat
+	ok := simple("sales", &ev, "Order")
+	ok.routes = func(r *Router) {
+		d := def("Order")
+		d.Sections = []metamodel.SectionDefinition{{Key: "items", Title: "Positionen", Relation: &metamodel.Relation{Object: "Item", ForeignKey: "order_id", Module: "stock"}}}
+		r.Object("Order").Describe(d).Handle("list", echo)
+	}
+	if err := NewPlugin(Info{Name: "erp", Version: "1"}, ok, simple("stock", &ev, "Item")).Err(); err != nil {
+		t.Fatalf("Relation mit Module: %v", err)
+	}
 }
 
 // TestAggregateLinkMatch: Relation mit Match (zusammengesetzter Schlüssel des

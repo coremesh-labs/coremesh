@@ -227,6 +227,10 @@ type Relation struct {
 	// Filter: feste Werte für die Abfrage des Unter-Objects (Feld → Wert), z. B.
 	// {"status": "INBOX"} – nur Datensätze in diesem Zustand; Felder aus Filters.
 	Filter map[string]string `json:"filter,omitempty"`
+	// Module (seit 0.57.0): das Unter-Object gehört zu diesem anderen Modul (z. B.
+	// "techobj") – die Oberfläche zeigt die Zeilen über dessen Liste, nicht Teil des
+	// Aggregats; ohne Zugriff oder ohne das Modul ein Hinweis statt der Tabelle.
+	Module string `json:"module,omitempty"`
 }
 
 // FieldType bestimmt Darstellung und Eingabe eines Felds.
