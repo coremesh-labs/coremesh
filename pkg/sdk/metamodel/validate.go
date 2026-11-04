@@ -66,21 +66,41 @@ func (d ObjectDefinition) Validate() error {
 			values[o.Value] = true
 		}
 		if lk := f.Lookup; lk != nil {
-			if !objectRe.MatchString(lk.Object) {
-				add("%s: lookup.object %q: PascalCase erwartet", where, lk.Object)
-			}
-			if !keyRe.MatchString(lk.ValueField) {
-				add("%s: lookup.value_field fehlt oder ungültig", where)
-			}
-			if len(lk.LabelFields) == 0 {
-				add("%s: lookup.label_fields fehlt", where)
-			}
-			for _, k := range append(slices.Clone(lk.LabelFields), lk.Columns...) {
-				if !keyRe.MatchString(k) {
-					add("%s: lookup: ungültiges Feld %q", where, k)
+			check := func(w string, lk Lookup) {
+				if !objectRe.MatchString(lk.Object) {
+					add("%s: lookup.object %q: PascalCase erwartet", w, lk.Object)
+				}
+				if !keyRe.MatchString(lk.ValueField) {
+					add("%s: lookup.value_field fehlt oder ungültig", w)
+				}
+				if len(lk.LabelFields) == 0 {
+					add("%s: lookup.label_fields fehlt", w)
+				}
+				for _, k := range append(slices.Clone(lk.LabelFields), lk.Columns...) {
+					if !keyRe.MatchString(k) {
+						add("%s: lookup: ungültiges Feld %q", w, k)
+					}
 				}
 			}
-			if f.Type == TypeSelect || f.Type == TypeBoolean || f.Type == TypePassword || f.Type == TypeFile {
+			if lk.By != "" {
+				// Verweis je Art: jede Variante vollständig; der Lookup selbst nur, wenn
+				// er als Rückfall angegeben ist. Auch bei select (Auswahl aus FormState).
+				if !slices.ContainsFunc(d.Fields, func(o FieldDefinition) bool { return o.Key == lk.By }) {
+					add("%s: lookup.by %q ist kein Feld", where, lk.By)
+				}
+				if len(lk.Variants) == 0 {
+					add("%s: lookup.by ohne variants", where)
+				}
+				for k, v := range lk.Variants {
+					check(fmt.Sprintf("%s variant %q", where, k), v)
+				}
+				if lk.Object != "" {
+					check(where, *lk)
+				}
+			} else {
+				check(where, *lk)
+			}
+			if (f.Type == TypeSelect && lk.By == "") || f.Type == TypeBoolean || f.Type == TypePassword || f.Type == TypeFile {
 				add("%s: lookup nicht bei type %s", where, f.Type)
 			}
 		}
