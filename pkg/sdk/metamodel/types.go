@@ -301,6 +301,10 @@ type ActionConfig struct {
 	// vorerfasster Belege). Jede Zeile einzeln – Fehler einer Zeile halten die
 	// anderen nicht auf; das Ergebnis nennt sie.
 	Bulk bool `json:"bulk,omitempty"`
+	// Requires (seit 0.57.0 webserver): Objects anderer Module, ohne die die Aktion
+	// keinen Sinn hat (z. B. "Building" für „Aus Immobilien aufbauen …“) – fehlt
+	// eines oder läuft sein Modul nicht, zeigt die Oberfläche die Aktion nicht.
+	Requires []string `json:"requires,omitempty"`
 }
 
 // ActionKind sagt dem WebServer, wie er eine Aktion einbindet.

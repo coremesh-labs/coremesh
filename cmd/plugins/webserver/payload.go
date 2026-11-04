@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/http"
 	"net/mail"
 	"net/url"
 	"path"
@@ -209,6 +210,32 @@ func newObjectCtx(module, object string, d metamodel.ObjectDefinition) objectCtx
 			oc.Has[string(a.Kind)] = a
 		}
 	}
+	return oc
+}
+
+// withRequires entfernt Aktionen, deren benötigte Objects anderer Module
+// (ActionConfig.Requires) nicht registriert sind oder nicht laufen.
+func (s *server) withRequires(r *http.Request, oc objectCtx) objectCtx {
+	known := map[string]bool{}
+	ok := func(object string) bool {
+		if v, seen := known[object]; seen {
+			return v
+		}
+		resp, err := s.call(r, sdk.ObjectCatalog, "GetDefinition", map[string]any{"object": object})
+		var def struct {
+			Definition metamodel.ObjectDefinition `json:"definition"`
+			Available  bool                       `json:"available"`
+		}
+		known[object] = err == nil && sdk.Decode(resp.Payload, &def) == nil && def.Available && def.Definition.Name == object
+		return known[object]
+	}
+	var custom []metamodel.ActionConfig
+	for _, a := range oc.Custom {
+		if !slices.ContainsFunc(a.Requires, func(o string) bool { return !ok(o) }) {
+			custom = append(custom, a)
+		}
+	}
+	oc.Custom = custom
 	return oc
 }
 
