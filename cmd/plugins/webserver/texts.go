@@ -37,6 +37,9 @@ func textSectionURL(entityType, entityID string) string {
 	return "/texts/" + entityType + "/" + url.PathEscape(entityID)
 }
 
+// Local: Text ist „nur lokal“ (wirksamer Wert).
+func (s textSection) Local(t textservice.Text) bool { return t.LocalOnly != nil && *t.LocalOnly }
+
 // LanguageName: Bezeichnung des Sprachschlüssels.
 func (s textSection) LanguageName(code string) string {
 	for _, l := range s.Languages {
@@ -98,6 +101,17 @@ func (s *server) textSectionSave(w http.ResponseWriter, r *http.Request) {
 	pos, _ := strconv.Atoi(strings.TrimSpace(f.Get("position")))
 	t := textservice.Text{ID: f.Get("id"), EntityType: r.PathValue("entity"), EntityID: r.PathValue("id"), Category: f.Get("category"),
 		Position: pos, Language: f.Get("language"), Content: f.Get("content"), ValidFrom: f.Get("valid_from"), ValidTo: f.Get("valid_to")}
+	switch f.Get("local") { // nur lokal: 1 ja, 0 nein, leer = Vorgabe der Kategorie
+	case "1":
+		yes := true
+		t.LocalOnly = &yes
+	case "0":
+		no := false
+		t.LocalOnly = &no
+	default:
+		t.LocalDefault = true
+	}
+	t.LocalSet = t.LocalOnly != nil
 	if _, err := s.call(r, textservice.Object, textservice.ActionSave, t); err != nil {
 		parts := strings.SplitN(err.Error(), ": ", 2)
 		s.renderTexts(w, r, t, parts[len(parts)-1])

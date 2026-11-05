@@ -14,6 +14,8 @@
   "textmanagement.TextCategory.fields.code": "Code",
   "textmanagement.TextCategory.fields.description": "Beschreibung",
   "textmanagement.TextCategory.fields.is_active": "Aktiv",
+  "textmanagement.TextCategory.fields.local_only": "Nur lokal (Vorgabe für neue Texte: nicht veröffentlichen, z. B. interne Notizen)",
+  "textmanagement.TextCategory.fields.local_only.short": "Nur lokal",
   "textmanagement.TextCategory.fields.name": "Bezeichnung",
   "textmanagement.TextCategory.fields.sort_order": "Reihenfolge",
   "textmanagement.TextCategory.options.cardinality.MULTIPLE": "mehrfach je Datensatz",

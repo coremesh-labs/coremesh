@@ -330,3 +330,49 @@ func TestTextValidity(t *testing.T) {
 		}
 	}
 }
+
+// TestTextLocalOnly: „nur lokal“ – Vorgabe der Kategorie, Festlegung am Text,
+// unverändert beim Ändern ohne Angabe, zurück auf Vorgabe, public_only.
+func TestTextLocalOnly(t *testing.T) {
+	e := setup(t)
+	ctx := e.ctx
+	e.must("TextAssignment", "create", map[string]any{"entity_type": "Contract", "company_code": "*", "category": "NOTE"})
+	if _, err := e.p.Handle(ctx, sdk.Request{Object: "TextCategory", Action: "update",
+		Payload: map[string]any{"id": "NOTE", "data": map[string]any{"local_only": true}}}); err != nil {
+		t.Fatal(err)
+	}
+	base := textservice.Text{EntityType: "Contract", EntityID: "1000|MV-1", Language: "de", Category: "NOTE"}
+	a := base
+	a.Content = "intern: Mieter zahlt oft spät"
+	ta, err := e.svc.Save(ctx, a)
+	if err != nil || ta.LocalOnly == nil || !*ta.LocalOnly || ta.LocalSet {
+		t.Fatalf("Vorgabe der Kategorie: %+v %v", ta, err)
+	}
+	b := base
+	no := false
+	b.Content, b.LocalOnly = "Schlüssel beim Hausmeister", &no
+	tb, err := e.svc.Save(ctx, b)
+	if err != nil || *tb.LocalOnly || !tb.LocalSet {
+		t.Fatalf("am Text festgelegt: %+v %v", tb, err)
+	}
+	// ändern ohne Angabe: Festlegung bleibt
+	tb.Content, tb.LocalOnly = "Schlüssel beim Hausmeister (Whg. 3)", nil
+	if tb, err = e.svc.Save(ctx, tb); err != nil || *tb.LocalOnly || !tb.LocalSet {
+		t.Fatalf("unverändert: %+v %v", tb, err)
+	}
+	l, err := e.svc.List(ctx, textservice.ListRequest{EntityType: "Contract", EntityID: "1000|MV-1", PublicOnly: true})
+	if err != nil || len(l.Items) != 1 || l.Items[0].ID != tb.ID || !l.Categories[0].LocalOnly {
+		t.Fatalf("public_only: %+v %v", l, err)
+	}
+	// zurück auf die Vorgabe der Kategorie → nur lokal
+	tb.LocalDefault = true
+	if tb, err = e.svc.Save(ctx, tb); err != nil || !*tb.LocalOnly || tb.LocalSet {
+		t.Fatalf("Vorgabe: %+v %v", tb, err)
+	}
+	if l, _ := e.svc.List(ctx, textservice.ListRequest{EntityType: "Contract", EntityID: "1000|MV-1", PublicOnly: true}); len(l.Items) != 0 {
+		t.Fatalf("public_only leer erwartet: %+v", l.Items)
+	}
+	if l, _ := e.svc.List(ctx, textservice.ListRequest{EntityType: "Contract", EntityID: "1000|MV-1"}); len(l.Items) != 2 {
+		t.Fatalf("alle: %+v", l.Items)
+	}
+}

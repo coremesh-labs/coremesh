@@ -175,5 +175,10 @@
   "core.bulk.none": "未勾选任何行",
   "core.bulk.entry": "条目",
   "core.bulk.error": "消息",
-  "core.bulk.clear": "取消勾选"
+  "core.bulk.clear": "取消勾选",
+  "core.texts.local": "仅限本地",
+  "core.texts.local_hint": "仅限本地：不会发布（导出、PWA、给第三方的文件夹）",
+  "core.texts.local_default": "类别默认值",
+  "core.texts.local_yes": "是，仅限本地",
+  "core.texts.local_no": "否，可以发布"
 }
