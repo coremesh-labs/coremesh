@@ -103,8 +103,16 @@ func convertParams(def *commandDef, p params) error {
 			}
 			p[name] = b
 		case typ == "json":
+			raw := []byte(s)
+			if path, ok := strings.CutPrefix(s, "@"); ok { // --data=@datei.json: JSON aus einer Datei (große Inhalte)
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("--%s: %v", name, err)
+				}
+				raw = b
+			}
 			var j any
-			if err := json.Unmarshal([]byte(s), &j); err != nil {
+			if err := json.Unmarshal(raw, &j); err != nil {
 				return fmt.Errorf("--%s: JSON erwartet: %v", name, err)
 			}
 			p[name] = j

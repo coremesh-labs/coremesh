@@ -417,7 +417,7 @@ func actionDetails(ctx context.Context, c consolev1.ConsoleServiceClient, o opti
 				fields = append(fields, f.Key)
 			}
 		}
-		fmt.Fprintln(w, "Parameter: --data='{…}' mit den Feldern unten"+map[bool]string{true: ", --id", false: ""}[cfg.Kind == "update"])
+		fmt.Fprintln(w, "Parameter: --data='{…}' (oder --data=@datei.json) mit den Feldern unten"+map[bool]string{true: ", --id", false: ""}[cfg.Kind == "update"])
 	case "list":
 		fmt.Fprintln(w, "Parameter: --query='{…}' mit Filtern: "+strings.Join(def.Definition.Filters, ", "))
 		return nil
