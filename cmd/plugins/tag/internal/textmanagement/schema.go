@@ -17,6 +17,11 @@ table "tag__text_category" {
     type = text
     null = true
   }
+  # Vorgabe für neue Texte: nur lokal, nie veröffentlichen (Export, PWA, Mappe an Dritte)
+  column "local_only" {
+    type    = boolean
+    default = false
+  }
   column "sort_order" {
     type    = bigint
     default = 0
@@ -98,6 +103,11 @@ table "tag__text" {
   }
   column "valid_to" {
     type = date
+    null = true
+  }
+  # nur lokal (nicht veröffentlichen); leer = Vorgabe der Kategorie
+  column "local_only" {
+    type = boolean
     null = true
   }
   column "created_at"   { type = text }

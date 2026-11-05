@@ -175,5 +175,10 @@
   "core.bulk.none": "No row ticked",
   "core.bulk.entry": "Entry",
   "core.bulk.error": "Message",
-  "core.bulk.clear": "Clear selection"
+  "core.bulk.clear": "Clear selection",
+  "core.texts.local": "Local only",
+  "core.texts.local_hint": "Local only: never published (export, PWA, binder for third parties)",
+  "core.texts.local_default": "category default",
+  "core.texts.local_yes": "yes, local only",
+  "core.texts.local_no": "no, may be published"
 }

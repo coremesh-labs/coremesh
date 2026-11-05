@@ -14,6 +14,8 @@
   "textmanagement.TextCategory.fields.code": "Code",
   "textmanagement.TextCategory.fields.description": "Description",
   "textmanagement.TextCategory.fields.is_active": "Active",
+  "textmanagement.TextCategory.fields.local_only": "Local only (default for new texts: never published, e.g. internal notes)",
+  "textmanagement.TextCategory.fields.local_only.short": "Local only",
   "textmanagement.TextCategory.fields.name": "Name",
   "textmanagement.TextCategory.fields.sort_order": "Sort order",
   "textmanagement.TextCategory.options.cardinality.MULTIPLE": "several per record",

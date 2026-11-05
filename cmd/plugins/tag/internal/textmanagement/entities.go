@@ -43,11 +43,15 @@ func (m *Module) category() *crud.Entity {
 			{Key: "name", Label: "Bezeichnung", Type: tText, Required: true, Listable: true},
 			{Key: "cardinality", Label: "Häufigkeit", Type: tSel, Required: true, Listable: true, Options: cardinalities},
 			{Key: "description", Label: "Beschreibung", Type: metamodel.TypeTextarea},
+			{Key: "local_only", Label: "Nur lokal (Vorgabe für neue Texte: nicht veröffentlichen, z. B. interne Notizen)", Short: "Nur lokal", Type: tBool, Listable: true},
 			{Key: "sort_order", Label: "Reihenfolge", Type: tNumber, Listable: true},
 			{Key: "is_active", Label: "Aktiv", Type: tBool, Listable: true, ReadOnly: true},
 		},
 		Validate: func(ctx context.Context, rec, old crud.Record) error {
 			sortDefault(rec)
+			if rec["local_only"] == nil {
+				rec["local_only"] = false
+			}
 			if old == nil {
 				rec["code"] = strings.ToUpper(strings.TrimSpace(crud.Str(rec["code"])))
 				if !codeRe.MatchString(crud.Str(rec["code"])) {

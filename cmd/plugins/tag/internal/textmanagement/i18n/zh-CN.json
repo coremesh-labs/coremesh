@@ -14,6 +14,8 @@
   "textmanagement.TextCategory.fields.code": "代码",
   "textmanagement.TextCategory.fields.description": "说明",
   "textmanagement.TextCategory.fields.is_active": "有效",
+  "textmanagement.TextCategory.fields.local_only": "仅限本地（新文本的默认值：不发布，例如内部备注）",
+  "textmanagement.TextCategory.fields.local_only.short": "仅限本地",
   "textmanagement.TextCategory.fields.name": "名称",
   "textmanagement.TextCategory.fields.sort_order": "排序",
   "textmanagement.TextCategory.options.cardinality.MULTIPLE": "每条记录多次",

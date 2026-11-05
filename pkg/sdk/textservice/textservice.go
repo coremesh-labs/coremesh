@@ -56,6 +56,14 @@ type Text struct {
 	Content      string `json:"content"`
 	ValidFrom    string `json:"valid_from,omitempty"` // gültig ab (JJJJ-MM-TT, leer = unbegrenzt)
 	ValidTo      string `json:"valid_to,omitempty"`   // gültig bis (leer = unbegrenzt)
+	// LocalOnly: nur lokal, nicht veröffentlichen (Export, PWA, Mappe an Dritte).
+	// Beim Speichern: nil = Vorgabe der Kategorie bzw. unverändert; in der Antwort der wirksame Wert.
+	LocalOnly *bool `json:"local_only,omitempty"`
+	// LocalSet: nur lokal am Text selbst festgelegt (sonst von der Kategorie); beim Speichern
+	// mit LocalOnly = ausdrücklich so festlegen, auch wenn es der Vorgabe entspricht.
+	LocalSet     bool   `json:"local_set,omitempty"`
+	// LocalDefault: beim Speichern – Festlegung am Text aufheben (wieder Vorgabe der Kategorie).
+	LocalDefault bool `json:"local_default,omitempty"`
 	ChangedAt    string `json:"changed_at,omitempty"`
 	ChangedBy    string `json:"changed_by,omitempty"`
 }
@@ -66,6 +74,7 @@ type Category struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Cardinality string `json:"cardinality"` // SINGLE | MULTIPLE
+	LocalOnly   bool   `json:"local_only,omitempty"` // Vorgabe: nur lokal
 	Mandatory   bool   `json:"mandatory"`
 }
 
@@ -83,6 +92,8 @@ type ListRequest struct {
 	EntityID      string `json:"entity_id"`
 	Language      string `json:"language,omitempty"`
 	EffectiveDate string `json:"effective_date,omitempty"`
+	// PublicOnly: ohne Texte „nur lokal“ – für alles, was das Haus verlässt (Export, PWA, Mappe).
+	PublicOnly bool `json:"public_only,omitempty"`
 }
 
 // ListResponse: Texte (Kategorie, Position, Sprache), ob der Benutzer ändern darf,

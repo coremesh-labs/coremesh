@@ -175,5 +175,10 @@
   "core.bulk.none": "Keine Zeile angekreuzt",
   "core.bulk.entry": "Eintrag",
   "core.bulk.error": "Meldung",
-  "core.bulk.clear": "Auswahl aufheben"
+  "core.bulk.clear": "Auswahl aufheben",
+  "core.texts.local": "Nur lokal",
+  "core.texts.local_hint": "Nur lokal: wird nicht veröffentlicht (Export, PWA, Mappe an Dritte)",
+  "core.texts.local_default": "Vorgabe der Kategorie",
+  "core.texts.local_yes": "ja, nur lokal",
+  "core.texts.local_no": "nein, darf veröffentlicht werden"
 }

@@ -100,7 +100,7 @@ func firstNonEmpty(v ...string) string {
 }
 
 func (m *Module) categoryOf(ctx context.Context, code string) (textservice.Category, error) {
-	res, err := m.db.Query(ctx, `SELECT code, name, cardinality FROM tag__text_category WHERE code = ? AND is_active = ?`, code, true)
+	res, err := m.db.Query(ctx, `SELECT code, name, cardinality, local_only FROM tag__text_category WHERE code = ? AND is_active = ?`, code, true)
 	if err != nil {
 		return textservice.Category{}, err
 	}
@@ -108,13 +108,13 @@ func (m *Module) categoryOf(ctx context.Context, code string) (textservice.Categ
 		return textservice.Category{}, crud.Invalid("Textkategorie %q gibt es nicht", code)
 	}
 	r := res.Rows[0]
-	return textservice.Category{Code: crud.Str(r[0]), Name: crud.Str(r[1]), Cardinality: crud.Str(r[2])}, nil
+	return textservice.Category{Code: crud.Str(r[0]), Name: crud.Str(r[1]), Cardinality: crud.Str(r[2]), LocalOnly: crud.AsBool(r[3])}, nil
 }
 
 // allowed: am Datensatz erlaubte Kategorien – Zuordnungen des Objects im Buchungskreis
 // des Datensatzes oder für alle (*), mit erfüllter Bedingung; der Buchungskreis geht vor.
 func (m *Module) allowed(ctx context.Context, entityType string, t target) ([]textservice.Category, error) {
-	res, err := m.db.Query(ctx, `SELECT a.category, c.name, c.cardinality, a.mandatory, a.condition_field, a.condition_values, a.company_code
+	res, err := m.db.Query(ctx, `SELECT a.category, c.name, c.cardinality, a.mandatory, a.condition_field, a.condition_values, a.company_code, c.local_only
 		FROM tag__text_assignment a JOIN tag__text_category c ON c.code = a.category AND c.is_active = ?
 		WHERE a.entity_type = ? AND (a.company_code = ? OR a.company_code = ?)
 		ORDER BY CASE WHEN a.company_code = '*' THEN 1 ELSE 0 END, a.sort_order, c.sort_order, a.category`, true, entityType, "*", t.cc)
@@ -140,7 +140,7 @@ func (m *Module) allowed(ctx context.Context, entityType string, t target) ([]te
 			}
 		}
 		seen[code] = true
-		out = append(out, textservice.Category{Code: code, Name: crud.Str(r[1]), Cardinality: crud.Str(r[2]), Mandatory: crud.AsBool(r[3])})
+		out = append(out, textservice.Category{Code: code, Name: crud.Str(r[1]), Cardinality: crud.Str(r[2]), Mandatory: crud.AsBool(r[3]), LocalOnly: crud.AsBool(r[7])})
 	}
 	return out, nil
 }
@@ -158,7 +158,7 @@ func (m *Module) languages(ctx context.Context) ([]textservice.Language, error) 
 }
 
 const textCols = `x.id, x.entity_type, x.entity_id, x.category, COALESCE(c.name, x.category), x.position, x.language, x.content, x.changed_at, x.changed_by,
-	x.valid_from, x.valid_to`
+	x.valid_from, x.valid_to, x.local_only, COALESCE(c.local_only, ?)`
 
 func dateText(v any) string {
 	if crud.Str(v) == "" {
@@ -170,9 +170,16 @@ func dateText(v any) string {
 
 func toText(r []any) textservice.Text {
 	pos, _ := strconv.Atoi(crud.Str(r[5]))
-	return textservice.Text{ID: crud.Str(r[0]), EntityType: crud.Str(r[1]), EntityID: crud.Str(r[2]), Category: crud.Str(r[3]),
+	t := textservice.Text{ID: crud.Str(r[0]), EntityType: crud.Str(r[1]), EntityID: crud.Str(r[2]), Category: crud.Str(r[3]),
 		CategoryName: crud.Str(r[4]), Position: pos, Language: crud.Str(r[6]), Content: crud.Str(r[7]), ChangedAt: crud.Str(r[8]), ChangedBy: crud.Str(r[9]),
 		ValidFrom: dateText(r[10]), ValidTo: dateText(r[11])}
+	// wirksam: am Text festgelegt, sonst Vorgabe der Kategorie
+	local := crud.AsBool(r[13])
+	if r[12] != nil && crud.Str(r[12]) != "" {
+		local, t.LocalSet = crud.AsBool(r[12]), true
+	}
+	t.LocalOnly = &local
+	return t
 }
 
 // validAt: Text gilt am Tag d (leere Grenzen = unbegrenzt).
@@ -193,10 +200,14 @@ func effective(ctx context.Context, date string) (string, error) {
 	return crud.ParseDate(date)
 }
 
-func (m *Module) texts(ctx context.Context, entityType, entityID, language, at string) ([]textservice.Text, error) {
+func (m *Module) texts(ctx context.Context, entityType, entityID, language, at string, publicOnly bool) ([]textservice.Text, error) {
 	q := `SELECT ` + textCols + ` FROM tag__text x LEFT JOIN tag__text_category c ON c.code = x.category
 		LEFT JOIN tag__text_language l ON l.code = x.language WHERE x.entity_type = ? AND x.entity_id = ?`
-	args := []any{entityType, entityID}
+	args := []any{false, entityType, entityID}
+	if publicOnly {
+		q += ` AND COALESCE(x.local_only, c.local_only, ?) = ?`
+		args = append(args, false, false)
+	}
 	if language != "" {
 		q += ` AND x.language = ?`
 		args = append(args, language)
@@ -250,7 +261,7 @@ func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response,
 		}
 	}
 	at, _ := effective(ctx, filter)
-	if out.Items, err = m.texts(ctx, in.EntityType, in.EntityID, strings.TrimSpace(in.Language), filter); err != nil {
+	if out.Items, err = m.texts(ctx, in.EntityType, in.EntityID, strings.TrimSpace(in.Language), filter, in.PublicOnly); err != nil {
 		return sdk.Response{}, err
 	}
 	if out.Categories, err = m.allowed(ctx, in.EntityType, t); err != nil {
@@ -261,7 +272,7 @@ func (m *Module) listAction(ctx context.Context, req sdk.Request) (sdk.Response,
 	}
 	all := out.Items
 	if in.Language != "" {
-		all, _ = m.texts(ctx, in.EntityType, in.EntityID, "", filter)
+		all, _ = m.texts(ctx, in.EntityType, in.EntityID, "", filter, false)
 	}
 	out.Missing = missing(out.Categories, all, at)
 	_, werr := m.targetOf(ctx, in.EntityType, in.EntityID, true)
@@ -286,7 +297,7 @@ func (m *Module) checkAction(ctx context.Context, req sdk.Request) (sdk.Response
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	items, err := m.texts(ctx, in.EntityType, in.EntityID, "", "")
+	items, err := m.texts(ctx, in.EntityType, in.EntityID, "", "", false)
 	if err != nil {
 		return sdk.Response{}, err
 	}
@@ -309,7 +320,7 @@ func period(from, to string) string {
 func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
 func (m *Module) load(ctx context.Context, id string) (textservice.Text, error) {
-	res, err := m.db.Query(ctx, `SELECT `+textCols+` FROM tag__text x LEFT JOIN tag__text_category c ON c.code = x.category WHERE x.id = ?`, id)
+	res, err := m.db.Query(ctx, `SELECT `+textCols+` FROM tag__text x LEFT JOIN tag__text_category c ON c.code = x.category WHERE x.id = ?`, false, id)
 	if err != nil {
 		return textservice.Text{}, err
 	}
@@ -343,6 +354,15 @@ func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response,
 		if strings.TrimSpace(in.Language) == "" {
 			in.Language = old.Language
 		}
+		switch {
+		case in.LocalOnly == nil && old.LocalSet && !in.LocalDefault:
+			in.LocalOnly = old.LocalOnly // unverändert lassen
+		case in.LocalOnly != nil && !in.LocalSet && !old.LocalSet && old.LocalOnly != nil && *in.LocalOnly == *old.LocalOnly:
+			in.LocalOnly = nil // zurückgegebener Wert der Kategorie: Vorgabe bleibt
+		}
+	}
+	if in.LocalDefault {
+		in.LocalOnly = nil // Vorgabe der Kategorie
 	}
 	t, err := m.targetOf(ctx, in.EntityType, in.EntityID, true)
 	if err != nil {
@@ -425,11 +445,11 @@ func (m *Module) saveAction(ctx context.Context, req sdk.Request) (sdk.Response,
 	if in.ID == "" {
 		in.ID = crud.NewID()
 		_, err = m.db.Exec(ctx, `INSERT INTO tag__text (id, entity_type, entity_id, company_code, category, position, language, content,
-			valid_from, valid_to, created_at, created_by, changed_at, changed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, in.EntityType, in.EntityID,
-			nullable(t.cc), in.Category, in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), now(), user, now(), user)
+			valid_from, valid_to, local_only, created_at, created_by, changed_at, changed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, in.ID, in.EntityType, in.EntityID,
+			nullable(t.cc), in.Category, in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), localOnly(in.LocalOnly), now(), user, now(), user)
 	} else {
-		_, err = m.db.Exec(ctx, `UPDATE tag__text SET position = ?, language = ?, content = ?, valid_from = ?, valid_to = ?, changed_at = ?, changed_by = ? WHERE id = ?`,
-			in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), now(), user, in.ID)
+		_, err = m.db.Exec(ctx, `UPDATE tag__text SET position = ?, language = ?, content = ?, valid_from = ?, valid_to = ?, local_only = ?, changed_at = ?, changed_by = ? WHERE id = ?`,
+			in.Position, in.Language, in.Content, nullable(in.ValidFrom), nullable(in.ValidTo), localOnly(in.LocalOnly), now(), user, in.ID)
 	}
 	if err != nil {
 		return sdk.Response{}, err
@@ -467,4 +487,12 @@ func (m *Module) onRekey(ctx context.Context, req sdk.Request) (sdk.Response, er
 	_, err = m.db.Exec(ctx, `UPDATE tag__text SET entity_id = ? || substr(entity_id, ?)
 		WHERE entity_type = ? AND (entity_id = ? OR substr(entity_id, 1, ?) = ?)`, id, len(old)+1, ev.Object, old, len(old)+1, old+"|")
 	return sdk.Response{}, err
+}
+
+// localOnly: am Text festgelegt (true/false) oder NULL = Vorgabe der Kategorie.
+func localOnly(v *bool) any {
+	if v == nil {
+		return nil
+	}
+	return *v
 }
