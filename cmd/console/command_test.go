@@ -34,6 +34,16 @@ func TestConvertParams(t *testing.T) {
 	if err := convertParams(def, params{"year": "x"}); err == nil {
 		t.Fatal("Zahl nicht geprüft")
 	}
+	// --q=@datei: JSON aus einer Datei (z. B. ein Dokument als Base64, zu groß für die Befehlszeile)
+	path := filepath.Join(t.TempDir(), "d.json")
+	os.WriteFile(path, []byte(`{"content":"JVBERg=="}`), 0o644)
+	p = params{"q": "@" + path}
+	if err := convertParams(def, p); err != nil || p["q"].(map[string]any)["content"] != "JVBERg==" {
+		t.Fatalf("@datei: %v %v", p, err)
+	}
+	if err := convertParams(def, params{"q": "@" + path + ".fehlt"}); err == nil {
+		t.Fatal("fehlende Datei nicht gemeldet")
+	}
 }
 
 func TestReadParamFile(t *testing.T) {
