@@ -11,7 +11,7 @@ PROTO_OUT   := internal/api
 PROTO_FILES := $(wildcard $(PROTO_DIR)/plugin/v*/*.proto)
 CONSOLE_PROTO := $(wildcard $(PROTO_DIR)/console/v*/*.proto)
 
-.PHONY: all tools proto proto-buf proto-clean build host plugins run test vet tidy clean
+.PHONY: all tools proto proto-buf proto-clean build host plugins testserver run test vet tidy clean
 
 all: proto build
 
@@ -40,7 +40,11 @@ proto-buf:
 proto-clean:
 	rm -f $(PROTO_OUT)/*/v*/*.pb.go
 
-build: host plugins
+build: host plugins testserver
+
+## testserver: Testserver fürs lokale Netz (Dateien, App, eigene CA, QR-Code)
+testserver:
+	go build -o $(BIN_DIR)/coremesh-testserver$(EXT) ./cmd/coremesh-testserver
 
 host:
 	go build -o $(BIN_DIR)/host$(EXT) ./cmd/host
