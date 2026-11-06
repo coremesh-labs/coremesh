@@ -24,6 +24,13 @@ chmod +x coremesh-setup-linux-amd64
 Goethes Faust, Adressen in Musterstadt) und setzt sofort ein eigenes Passwort (`ZUGANG.txt`).
 Einzelheiten: [cmd/coremesh-setup/README.md](cmd/coremesh-setup/README.md).
 
+## Testserver im lokalen Netz: coremesh-testserver
+
+Zum Testen mit dem Handy bzw. einer PWA: Dateien hoch- und herunterladen, eine gebaute Web-App
+ausliefern, HTTPS mit eigener Zertifizierungsstelle (Zertifikat passt sich dem Netz an), QR-Code
+zum Einrichten. `make testserver`, dann `bin/coremesh-testserver --dir=testserver`.
+Einzelheiten: [cmd/coremesh-testserver/README.md](cmd/coremesh-testserver/README.md).
+
 
 ## Lizenz
 
