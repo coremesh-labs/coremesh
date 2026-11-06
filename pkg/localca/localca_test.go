@@ -98,3 +98,20 @@ func TestDetect(t *testing.T) {
 		}
 	}
 }
+
+func TestAdopt(t *testing.T) {
+	old, central := t.TempDir(), filepath.Join(t.TempDir(), "ca")
+	ca, _, err := LoadOrCreateCA(old, "Alt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := Adopt(old, central)
+	if err != nil || !ok || Same(central) != ca.Fingerprint() || Same(old) != "" {
+		t.Fatalf("Übernahme: %v %v", ok, err)
+	}
+	// schon vorhanden: nichts übernehmen
+	LoadOrCreateCA(old, "Neu", nil)
+	if ok, _ := Adopt(old, central); ok || Same(central) != ca.Fingerprint() {
+		t.Fatal("vorhandene CA überschrieben")
+	}
+}

@@ -17,7 +17,7 @@ import (
 
 func testApp(t *testing.T) *app {
 	t.Helper()
-	a, err := newApp(t.TempDir(), "faust-pc.fritz.box", "Test", false, 1<<20, t.Logf)
+	a, err := newApp(t.TempDir(), t.TempDir(), "faust-pc.fritz.box", "Test", false, 1<<20, t.Logf)
 	if err != nil {
 		t.Fatal(err)
 	}

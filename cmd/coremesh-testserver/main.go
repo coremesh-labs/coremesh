@@ -9,7 +9,7 @@
 //
 // Verzeichnis:
 //
-//	certs/        ca.crt, ca.key, server.crt, server.key
+//	certs/        server.crt, server.key (die CA liegt unter --ca, Standard ~/.config/coremesh/ca)
 //	files/        Dateien (Upload/Download unter /files/)
 //	app/          ausgelieferte Web-App unter /app/
 //	upload-token  Schlüssel für Schreibzugriffe aus dem Netz
@@ -51,6 +51,7 @@ type state struct {
 
 type app struct {
 	dir, filesDir, appDir, certsDir string
+	caDir                           string
 	httpPort, httpsPort             string
 	extra                           []string
 	label                           string
@@ -63,7 +64,8 @@ type app struct {
 }
 
 func main() {
-	dir := flag.String("dir", "testserver", "Verzeichnis für Zertifikate, Dateien und App")
+	dir := flag.String("dir", "testserver", "Verzeichnis für Serverzertifikat, Dateien und App")
+	caDir := flag.String("ca", localca.DefaultDir(), "Verzeichnis der Zertifizierungsstelle (gemeinsam für alle Server dieses Benutzers)")
 	httpAddr := flag.String("http", ":8080", "Adresse für HTTP (Einrichtung, CA-Zertifikat)")
 	httpsAddr := flag.String("https", ":8443", "Adresse für HTTPS")
 	extra := flag.String("name", "", "weitere Namen bzw. Adressen fürs Zertifikat, durch Komma getrennt")
@@ -72,7 +74,7 @@ func main() {
 	maxMB := flag.Int64("max-upload", 1024, "größter Upload in MB")
 	flag.Parse()
 
-	a, err := newApp(*dir, *extra, *label, *open, *maxMB<<20, log.Printf)
+	a, err := newApp(*dir, *caDir, *extra, *label, *open, *maxMB<<20, log.Printf)
 	if err != nil {
 		log.Fatalf("Fehler: %v", err)
 	}
@@ -102,7 +104,7 @@ func main() {
 	}
 }
 
-func newApp(dir, extra, label string, open bool, maxUpload int64, logf func(string, ...any)) (*app, error) {
+func newApp(dir, caDir, extra, label string, open bool, maxUpload int64, logf func(string, ...any)) (*app, error) {
 	d, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -130,12 +132,25 @@ func newApp(dir, extra, label string, open bool, maxUpload int64, logf func(stri
 		domains = append(domains, short)
 	}
 	domains = append(domains, localca.SearchDomains()...)
-	ca, created, err := localca.LoadOrCreateCA(a.certsDir, label, domains)
+	// CA am festen Ort; eine CA aus certs/ (ältere Fassung) wird dorthin übernommen.
+	a.caDir, err = filepath.Abs(caDir)
+	if err != nil {
+		return nil, err
+	}
+	if ok, err := localca.Adopt(a.certsDir, a.caDir); err != nil {
+		return nil, err
+	} else if ok {
+		logf("Zertifizierungsstelle aus %s nach %s übernommen", a.certsDir, a.caDir)
+	}
+	if fp := localca.Same(a.certsDir); fp != "" && fp != localca.Same(a.caDir) {
+		logf("Achtung: %s enthält eine andere CA – sie wird nicht benutzt", a.certsDir)
+	}
+	ca, created, err := localca.LoadOrCreateCA(a.caDir, label, domains)
 	if err != nil {
 		return nil, err
 	}
 	if created {
-		logf("Zertifizierungsstelle angelegt: %s", ca.Cert.Subject.CommonName)
+		logf("Zertifizierungsstelle angelegt: %s in %s", ca.Cert.Subject.CommonName, a.caDir)
 	}
 	a.ca = ca
 	if err := a.refresh(names); err != nil {
@@ -264,6 +279,7 @@ func (a *app) banner() {
 	fmt.Fprintf(os.Stderr, "  am Rechner:         http://localhost:%s/\n", a.httpPort)
 	fmt.Fprintf(os.Stderr, "  Namen:              %s\n", strings.Join(s.names.Hosts(), ", "))
 	fmt.Fprintf(os.Stderr, "  CA:                 %s, Fingerabdruck %s\n", a.ca.Cert.Subject.CommonName, a.ca.Fingerprint())
+	fmt.Fprintf(os.Stderr, "  CA-Verzeichnis:     %s (sichern!)\n", a.caDir)
 	if a.open {
 		fmt.Fprintf(os.Stderr, "  Schreiben:          aus dem Netz ohne Schlüssel erlaubt (--open)\n")
 	} else {
@@ -332,4 +348,3 @@ func isLoopback(r *http.Request) bool {
 	ip := net.ParseIP(remoteIP(r))
 	return ip != nil && ip.IsLoopback()
 }
-

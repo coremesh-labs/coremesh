@@ -10,7 +10,8 @@
 // Bereiche ganze private Netze umfassen, bleibt die CA gültig, wenn der Rechner
 // eine neue Adresse bekommt; nur das Serverzertifikat wird neu ausgestellt.
 //
-// Ablage in einem Verzeichnis: ca.crt, ca.key (0600), server.crt, server.key (0600).
+// Ablage: CA (ca.crt, ca.key 0600) am festen Ort je Benutzer (DefaultDir),
+// Serverzertifikat (server.crt, server.key 0600) je Server bzw. Installation.
 package localca
 
 import (
@@ -228,6 +229,67 @@ func (c *CA) Permits(host string) bool {
 		}
 	}
 	return false
+}
+
+// DefaultDir: der feste Ort der CA je Benutzer, gemeinsam für alle Testserver
+// und Installationen dieses Benutzers (COREMESH_CA_DIR bzw.
+// <Konfigurationsverzeichnis>/coremesh/ca, unter Linux ~/.config/coremesh/ca).
+// Ein Handy, das ihr einmal vertraut, bleibt eingerichtet – auch wenn ein
+// Testserver oder eine Installation neu angelegt wird.
+func DefaultDir() string {
+	if d := os.Getenv("COREMESH_CA_DIR"); d != "" {
+		return d
+	}
+	base, err := os.UserConfigDir()
+	if err != nil {
+		base = "."
+	}
+	return filepath.Join(base, "coremesh", "ca")
+}
+
+// Adopt übernimmt eine vorhandene CA aus from nach to, wenn es in to noch
+// keine gibt (z. B. die CA eines älteren Testservers, der das Handy schon
+// vertraut). Die Dateien in from werden danach entfernt, damit es nur eine
+// gibt. Ergebnis: übernommen ja/nein.
+func Adopt(from, to string) (bool, error) {
+	if _, err := os.Stat(filepath.Join(to, "ca.crt")); err == nil {
+		return false, nil
+	}
+	ca, err := loadCA(from)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	keyDER, err := x509.MarshalECPrivateKey(ca.Key)
+	if err != nil {
+		return false, err
+	}
+	if err := os.MkdirAll(to, 0o700); err != nil {
+		return false, err
+	}
+	if err := writeFile(filepath.Join(to, "ca.key"), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}), 0o600); err != nil {
+		return false, err
+	}
+	if err := writeFile(filepath.Join(to, "ca.crt"), ca.PEM(), 0o644); err != nil {
+		return false, err
+	}
+	if back, err := loadCA(to); err != nil || back.Fingerprint() != ca.Fingerprint() {
+		return false, fmt.Errorf("localca: Übernahme nach %s nicht lesbar", to)
+	}
+	os.Remove(filepath.Join(from, "ca.key"))
+	os.Remove(filepath.Join(from, "ca.crt"))
+	return true, nil
+}
+
+// Same: Fingerabdruck der CA in dir ("" wenn keine).
+func Same(dir string) string {
+	ca, err := loadCA(dir)
+	if err != nil {
+		return ""
+	}
+	return ca.Fingerprint()
 }
 
 // LoadOrCreateCA lädt die CA aus dir oder legt sie an. label erscheint im
