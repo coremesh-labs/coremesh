@@ -10,7 +10,8 @@ bin/coremesh-testserver --dir=testserver
 
 | Schalter | Vorgabe | Bedeutung |
 |---|---|---|
-| `--dir` | `testserver` | Verzeichnis für Zertifikate, Dateien, App |
+| `--dir` | `testserver` | Verzeichnis für Serverzertifikat, Dateien, App |
+| `--ca` | `~/.config/coremesh/ca` | Zertifizierungsstelle (gemeinsam) |
 | `--http` | `:8080` | Einrichtung und CA-Zertifikat (HTTP), sonst Umleitung auf HTTPS |
 | `--https` | `:8443` | Startseite, Dateien, App |
 | `--name` | | weitere Namen bzw. Adressen fürs Zertifikat (Komma) |
@@ -31,7 +32,12 @@ bin/coremesh-testserver --dir=testserver
 
 ## Zertifikate
 
-- `certs/ca.crt`, `certs/ca.key`: eigene CA (ECDSA P-256, 10 Jahre), per Name Constraints
+- CA (`ca.crt`, `ca.key`) am festen Ort je Benutzer: `~/.config/coremesh/ca` (Schalter `--ca`,
+  Umgebung `COREMESH_CA_DIR`). Alle Testserver – und später das Setup-Werkzeug – nutzen dieselbe;
+  das Handy wird nur einmal eingerichtet. Eine CA aus `certs/` eines älteren Testservers wird beim
+  Start dorthin übernommen. **Das Verzeichnis sichern** – ohne `ca.key` ist jedes Gerät neu
+  einzurichten.
+- Eigene CA (ECDSA P-256, 10 Jahre), per Name Constraints
   beschränkt auf `localhost`, `*.local`, den Rechnernamen, die Suchdomäne des Netzes (z. B.
   `fritz.box`), weitere Namen aus `--name` und private Adressbereiche. Sie kann keine fremde
   Seite ausstellen.
