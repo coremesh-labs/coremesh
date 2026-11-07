@@ -23,6 +23,11 @@ type nopHost struct{ sdk.Host }
 
 func (nopHost) Log(context.Context, sdk.LogLevel, string, map[string]string) error { return nil }
 
+// Handle: ohne Catalog (Fachmodule) – Aufrufe anderer Objects gibt es nicht.
+func (nopHost) Handle(context.Context, sdk.Request) (sdk.Response, error) {
+	return sdk.Response{}, sdk.ErrUnimplemented
+}
+
 const adminPW = "admin-passwort-123"
 
 // setup: Datenbank, Schema über das echte DBSchema-Plugin, iam mit Admin.

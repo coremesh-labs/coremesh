@@ -46,6 +46,8 @@ type user struct {
 	// Personen (seit 0.64.0): Auswahl der eigenen Rollen; die gewählte bestimmt Rechte und Menü.
 	Personas  []persona `json:"personas"`
 	PersonaID string    `json:"persona_id"` // "" = alle Rollen
+	// Module im Menü der gewählten Person (leer = alle erlaubten, seit 0.64.1)
+	PersonaModules []string `json:"persona_modules"`
 }
 
 type persona struct {

@@ -40,7 +40,7 @@ func TestPersonas(t *testing.T) {
 	if _, err := call(t, p, ctx, "Persona", "create", map[string]any{"data": map[string]any{"user_id": uid, "name": "Alles", "roles": "Privat"}}); err == nil {
 		t.Fatal("Rolle, die der Benutzer nicht hat, angenommen")
 	}
-	pe, err := call(t, p, ctx, "Persona", "create", map[string]any{"data": map[string]any{"user_id": uid, "name": "Buchhaltung 1000", "roles": "Buchhaltung", "company_codes": "1000"}})
+	pe, err := call(t, p, ctx, "Persona", "create", map[string]any{"data": map[string]any{"user_id": uid, "name": "Buchhaltung 1000", "roles": "Buchhaltung", "company_codes": "1000", "modules": "ledger,bank"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +68,9 @@ func TestPersonas(t *testing.T) {
 	}
 	if !check("Journal", "1000") || check("Journal", "2000") || check("Contract", "1000") {
 		t.Fatal("Person schränkt nicht ein")
+	}
+	if mods := me["persona_modules"].([]any); !slices.Equal(mods, []any{"ledger", "bank"}) {
+		t.Fatalf("Module im Menü: %v", mods)
 	}
 	if perms := me["permissions"].([]any); !slices.Equal(perms, []any{"Journal.*@1000"}) {
 		t.Fatalf("Rechte im Profil (Menü): %v", perms)
