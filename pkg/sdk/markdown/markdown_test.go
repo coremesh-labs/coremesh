@@ -30,3 +30,13 @@ func TestExtras(t *testing.T) {
 		t.Errorf("HTML durchgelassen bzw. Zitat mitten in der Zeile: %s", got)
 	}
 }
+
+// TestBreaks: in Mails bleibt jeder Zeilenwechsel ein Umbruch.
+func TestBreaks(t *testing.T) {
+	if got := HTML("-- \nFaust\nTel. 1", Options{Breaks: true}); !strings.Contains(got, "Faust<br>Tel. 1") {
+		t.Errorf("Breaks: %s", got)
+	}
+	if got := HTML("Faust\nTel. 1", Options{}); !strings.Contains(got, "Faust Tel. 1") {
+		t.Errorf("ohne Breaks: %s", got)
+	}
+}
