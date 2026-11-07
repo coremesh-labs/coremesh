@@ -448,6 +448,9 @@ func (s *server) formAgain(w http.ResponseWriter, r *http.Request, v view, formE
 func (s *server) item(w http.ResponseWriter, r *http.Request) {
 	oc, rec, err := s.loadItem(r)
 	if err != nil {
+		if s.goneAfterAction(w, r, err) {
+			return
+		}
 		s.fail(w, r, err)
 		return
 	}
@@ -462,6 +465,27 @@ func (s *server) item(w http.ResponseWriter, r *http.Request) {
 	oc.applyDisplay(rec)
 	oc.Def = withoutFields(oc.Def, accessOf(rec).hidden)
 	s.render(w, r, http.StatusOK, "detail", view{objectCtx: oc, Record: rec}, oc.Def.Title, oc.Object)
+}
+
+// goneAfterAction (seit 0.64.3): Nach einer Aktion lädt sich die Detailansicht bzw. die
+// Listenzeile neu. Hat die Aktion den Datensatz entfernt (z. B. Mail „irrelevant“ – sie
+// verlässt die Liste), ist das kein Fehler: die Zeile verschwindet, statt der
+// Detailansicht erscheint die Übersicht.
+func (s *server) goneAfterAction(w http.ResponseWriter, r *http.Request, err error) bool {
+	if !errors.Is(err, sdk.ErrNotFound) || !isHTMX(r) {
+		return false
+	}
+	if r.URL.Query().Get("view") == "row" {
+		w.WriteHeader(http.StatusOK) // leere Antwort: die Zeile wird entfernt
+		return true
+	}
+	if r.Header.Get("HX-Target") != "detail" {
+		return false
+	}
+	loc, _ := json.Marshal(map[string]string{"path": moduleURL(moduleFrom(r).Name, r.PathValue("object")), "target": "#main-content"})
+	w.Header().Set("HX-Location", string(loc))
+	w.WriteHeader(http.StatusOK)
+	return true
 }
 
 // refOf (seit 0.54.0): Herkunft einer Aktion bzw. eines Formulars – Listenzeile (dom-id)
