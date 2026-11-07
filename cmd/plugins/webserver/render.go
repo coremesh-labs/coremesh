@@ -87,6 +87,9 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			if hiddenIn(rec, f.Key) {
 				return "—" // keine Berechtigung für die Feldgruppe
 			}
+			if f.Type == metamodel.TypeMarkdown {
+				return `<div class="md">` + markdownHTML(scalar(rec[f.Key])) + `</div>`
+			}
 			return linked(rec, f.Key, displayValueIn(rec, f, t("core.app.yes"), t("core.app.no")))
 		},
 		// Listen (seit 0.36.0): bei Verweisen der Schlüssel (kurz, lernt man), der Text als Tooltip
@@ -316,13 +319,13 @@ var funcs = template.FuncMap{
 			return false
 		}
 		for _, a := range recordActions(oc, rec) {
-			if a.Bulk && len(a.Fields) == 0 {
+			if a.Bulk {
 				return true
 			}
 		}
 		return false
 	},
-	"rowTone":       rowTone,
+	"rowTone": rowTone,
 	// recordActionAt (seit 0.54.0): Aktion einer Zeile – ref "row=<dom-id>" bzw.
 	// "section=<element-id>": danach lädt nur diese Zeile bzw. dieser Abschnitt neu.
 	"recordActionAt": func(url, id string, a metamodel.ActionConfig, class, ref string) recordActionCtx {

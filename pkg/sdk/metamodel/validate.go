@@ -14,7 +14,7 @@ var (
 )
 
 var (
-	fieldTypes  = map[FieldType]bool{TypeText: true, TypeTextarea: true, TypeNumber: true, TypeDate: true, TypeSelect: true, TypeEmail: true, TypeBoolean: true, TypePassword: true, TypeFile: true}
+	fieldTypes  = map[FieldType]bool{TypeText: true, TypeTextarea: true, TypeNumber: true, TypeDate: true, TypeSelect: true, TypeEmail: true, TypeBoolean: true, TypePassword: true, TypeFile: true, TypeMarkdown: true}
 	actionKinds = map[ActionKind]bool{KindList: true, KindItem: true, KindCreate: true, KindUpdate: true, KindExpire: true, KindDeactivate: true, KindCustom: true}
 )
 
@@ -51,6 +51,12 @@ func (d ObjectDefinition) Validate() error {
 		}
 		if f.Type == TypeSelect && len(f.Options) == 0 && d.FormState == "" {
 			add("%s: select braucht options (oder FormState, der sie liefert)", where)
+		}
+		if f.Snippets != "" && f.Type != TypeMarkdown && f.Type != TypeTextarea {
+			add("%s: snippets nur bei type markdown bzw. textarea", where)
+		}
+		if f.Snippets != "" && !objectRe.MatchString(f.Snippets) {
+			add("%s: snippets %q ist kein Object-Name", where, f.Snippets)
 		}
 		if f.Multiple && f.Type != TypeSelect {
 			add("%s: multiple nur bei type select", where)

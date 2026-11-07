@@ -69,6 +69,9 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	s.mux.HandleFunc("GET /{$}", s.home)
 	// Nur Module: je Modul ein gekapselter Sub-Router für Oberfläche, Actions und API.
 	s.mux.HandleFunc("GET /lookup", s.lookup)
+	s.mux.HandleFunc("GET /snippets", s.snippets)
+	s.mux.HandleFunc("POST /snippet", s.snippet)
+	s.mux.HandleFunc("POST /markdown/preview", s.markdownPreview)
 	s.mux.HandleFunc("GET /peek/{object}/{id}", s.peek)
 	// Mehrsprachigkeit: Sprachwähler, Wörterbuch, eigenes Profil (siehe i18n.go).
 	s.mux.HandleFunc("POST /locale", s.setLocale)
@@ -658,6 +661,10 @@ func (s *server) actionForm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if ids := bulkIDs(r.URL.Query()["_ids"]); act.Bulk && act.Record && len(ids) > 0 {
+		s.render(w, r, http.StatusOK, "form", s.bulkView(r, oc, act, ids, nil, nil), "", oc.Object)
+		return
+	}
 	v := s.actionView(r, oc, act, r.URL.Query().Get("id"), nil, nil)
 	if r.URL.Query().Get("inline") != "" {
 		v.InlineButtons = visibleButtons(oc.inlineButtons(act.Name), v.HideButtons)
@@ -805,6 +812,10 @@ func (s *server) actionRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	values := formValues(actionDef(oc.ActionDef, act.Fields), r.PostForm)
+	if ids := bulkIDs(r.PostForm["_ids"]); act.Bulk && len(ids) > 0 {
+		s.render(w, r, http.StatusOK, "form-body", s.bulkView(r, oc, act, ids, values, nil), "", "")
+		return
+	}
 	v := s.actionView(r, oc, act, r.PostForm.Get("_id"), values, nil)
 	s.render(w, r, http.StatusOK, "form-body", v, "", "")
 }
@@ -868,6 +879,12 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PostForm.Get("_id")
+	// Sammelaktion mit Feldern: ein Formular, die Aktion für jede angekreuzte Zeile.
+	ids := bulkIDs(r.PostForm["_ids"])
+	bulk := act.Bulk && act.Record && len(ids) > 0 && id == ""
+	if bulk {
+		id = ids[0] // Maske (FormState) wie für die erste Zeile
+	}
 	// Aktion ohne Formular (Confirm ohne Fields): nur bestätigt, keine Eingaben.
 	// Ohne Formular: bestätigte Aktion ohne Felder oder Knopf im Aktionsabschnitt
 	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“. Ebenso eine
@@ -901,6 +918,14 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		readFiles(r, def, s.maxUpload(), data, errs)
 	}
 	inline := r.PostForm.Get("_inline") != ""
+	if bulk {
+		if len(errs) > 0 {
+			s.formAgain(w, r, s.bulkView(r, oc, act, ids, raw, errs), "")
+			return
+		}
+		s.runBulk(w, r, oc, act, ids, data)
+		return
+	}
 	if len(errs) > 0 {
 		if inline {
 			v := s.actionView(r, oc, act, id, raw, errs)
@@ -958,6 +983,15 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// Ergebnis „open“ (seit 0.59.0): {"object", "id"} – weiter zum Datensatz, z. B. zum
+	// Entwurf, den die Aktion angelegt hat.
+	if o, ok := openOf(resp.Payload); ok && isHTMX(r) {
+		loc, _ := json.Marshal(map[string]string{"path": "/open/" + pathEscape(o[0]) + "/" + pathEscape(o[1]), "target": "#main-content"})
+		w.Header().Set("HX-Location", string(loc))
+		w.Header().Set("HX-Trigger", `{"coremesh-close-modal": true}`)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	v := view{objectCtx: oc, Action: *act, Result: resp.Payload, Modal: isHTMX(r),
 		Toast: &toast{Level: "success", Message: s.T(r, "core.toast.executed", act.Label)}}
 	if m, ok := resp.Payload.(map[string]any); ok {
@@ -981,6 +1015,17 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Hilfsfunktionen ---------------------------------------------------------
+
+// openOf: Ergebnis {"open": {"object": …, "id": …}} einer Aktion.
+func openOf(payload any) ([2]string, bool) {
+	m, _ := payload.(map[string]any)
+	o, _ := m["open"].(map[string]any)
+	obj, id := scalar(o["object"]), scalar(o["id"])
+	if !objectRe.MatchString(obj) || id == "" {
+		return [2]string{}, false
+	}
+	return [2]string{obj, id}, true
+}
 
 func pathEscape(s string) string { return url.PathEscape(s) }
 

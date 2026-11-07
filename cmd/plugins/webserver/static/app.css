@@ -404,3 +404,16 @@ table.data tr.bulk-picked > td { background: var(--row-info, rgba(37, 99, 235, .
   margin: 0 0 .5rem; padding: .5rem .75rem; border-radius: 8px; background: var(--surface, #fff);
   border: 1px solid var(--border, #d0d7de); box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
 .bulk-bar[hidden] { display: none; }
+/* Markdown-Feld (seit 0.59.0): Bausteine, Vorschau */
+.md-field { display: flex; flex-direction: column; gap: .3rem; }
+.md-toolbar { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+.md-toolbar .snippet-bar { display: contents; }
+.md-toolbar .btn.active { outline: 2px solid var(--accent, #36c); }
+.md-field textarea { font-family: ui-monospace, monospace; font-size: .9rem; min-height: 14rem; }
+.md-preview { border: 1px solid var(--border); border-radius: 6px; padding: .5rem .8rem; min-height: 14rem; background: var(--surface, transparent); }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: .6em 0 .3em; }
+.md ul, .md ol { margin: .3em 0; padding-left: 1.5em; }
+.md p { margin: .3em 0; }
+dd .md { white-space: normal; }

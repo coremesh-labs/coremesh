@@ -281,10 +281,47 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") coremeshCloseMenus(null); });
     document.addEventListener("scroll", function () { coremeshCloseMenus(null); }, true);
     htmx.onLoad(coremeshActionMenus);
+    // Aktion mit Ergebnis „open“: Dialog schließen, die Seite des Datensatzes lädt.
+    document.body.addEventListener("coremesh-close-modal", function () { var m = document.getElementById("modal"); if (m) m.innerHTML = ""; });
     // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
     // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
+    // Textbaustein (snippets.go): Text holen und an der Schreibmarke des Markdown-Felds einfügen.
+    function coremeshSnippet(field, snippet, key) {
+      var scope = document.querySelector("#modal form") || document;
+      var ta = scope.querySelector("textarea[name=\"" + field + "\"]");
+      if (!ta) return;
+      var form = ta.closest("form"), data = form ? new FormData(form) : new FormData();
+      var i = snippet.indexOf(":");
+      data.set("_snippet_object", snippet.slice(0, i)); data.set("_snippet_code", snippet.slice(i + 1)); data.set("_snippet_key", key || "");
+      fetch("/snippet", { method: "POST", body: new URLSearchParams(data), credentials: "same-origin" })
+        .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, text: t }; }); })
+        .then(function (res) {
+          if (!res.ok) { alertBox(ta, res.text); return; }
+          var a = ta.selectionStart, b = ta.selectionEnd;
+          if (a == null) { a = b = ta.value.length; }
+          ta.value = ta.value.slice(0, a) + res.text + ta.value.slice(b);
+          ta.selectionStart = ta.selectionEnd = a + res.text.length;
+          ta.focus();
+          ta.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      function alertBox(el, msg) {
+        var f = el.closest(".md-field"), e = f && f.querySelector(".md-error");
+        if (f && !e) { e = document.createElement("small"); e.className = "error md-error"; f.appendChild(e); }
+        if (e) e.textContent = msg;
+      }
+    }
+    // Vorschau des Markdown-Felds ein- bzw. ausblenden.
+    function coremeshPreview(btn, field) {
+      var f = btn.closest(".md-field"), ta = f.querySelector("textarea"), pv = f.querySelector(".md-preview");
+      if (!pv.hidden) { pv.hidden = true; ta.hidden = false; btn.classList.remove("active"); return; }
+      var data = new URLSearchParams(); data.set(field, ta.value);
+      fetch("/markdown/preview?field=" + encodeURIComponent(field), { method: "POST", body: data, credentials: "same-origin" })
+        .then(function (r) { return r.text(); })
+        .then(function (h) { pv.innerHTML = h; pv.hidden = false; ta.hidden = true; btn.classList.add("active"); });
+    }
     function coremeshPick(row) {
       var field = row.dataset.field;
+      if (row.dataset.snippet) { document.getElementById("lookup").innerHTML = ""; coremeshSnippet(field, row.dataset.snippet, row.dataset.value); return; }
       var scope = document.querySelector("#modal form") || document;
       var input = scope.querySelector("[name=\"" + field + "\"]");
       if (input) { input.value = row.dataset.value; input.dispatchEvent(new Event("change", { bubbles: true })); }

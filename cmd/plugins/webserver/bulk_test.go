@@ -40,3 +40,27 @@ func TestBulkAction(t *testing.T) {
 		t.Fatal("Aktion mit Feldern als Sammelaktion")
 	}
 }
+
+func TestBulkActionWithFields(t *testing.T) {
+	s, h := newTestServer(t, "")
+	list := do(s, "GET", "/m/crm/Partner", nil, true).Body.String()
+	mustContain(t, list, `hx-get="/action/crm/Partner/Remind"`)
+	form := do(s, "GET", "/action/crm/Partner/Remind?_ids=p/1&_ids=p/9", nil, true).Body.String()
+	mustContain(t, form, `name="_ids" value="p/1"`, `name="_ids" value="p/9"`, `name="remind_on"`, "(2 Zeilen)")
+	if strings.Contains(form, `name="_id"`) {
+		t.Error("_id im Sammelformular")
+	}
+	w := do(s, "POST", "/action/crm/Partner/Remind", url.Values{"_ids": {"p/1", "p/9"}, "remind_on": {"2026-11-30"}}, true)
+	mustContain(t, w.Body.String(), "2 von 2 ausgeführt")
+	n := 0
+	h.mu.Lock()
+	for _, c := range h.calls {
+		if c.Object == "Partner" && c.Action == "Remind" && c.Payload.(map[string]any)["data"].(map[string]any)["remind_on"] == "2026-11-30" {
+			n++
+		}
+	}
+	h.mu.Unlock()
+	if n != 2 {
+		t.Fatalf("Aufrufe mit Eingabe: %d", n)
+	}
+}

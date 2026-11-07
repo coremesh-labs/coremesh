@@ -180,5 +180,10 @@
   "core.texts.local_hint": "仅限本地：不会发布（导出、PWA、给第三方的文件夹）",
   "core.texts.local_default": "类别默认值",
   "core.texts.local_yes": "是，仅限本地",
-  "core.texts.local_no": "否，可以发布"
+  "core.texts.local_no": "否，可以发布",
+  "core.markdown.preview": "预览",
+  "core.markdown.empty": "尚无文本。",
+  "core.markdown.hint": "Markdown：# 标题、**粗体**、*斜体*、- 项目符号、1. 列表、[文本](https://…)、表格 | 列 | 列 |；空行 = 新段落",
+  "core.snippet.failed": "无法插入文本模块：%s",
+  "core.bulk.form_title": "%s – %s（%d 行）"
 }

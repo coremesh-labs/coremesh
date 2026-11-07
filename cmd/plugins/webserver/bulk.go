@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // maxBulk begrenzt die Zeilen einer Sammelaktion (eine Anfrage, nacheinander ausgeführt).
@@ -30,18 +31,42 @@ func (s *server) bulkAction(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, fmt.Errorf("%w: %v", sdk.ErrInvalidArgument, err))
 		return
 	}
+	ids := bulkIDs(r.PostForm["_ids"])
+	if len(ids) == 0 {
+		s.fail(w, r, fmt.Errorf("%w: %s", sdk.ErrInvalidArgument, s.T(r, "core.bulk.none")))
+		return
+	}
+	if len(ids) > maxBulk {
+		s.fail(w, r, fmt.Errorf("%w: höchstens %d Zeilen auf einmal", sdk.ErrInvalidArgument, maxBulk))
+		return
+	}
+	s.runBulk(w, r, oc, act, ids, map[string]any{})
+}
+
+// bulkIDs: angekreuzte Zeilen ohne leere und doppelte.
+func bulkIDs(in []string) []string {
 	var ids []string
 	seen := map[string]bool{}
-	for _, id := range r.PostForm["_ids"] {
+	for _, id := range in {
 		if id = strings.TrimSpace(id); id != "" && !seen[id] {
 			seen[id] = true
 			ids = append(ids, id)
 		}
 	}
-	if len(ids) == 0 {
-		s.fail(w, r, fmt.Errorf("%w: %s", sdk.ErrInvalidArgument, s.T(r, "core.bulk.none")))
-		return
-	}
+	return ids
+}
+
+// bulkView: Formular einer Sammelaktion mit Feldern (seit 0.59.0) – Maske wie für die
+// erste Zeile, die Zeilen als _ids.
+func (s *server) bulkView(r *http.Request, oc objectCtx, act *metamodel.ActionConfig, ids []string, values, errs map[string]string) view {
+	v := s.actionView(r, oc, act, ids[0], values, errs)
+	v.ActionID, v.BulkIDs = "", ids
+	v.FormTitle = s.T(r, "core.bulk.form_title", oc.Def.Title, act.Label, len(ids))
+	return v
+}
+
+// runBulk: Aktion für jede Zeile mit denselben Eingaben; Ergebnis mit den Fehlern je Zeile.
+func (s *server) runBulk(w http.ResponseWriter, r *http.Request, oc objectCtx, act *metamodel.ActionConfig, ids []string, data map[string]any) {
 	if len(ids) > maxBulk {
 		s.fail(w, r, fmt.Errorf("%w: höchstens %d Zeilen auf einmal", sdk.ErrInvalidArgument, maxBulk))
 		return
@@ -52,7 +77,7 @@ func (s *server) bulkAction(w http.ResponseWriter, r *http.Request) {
 		if r.Context().Err() != nil {
 			break
 		}
-		_, err := s.call(r, oc.Object, act.Name, map[string]any{"id": id, "data": map[string]any{}})
+		_, err := s.call(r, oc.Object, act.Name, map[string]any{"id": id, "data": data})
 		if err == nil {
 			ok++
 			continue

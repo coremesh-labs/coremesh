@@ -298,6 +298,7 @@ const lookupLimit = 100
 type lookupView struct {
 	From, Field, Title, Query string
 	Src                       string // Parameter für die Suche (from+field bzw. object+field)
+	Snippet                   string // Textbaustein <Object>:<code>: die Wahl fügt dessen Text ein (snippets.go)
 	Columns                   []metamodel.FieldDefinition
 	Rows                      []lookupRow
 	More                      bool
@@ -415,7 +416,12 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lv := lookupView{From: from, Field: field, Title: tgt.Def.Title, Query: search, Columns: lookupColumns(tgt.Def, lk), Src: srcParams.Encode()}
+	lv := lookupView{From: from, Field: field, Title: tgt.Def.Title, Query: search, Columns: lookupColumns(tgt.Def, lk)}
+	if sn := q.Get("snippet"); sn != "" && snippetRe.MatchString(sn) {
+		lv.Snippet = sn
+		srcParams.Set("snippet", sn)
+	}
+	lv.Src = srcParams.Encode()
 	needle := strings.ToLower(search)
 	for _, rec := range recs {
 		row := lookupRow{Value: scalar(rec[lk.ValueField])}
