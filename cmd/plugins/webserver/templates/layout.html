@@ -194,11 +194,31 @@
     window.addEventListener("popstate", function () { coremeshBack = true; });
     document.addEventListener("htmx:historyRestore", coremeshRestorePos);
     document.addEventListener("htmx:afterSettle", coremeshRestorePos);
+    // Seit 0.64.4: Herkunft je Seite (je Tab) – „Zurück“ in einem Datensatz, der aus einem
+    // anderen geöffnet wurde (z. B. Anhang aus der Mail), führt zu diesem zurück statt in
+    // die Liste des eigenen Objects. Der Rückweg selbst überschreibt die Herkunft nicht.
+    var coremeshHere = location.pathname + location.search, coremeshGoingBack = false;
+    document.addEventListener("htmx:pushedIntoHistory", function () {
+      var now = location.pathname + location.search;
+      if (now === coremeshHere) return;
+      if (!coremeshGoingBack) {
+        try { sessionStorage.setItem("coremesh.from:" + location.pathname, coremeshHere); } catch (x) {}
+      }
+      coremeshGoingBack = false;
+      coremeshHere = now;
+    });
+    window.addEventListener("popstate", function () { coremeshHere = location.pathname + location.search; });
     document.addEventListener("htmx:configRequest", function (e) {
       var b = e.detail.elt;
       if (b && b.dataset && b.dataset.listBack) coremeshBack = true;
       if (!b || !b.dataset || !b.dataset.listBack) return;
+      coremeshGoingBack = true;
       try {
+        var from = sessionStorage.getItem("coremesh.from:" + location.pathname);
+        var fromPath = from ? from.split("?")[0] : "";
+        if (fromPath && fromPath !== b.dataset.listBack && fromPath.indexOf("/m/") === 0 && fromPath.split("/").length > 4) {
+          e.detail.path = from; b.setAttribute("hx-push-url", from); return; // Datensatz, aus dem geöffnet
+        }
         var u = sessionStorage.getItem("coremesh.list:" + b.dataset.listBack);
         if (u) { e.detail.path = u; b.setAttribute("hx-push-url", u); }
       } catch (x) {}
