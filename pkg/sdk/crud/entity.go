@@ -56,6 +56,7 @@ type Field struct {
 	Binary     bool   // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
 	Wide       bool   // Eingabe über die ganze Breite der Maske (metamodel.FieldDefinition.Wide)
 	Snippets   string // Textbausteine (metamodel.FieldDefinition.Snippets), bei TypeMarkdown
+	Preview    bool   // Vorschau über metamodel.PreviewAction des Objects (seit 0.62.0)
 	Options    []metamodel.Option
 	Multiple   bool              // Mehrfachauswahl (TypeSelect): Komma-Liste (metamodel.FieldDefinition.Multiple)
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)

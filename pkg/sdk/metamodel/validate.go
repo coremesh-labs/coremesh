@@ -55,6 +55,9 @@ func (d ObjectDefinition) Validate() error {
 		if f.Snippets != "" && f.Type != TypeMarkdown && f.Type != TypeTextarea {
 			add("%s: snippets nur bei type markdown bzw. textarea", where)
 		}
+		if f.Preview && f.Type != TypeMarkdown {
+			add("%s: preview nur bei type markdown", where)
+		}
 		if f.Snippets != "" && !objectRe.MatchString(f.Snippets) {
 			add("%s: snippets %q ist kein Object-Name", where, f.Snippets)
 		}

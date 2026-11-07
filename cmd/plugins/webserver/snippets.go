@@ -111,6 +111,31 @@ func (s *server) markdownPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	src := r.FormValue(field)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// seit 0.62.0: Vorschau des Objects (FieldDefinition.Preview), z. B. die ganze Mail
+	if object := r.URL.Query().Get("object"); object != "" {
+		if !objectRe.MatchString(object) {
+			s.fail(w, r, fmt.Errorf("%w: object erwartet", sdk.ErrInvalidArgument))
+			return
+		}
+		values := map[string]string{}
+		for k, v := range r.PostForm {
+			if !strings.HasPrefix(k, "_") && len(v) > 0 {
+				values[k] = v[0]
+			}
+		}
+		resp, err := s.call(r, object, metamodel.PreviewAction, map[string]any{"field": field, "values": values})
+		if err != nil {
+			fmt.Fprintf(w, `<p class="error">%s</p>`, template.HTMLEscapeString(err.Error()))
+			return
+		}
+		doc := ""
+		if m, ok := resp.Payload.(map[string]any); ok {
+			doc = scalar(m["html"])
+		}
+		// abgeschottet: keine Skripte, kein Zugriff auf die Anwendung
+		fmt.Fprintf(w, `<iframe class="md-doc" sandbox="" referrerpolicy="no-referrer" srcdoc="%s"></iframe>`, template.HTMLEscapeString(doc))
+		return
+	}
 	if strings.TrimSpace(src) == "" {
 		fmt.Fprintf(w, `<p class="muted">%s</p>`, template.HTMLEscapeString(s.T(r, "core.markdown.empty")))
 		return

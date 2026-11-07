@@ -310,15 +310,102 @@
         if (e) e.textContent = msg;
       }
     }
-    // Vorschau des Markdown-Felds ein- bzw. ausblenden.
+    // Markdown-Editor (seit 0.62.0): Vorschau neben dem Text, beim Tippen nachgeführt;
+    // mit data-md-object die Vorschau des Objects (ganze Mail) aus dem ganzen Formular.
     function coremeshPreview(btn, field) {
-      var f = btn.closest(".md-field"), ta = f.querySelector("textarea"), pv = f.querySelector(".md-preview");
-      if (!pv.hidden) { pv.hidden = true; ta.hidden = false; btn.classList.remove("active"); return; }
-      var data = new URLSearchParams(); data.set(field, ta.value);
-      fetch("/markdown/preview?field=" + encodeURIComponent(field), { method: "POST", body: data, credentials: "same-origin" })
-        .then(function (r) { return r.text(); })
-        .then(function (h) { pv.innerHTML = h; pv.hidden = false; ta.hidden = true; btn.classList.add("active"); });
+      var f = btn.closest(".md-field"), pv = f.querySelector(".md-preview");
+      if (!pv.hidden) { pv.hidden = true; f.classList.remove("md-split"); btn.classList.remove("active"); return; }
+      pv.hidden = false; f.classList.add("md-split"); btn.classList.add("active");
+      mdRefresh(f);
     }
+    function mdRefresh(f) {
+      var ta = f.querySelector("textarea"), pv = f.querySelector(".md-preview"), field = f.dataset.mdField;
+      if (!pv || pv.hidden) return;
+      var obj = f.dataset.mdObject, form = ta.closest("form");
+      var data = obj && form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
+      data.set(field, ta.value);
+      var url = "/markdown/preview?field=" + encodeURIComponent(field) + (obj ? "&object=" + encodeURIComponent(obj) : "");
+      fetch(url, { method: "POST", body: data, credentials: "same-origin" })
+        .then(function (r) { return r.text(); })
+        .then(function (h) { pv.innerHTML = h; });
+    }
+    // Format um die Auswahl bzw. am Zeilenanfang.
+    function mdFormat(ta, kind) {
+      var a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, sel = v.slice(a, b);
+      var wrap = { bold: ["**", "**"], italic: ["*", "*"], underline: ["++", "++"], strike: ["~~", "~~"] }[kind];
+      var ins, ca, cb;
+      if (wrap) {
+        ins = wrap[0] + (sel || "Text") + wrap[1]; ca = a + wrap[0].length; cb = ca + (sel || "Text").length;
+      } else if (kind === "link") {
+        ins = "[" + (sel || "Text") + "](https://)"; ca = a + ins.length - 9; cb = ca + 8;
+      } else if (kind === "table") {
+        ins = (a > 0 && v[a - 1] !== "\n" ? "\n\n" : "") + "| Spalte | Spalte |\n|---|---|\n| | |\n"; ca = cb = a + ins.length;
+      } else if (kind === "hr") {
+        ins = (a > 0 && v[a - 1] !== "\n" ? "\n\n" : "") + "---\n"; ca = cb = a + ins.length;
+      } else {
+        var pre = { h2: "## ", ul: "- ", ol: "1. ", quote: "> " }[kind];
+        var ls = v.lastIndexOf("\n", a - 1) + 1;
+        var block = v.slice(ls, b), n = 0;
+        ins = block.split("\n").map(function (l) { n++; return (kind === "ol" ? n + ". " : pre) + l; }).join("\n");
+        a = ls; ca = a; cb = a + ins.length;
+      }
+      ta.value = v.slice(0, a) + ins + v.slice(b);
+      ta.focus(); ta.selectionStart = ca; ta.selectionEnd = cb;
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    function mdInit(root) {
+      (root.querySelectorAll ? root : document).querySelectorAll(".md-field:not([data-md-ready])").forEach(function (f) {
+        f.dataset.mdReady = "1";
+        var ta = f.querySelector("textarea"); if (!ta || ta.readOnly) return;
+        f.querySelectorAll("[data-md]").forEach(function (b) { b.addEventListener("click", function () { mdFormat(ta, b.dataset.md); }); });
+        ta.addEventListener("keydown", function (e) {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          var k = { b: "bold", i: "italic", u: "underline", k: "link" }[e.key.toLowerCase()];
+          if (k) { e.preventDefault(); mdFormat(ta, k); }
+        });
+        // @ am Wortanfang: Auswahl der Bausteine mit Datensatz (Partner, Vorgang, Vertrag …)
+        var at = f.querySelector(".md-at");
+        ta.addEventListener("input", function (e) {
+          var p = ta.selectionStart, v = ta.value;
+          if (e.inputType === "insertText" && e.data === "@" && (p < 2 || /\s/.test(v[p - 2]))) {
+            var btns = f.querySelectorAll(".snippet-bar button");
+            if (!btns.length || !at) return;
+            at.innerHTML = "";
+            btns.forEach(function (sb) {
+              var x = document.createElement("button"); x.type = "button"; x.className = "btn small"; x.textContent = sb.textContent;
+              x.addEventListener("click", function () {
+                var q = ta.selectionStart; if (ta.value[q - 1] === "@") { ta.value = ta.value.slice(0, q - 1) + ta.value.slice(q); ta.selectionStart = ta.selectionEnd = q - 1; }
+                at.hidden = true; sb.click();
+              });
+              at.appendChild(x);
+            });
+            at.hidden = false;
+          } else if (at) { at.hidden = true; }
+        });
+        // Vorschau nachführen, Entwurf im Browser sichern
+        var timer, key = "md-draft:" + location.pathname + ":" + ((ta.closest("form") || {}).getAttribute ? ta.closest("form").getAttribute("action") : "") + ":" + f.dataset.mdField;
+        ta.addEventListener("input", function () {
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            mdRefresh(f);
+            try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), v: ta.value })); } catch (x) {}
+          }, 400);
+        });
+        var form = ta.closest("form");
+        if (form) {
+          form.addEventListener("change", function () { mdRefresh(f); });
+          form.addEventListener("htmx:afterRequest", function (e) { if (e.detail && e.detail.successful && e.detail.elt === form) { try { localStorage.removeItem(key); } catch (x) {} } });
+        }
+        var d = f.querySelector(".md-draft"), saved = null;
+        try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (x) {}
+        if (d && saved && saved.v && saved.v !== ta.value) {
+          d.querySelector("small").textContent = new Date(saved.t).toLocaleString();
+          d.hidden = false;
+          d.querySelector("button").addEventListener("click", function () { ta.value = saved.v; d.hidden = true; ta.dispatchEvent(new Event("input", { bubbles: true })); });
+        }
+      });
+    }
+    htmx.onLoad(mdInit);
     function coremeshPick(row) {
       var field = row.dataset.field;
       if (row.dataset.snippet) { document.getElementById("lookup").innerHTML = ""; coremeshSnippet(field, row.dataset.snippet, row.dataset.value); return; }
