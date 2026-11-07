@@ -379,6 +379,12 @@ table "iam__personas" {
     type = text
     null = true
   }
+  # Einstellungen (ModuleDefinition.Customizing: Kategorien, Arten, Kataloge) im Menü;
+  # 0 = nur die Arbeit. Seit 0.12.2.
+  column "settings_menu" {
+    type    = integer
+    default = 0
+  }
   column "sort_order" {
     type    = integer
     default = 0
@@ -579,6 +585,7 @@ var (
 			{Key: "roles", Label: "Rollen", Help: "Eine pro Zeile; nur Rollen des Benutzers. Die Person hat nur diese Rechte und sieht nur das zugehörige Menü", Type: metamodel.TypeTextarea, Required: true, Listable: true, Editable: true},
 			{Key: "company_codes", Label: "Buchungskreise", Help: "Kommagetrennt; leer = die des Benutzers", Type: metamodel.TypeText, Listable: true, Editable: true},
 			{Key: "modules", Label: "Module im Menü", Help: "Nur diese Module stehen im Menü; leer = alle, die die Rollen erlauben. Lesen für Auswahlfelder bleibt möglich", Type: metamodel.TypeSelect, Multiple: true, Editable: true},
+			{Key: "settings_menu", Label: "Einstellungen im Menü", Help: "Aus: Kategorien, Arten, Kataloge und andere Einstellungen der Module stehen nicht im Menü – die Person arbeitet nur. Die Rechte bleiben, Auswahlfelder zeigen die Werte weiter", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
 			{Key: "sort_order", Label: "Reihenfolge", Type: metamodel.TypeNumber, Editable: true},
 			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
 		},

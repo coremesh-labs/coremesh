@@ -48,6 +48,8 @@ type user struct {
 	PersonaID string    `json:"persona_id"` // "" = alle Rollen
 	// Module im Menü der gewählten Person (leer = alle erlaubten, seit 0.64.1)
 	PersonaModules []string `json:"persona_modules"`
+	// Einstellungen der Module nicht im Menü (Person ohne „Einstellungen im Menü“, seit 0.64.2)
+	PersonaHideSettings bool `json:"persona_hide_settings"`
 }
 
 type persona struct {

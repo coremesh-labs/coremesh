@@ -72,6 +72,9 @@ func TestPersonas(t *testing.T) {
 	if mods := me["persona_modules"].([]any); !slices.Equal(mods, []any{"ledger", "bank"}) {
 		t.Fatalf("Module im Menü: %v", mods)
 	}
+	if me["persona_hide_settings"] != true {
+		t.Fatal("Einstellungen sollten ohne settings_menu ausgeblendet sein")
+	}
 	if perms := me["permissions"].([]any); !slices.Equal(perms, []any{"Journal.*@1000"}) {
 		t.Fatalf("Rechte im Profil (Menü): %v", perms)
 	}
