@@ -79,7 +79,7 @@ func TestSetupModuleRoles(t *testing.T) {
 	}
 	clerk, expert := perms("Verträge - Sachbearbeiter"), perms("Verträge - Fachverantwortlicher")
 	for _, g := range perms("Verträge - Einsicht") {
-		if !strings.HasSuffix(g, ".list") && !strings.HasSuffix(g, ".get") && !strings.HasSuffix(g, "."+formStateAction) {
+		if !strings.HasSuffix(g, ".list") && !strings.HasSuffix(g, ".get") && !strings.HasSuffix(g, "."+formStateAction) && !strings.HasSuffix(g, ".read") && !strings.HasSuffix(g, ".readFields") {
 			t.Errorf("Einsicht darf mehr als lesen: %s", g)
 		}
 	}

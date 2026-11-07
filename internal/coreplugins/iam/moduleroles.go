@@ -105,12 +105,7 @@ func (c *catalogView) moduleGrants(m metamodel.ModuleDefinition, kind string) []
 	}
 	for _, n := range names {
 		if kind == "reader" || kind == "clerk" && slices.Contains(m.Customizing, n) {
-			routes := c.routes(n)
-			for _, a := range readActions {
-				if slices.Contains(routes, a) {
-					add(n, a)
-				}
-			}
+			c.addRead(n, readActions, add)
 			continue
 		}
 		add(n, "*")
@@ -146,14 +141,28 @@ func (c *catalogView) moduleGrants(m metamodel.ModuleDefinition, kind string) []
 		if own[r] {
 			continue
 		}
-		routes := c.routes(r)
-		for _, a := range []string{"list", "get"} {
-			if slices.Contains(routes, a) {
-				add(r, a)
+		c.addRead(r, []string{"list", "get"}, add)
+	}
+	return out
+}
+
+// addRead: lesende Actions eines Objects, die es gibt, dazu die Datensatz- und
+// Feldgruppen-Leserechte (read, readFields), wenn das Object sie deklariert –
+// ohne sie bleiben Liste und Auswahl bei Satzschutz leer (seit 0.12.4).
+func (c *catalogView) addRead(object string, actions []string, add func(object, action string)) {
+	routes := c.routes(object)
+	for _, a := range actions {
+		if slices.Contains(routes, a) {
+			add(object, a)
+		}
+	}
+	if d := c.def(object); d != nil && d.Authorization != nil {
+		for _, a := range d.Authorization.Actions {
+			if a.Name == metamodel.ActionRead || a.Name == metamodel.ActionReadFields {
+				add(object, a.Name)
 			}
 		}
 	}
-	return out
 }
 
 // roleFormState: Auswahl der Module für „Modulrollen anlegen …“ (alle vorbelegt).

@@ -97,6 +97,9 @@ ergänzt sie, abgeleitet aus dem Catalog:
 - **„<Modul> - Einsicht“** (seit 0.12.3): alles des Moduls nur lesen; Merkmale, Texte und
   Dokumente nicht pflegen – z. B. Vorgänge einsehen, ohne sie zu bearbeiten.
 
+Lesen umfasst seit 0.12.4 auch die Datensatzrechte `read`/`readFields`, wo das Object sie
+deklariert (Satzschutz) – sonst blieben Liste und Auswahlfelder leer.
+
 Einstellungen sind die Objects und Services in `ModuleDefinition.Customizing` (im Modul
 `crud.Entity.Customizing` bzw. `r.Object(…).Customizing()`). Beide Rollen lesen die Objects
 anderer Module, auf die Auswahlfelder und Abschnitte verweisen, und pflegen Merkmale, Texte
