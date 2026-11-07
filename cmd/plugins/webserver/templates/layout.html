@@ -281,6 +281,8 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") coremeshCloseMenus(null); });
     document.addEventListener("scroll", function () { coremeshCloseMenus(null); }, true);
     htmx.onLoad(coremeshActionMenus);
+    // Aktion mit Ergebnis „open“: Dialog schließen, die Seite des Datensatzes lädt.
+    document.body.addEventListener("coremesh-close-modal", function () { var m = document.getElementById("modal"); if (m) m.innerHTML = ""; });
     // Lookup-Dialog: Zeile übernehmen – Schlüssel ins Feld, lesbarer Text daneben.
     // Gesucht wird zuerst im Formular des Dialogs (#modal), sonst auf der Seite.
     // Textbaustein (snippets.go): Text holen und an der Schreibmarke des Markdown-Felds einfügen.

@@ -983,6 +983,15 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// Ergebnis „open“ (seit 0.59.0): {"object", "id"} – weiter zum Datensatz, z. B. zum
+	// Entwurf, den die Aktion angelegt hat.
+	if o, ok := openOf(resp.Payload); ok && isHTMX(r) {
+		loc, _ := json.Marshal(map[string]string{"path": "/open/" + pathEscape(o[0]) + "/" + pathEscape(o[1]), "target": "#main-content"})
+		w.Header().Set("HX-Location", string(loc))
+		w.Header().Set("HX-Trigger", `{"coremesh-close-modal": true}`)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	v := view{objectCtx: oc, Action: *act, Result: resp.Payload, Modal: isHTMX(r),
 		Toast: &toast{Level: "success", Message: s.T(r, "core.toast.executed", act.Label)}}
 	if m, ok := resp.Payload.(map[string]any); ok {
@@ -1006,6 +1015,17 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Hilfsfunktionen ---------------------------------------------------------
+
+// openOf: Ergebnis {"open": {"object": …, "id": …}} einer Aktion.
+func openOf(payload any) ([2]string, bool) {
+	m, _ := payload.(map[string]any)
+	o, _ := m["open"].(map[string]any)
+	obj, id := scalar(o["object"]), scalar(o["id"])
+	if !objectRe.MatchString(obj) || id == "" {
+		return [2]string{}, false
+	}
+	return [2]string{obj, id}, true
+}
 
 func pathEscape(s string) string { return url.PathEscape(s) }
 
