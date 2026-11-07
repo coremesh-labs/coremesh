@@ -274,6 +274,25 @@ func (s *server) setLocale(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// POST /persona: Person wechseln ("" = alle Rollen). Danach zur Startseite – die bisherige
+// Seite ist mit der neuen Person womöglich nicht erlaubt.
+func (s *server) setPersona(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, s.T(r, "core.app.bad_request"), http.StatusBadRequest)
+		return
+	}
+	if _, err := s.call(r, "Account", "UpdateProfile", map[string]any{"persona_id": strings.TrimSpace(r.PostForm.Get("persona_id"))}); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if isHTMX(r) {
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // POST /keydate: Stichtag (Arbeitsdatum) im Profil setzen; leer oder
 // clear=1 = heute. Neuanlagen und Prüfungen „zum heutigen Tag“ nehmen ihn.
 func (s *server) setKeyDate(w http.ResponseWriter, r *http.Request) {

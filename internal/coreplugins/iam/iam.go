@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.11.0"
+	Version = "0.12.0"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -69,6 +69,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Capabilities: []sdk.Capability{
 			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted", "Display"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung, Darstellungsregeln"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
+			{Object: "Persona", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Personen eines Benutzers (Auswahl seiner Rollen)"},
 			{Object: "Role", Actions: []string{"list", "get", "create", "update", formStateAction, setupModuleRolesAction}, Description: "Rollen und Berechtigungen, Modulrollen"},
 			{Object: "RoleAuth", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Berechtigungen je Rolle und Object.Action"},
 			{Object: "RoleAuthValue", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Erlaubte Feldwerte einer Berechtigung"},
@@ -115,7 +116,7 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 	case sdk.ObjectCatalog + "." + sdk.ActionDescribe:
 		return sdk.Response{Payload: metamodel.DescribeResponse{
 			Objects: []metamodel.ObjectDefinition{
-				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef),
+				metamodel.WithKeys("admin", userDef), metamodel.WithKeys("admin", personaDef), metamodel.WithKeys("admin", roleDef), metamodel.WithKeys("admin", companyCodeDef),
 				metamodel.WithKeys("admin", roleAuthDef), metamodel.WithKeys("admin", roleAuthValueDef),
 				metamodel.WithKeys("admin", displayRuleDef), metamodel.WithKeys("admin", displayRuleCondDef), metamodel.WithKeys("admin", displayRuleFieldDef)},
 			Modules:      []metamodel.ModuleDefinition{metamodel.ModuleKeys(adminModule)},
@@ -148,6 +149,16 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 	case "User.deactivate":
 		return p.userDeactivate(ctx, req.Payload)
 
+	case "Persona.list":
+		return p.personaList(ctx, req.Payload)
+	case "Persona.get":
+		return p.personaGet(ctx, req.Payload)
+	case "Persona.create":
+		return p.personaSave(ctx, req.Payload, true)
+	case "Persona.update":
+		return p.personaSave(ctx, req.Payload, false)
+	case "Persona.deactivate":
+		return p.personaDeactivate(ctx, req.Payload)
 	case "Role.list":
 		return p.roleList(ctx)
 	case "Role.get":
@@ -285,6 +296,18 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	if err != nil {
 		return sdk.Response{}, err
 	}
+	// Personen zur Auswahl (seit 0.12.0) und die gewählte
+	pers, err := p.listPersonas(ctx, p.pool(), id, false)
+	if err != nil {
+		return sdk.Response{}, err
+	}
+	list, active := []any{}, ""
+	for _, pr := range pers {
+		list = append(list, map[string]any{"id": pr.ID, "name": pr.Name})
+		if pr.ID == u.PersonaID {
+			active = pr.ID
+		}
+	}
 	formatted := formatPermissions(perms)
 	ps := make([]any, len(formatted))
 	for i, f := range formatted {
@@ -297,7 +320,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
 		"roles": roles, "permissions": ps, "locale": u.Locale, "company_codes": userCompanyCodesText(u.CompanyCodes),
-		"key_date": u.KeyDate,
+		"key_date": u.KeyDate, "persona_id": active, "personas": list,
 	}}, nil
 }
 
@@ -809,8 +832,9 @@ func (p *Plugin) updateProfile(ctx context.Context, payload any) (sdk.Response, 
 		return sdk.Response{}, fmt.Errorf("%w: keine Anmeldung", sdk.ErrPermissionDenied)
 	}
 	var in struct {
-		Locale  *string `json:"locale"`
-		KeyDate *string `json:"key_date"`
+		Locale    *string `json:"locale"`
+		KeyDate   *string `json:"key_date"`
+		PersonaID *string `json:"persona_id"` // "" = alle Rollen (seit 0.12.0)
 	}
 	if err := sdk.Decode(payload, &in); err != nil {
 		return sdk.Response{}, err
@@ -842,6 +866,21 @@ func (p *Plugin) updateProfile(ctx context.Context, payload any) (sdk.Response, 
 			value, time.Now().UTC().Format(time.RFC3339), id); err != nil {
 			return sdk.Response{}, err
 		}
+	}
+	if in.PersonaID != nil {
+		var value any
+		if pid := strings.TrimSpace(*in.PersonaID); pid != "" {
+			pr, err := p.getPersona(ctx, p.pool(), pid)
+			if err != nil || pr.UserID != id || !pr.Active {
+				return sdk.Response{}, fmt.Errorf("%w: Person %q gibt es für Sie nicht", sdk.ErrInvalidArgument, pid)
+			}
+			value = pid
+		}
+		if _, err := p.pool().ExecContext(ctx, p.q(`UPDATE iam__users SET persona_id = ?, updated_at = ? WHERE id = ?`),
+			value, time.Now().UTC().Format(time.RFC3339), id); err != nil {
+			return sdk.Response{}, err
+		}
+		p.invalidate()
 	}
 	return p.profile(ctx, id)
 }

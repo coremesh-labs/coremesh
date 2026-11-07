@@ -80,6 +80,22 @@
 </form>
 {{end}}
 
+{{/* Person wechseln (seit 0.64.0): nur mit Personen; die gewählte bestimmt Rechte und Menü.
+     Daten: pageData. */}}
+{{define "persona-switch"}}
+{{with .User}}{{if .Personas}}
+<form class="persona-switch{{if .PersonaID}} active{{end}}" method="post" action="/persona" title="{{t "core.persona.hint"}}">
+  <label><span>{{t "core.persona.label"}}</span>
+    <select name="persona_id" onchange="this.form.submit()">
+      <option value="">{{t "core.persona.all"}}</option>
+      {{range .Personas}}<option value="{{.ID}}" {{if eq .ID $.User.PersonaID}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+  </label>
+  <noscript><button type="submit" class="link">OK</button></noscript>
+</form>
+{{end}}{{end}}
+{{end}}
+
 {{/* Benutzermenü in der Sidebar. Daten: pageData. */}}
 {{define "user-menu"}}
 {{with .User}}

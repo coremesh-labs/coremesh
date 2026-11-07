@@ -30,6 +30,7 @@
       {{block "brand" .}}<a class="brand" href="/">{{.AppTitle}}</a>{{end}}
       <button type="button" class="nav-toggle" onclick="coremeshToggleNav()" title="{{t "core.nav.toggle"}}" aria-label="{{t "core.nav.toggle"}}">☰</button>
     </div>
+    {{template "persona-switch" .}}
     {{block "sidebar" .}}
     <nav>
       {{range .Nav}}{{block "nav-module" .}}

@@ -52,6 +52,11 @@ table "iam__users" {
     type = text
     null = true
   }
+  # Aktive Person (iam__personas.id); leer = alle Rollen des Benutzers. Seit 0.12.0.
+  column "persona_id" {
+    type = text
+    null = true
+  }
   column "created_at" {
     type = text
   }
@@ -349,6 +354,74 @@ table "iam__user_roles" {
     on_delete   = CASCADE
   }
 }
+
+# Personen eines Benutzers (seit 0.12.0): Auswahl seiner Rollen (und Buchungskreise) für eine
+# Art von Arbeit; der Benutzer wechselt ohne neue Anmeldung. Eine Person schränkt nur ein.
+table "iam__personas" {
+  schema = schema.main
+  column "id" {
+    type = text
+  }
+  column "user_id" {
+    type = text
+  }
+  column "name" {
+    type = text
+  }
+  # Buchungskreise (kommagetrennt); leer = die des Benutzers
+  column "company_codes" {
+    type = text
+    null = true
+  }
+  column "sort_order" {
+    type    = integer
+    default = 0
+  }
+  column "active" {
+    type    = integer
+    default = 1
+  }
+  column "created_at" {
+    type = text
+  }
+  column "updated_at" {
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "iam__personas_user" {
+    columns = [column.user_id]
+  }
+  foreign_key "iam__personas_user_fk" {
+    columns     = [column.user_id]
+    ref_columns = [table.iam__users.column.id]
+    on_delete   = CASCADE
+  }
+}
+
+table "iam__persona_roles" {
+  schema = schema.main
+  column "persona_id" {
+    type = text
+  }
+  column "role_id" {
+    type = text
+  }
+  primary_key {
+    columns = [column.persona_id, column.role_id]
+  }
+  foreign_key "iam__persona_roles_persona_fk" {
+    columns     = [column.persona_id]
+    ref_columns = [table.iam__personas.column.id]
+    on_delete   = CASCADE
+  }
+  foreign_key "iam__persona_roles_role_fk" {
+    columns     = [column.role_id]
+    ref_columns = [table.iam__roles.column.id]
+    on_delete   = CASCADE
+  }
+}
 `
 
 var crud = func(object string) []metamodel.ActionConfig {
@@ -378,6 +451,10 @@ var (
 		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
 		Actions: append(crud("Benutzer"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
 			Label: "Inaktivieren", Confirm: "Benutzer inaktivieren? Er kann sich danach nicht mehr anmelden."}),
+		Sections: []metamodel.SectionDefinition{
+			{Key: "personen", Title: "Personen", Relation: &metamodel.Relation{Object: "Persona", ForeignKey: "user_id",
+				Columns: []string{"name", "roles", "company_codes"}}},
+		},
 	}
 	roleDef = metamodel.ObjectDefinition{
 		Name: "Role", Title: "Rollen", Icon: "icon-shield", FormState: formStateAction,
@@ -486,6 +563,23 @@ var (
 	}
 	displayModes = []metamodel.Option{{Value: modeHidden, Label: "ausblenden"}, {Value: modeReadonly, Label: "unänderbar"},
 		{Value: modeColumn, Label: "Spalte ausblenden"}, {Value: modeSection, Label: "Abschnitt ausblenden"}}
+	// personaDef: Personen eines Benutzers (seit 0.12.0), gepflegt am Benutzer.
+	personaDef = metamodel.ObjectDefinition{
+		Name: "Persona", Title: "Personen", Icon: "icon-user",
+		Fields: []metamodel.FieldDefinition{
+			{Key: "user_id", Label: "Benutzer", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
+				Lookup: &metamodel.Lookup{Object: "User", ValueField: "id", LabelFields: []string{"username"}}},
+			{Key: "name", Label: "Name", Help: "z. B. Buchhaltung, Mietverwaltung, Privat – erscheint in der Auswahl oben", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
+			{Key: "roles", Label: "Rollen", Help: "Eine pro Zeile; nur Rollen des Benutzers. Die Person hat nur diese Rechte und sieht nur das zugehörige Menü", Type: metamodel.TypeTextarea, Required: true, Listable: true, Editable: true},
+			{Key: "company_codes", Label: "Buchungskreise", Help: "Kommagetrennt; leer = die des Benutzers", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "sort_order", Label: "Reihenfolge", Type: metamodel.TypeNumber, Editable: true},
+			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
+		},
+		Filters:   []string{"user_id"},
+		Lifecycle: metamodel.Lifecycle{Type: metamodel.LifecycleStatus, StatusField: "active"},
+		Actions: append(crud("Person"), metamodel.ActionConfig{Name: "deactivate", Kind: metamodel.KindDeactivate,
+			Label: "Inaktivieren", Confirm: "Person inaktivieren? Ist sie gerade gewählt, gelten wieder alle Rollen."}),
+	}
 	companyCodeDef = metamodel.ObjectDefinition{
 		Name: "CompanyCode", Title: "Buchungskreise", Icon: "icon-building",
 		Fields: []metamodel.FieldDefinition{
@@ -505,6 +599,7 @@ var adminModule = metamodel.ModuleDefinition{
 	Description: "Benutzer, Rollen und Buchungskreise",
 	Objects: []metamodel.ModuleObject{
 		{Object: "User", Section: "Zugriff"},
+		{Object: "Persona", Section: "Zugriff"},
 		{Object: "Role", Section: "Zugriff"},
 		{Object: "RoleAuth", Section: "Zugriff"},
 		{Object: "RoleAuthValue", Section: "Zugriff"},
@@ -514,7 +609,7 @@ var adminModule = metamodel.ModuleDefinition{
 		{Object: "CompanyCode", Section: "Organisation"},
 	},
 	// Modulrolle Sachbearbeiter der Administration: nur lesen.
-	Customizing: []string{"User", "Role", "RoleAuth", "RoleAuthValue", "DisplayRule", "DisplayRuleCondition", "DisplayRuleField", "CompanyCode"},
+	Customizing: []string{"User", "Persona", "Role", "RoleAuth", "RoleAuthValue", "DisplayRule", "DisplayRuleCondition", "DisplayRuleField", "CompanyCode"},
 }
 
 // Übersetzungen des Moduls admin (de, en, zh-CN) – Schlüssel nach der

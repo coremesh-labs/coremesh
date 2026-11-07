@@ -43,6 +43,24 @@ type user struct {
 	Permissions []string `json:"permissions"` // "Object.Action[@Buchungskreis,…]" mit Platzhaltern
 	Locale      string   `json:"locale"`      // Sprache aus dem Profil ("" = automatisch)
 	KeyDate     string   `json:"key_date"`    // Stichtag (JJJJ-MM-TT) aus dem Profil, "" = heute
+	// Personen (seit 0.64.0): Auswahl der eigenen Rollen; die gewählte bestimmt Rechte und Menü.
+	Personas  []persona `json:"personas"`
+	PersonaID string    `json:"persona_id"` // "" = alle Rollen
+}
+
+type persona struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// PersonaName: Name der gewählten Person ("" = alle Rollen).
+func (u *user) PersonaName() string {
+	for _, p := range u.Personas {
+		if p.ID == u.PersonaID {
+			return p.Name
+		}
+	}
+	return ""
 }
 
 // Name ist der Anzeigename.
