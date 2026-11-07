@@ -316,10 +316,10 @@ type view struct {
 	Target        string // HTMX-Ziel der Antwort (edit)
 	ViewParam     string // row | detail – wohin die Antwort von update gehört
 	CancelURL     string
-	ActionID      string // id für custom-Actions
+	ActionID      string   // id für custom-Actions
 	BulkIDs       []string // Sammelaktion mit Feldern (seit 0.59.0): angekreuzte Zeilen
-	RowRef        string // seit 0.54.0: Aktion aus einer Listenzeile (dom-id) – danach nur die Zeile neu
-	SectionRef    string // seit 0.54.0: aus einem Abschnitt (element-id) – danach nur der Abschnitt neu
+	RowRef        string   // seit 0.54.0: Aktion aus einer Listenzeile (dom-id) – danach nur die Zeile neu
+	SectionRef    string   // seit 0.54.0: aus einem Abschnitt (element-id) – danach nur der Abschnitt neu
 	FormFields    []fieldCtx
 	FormError     string
 	Filter        map[string]string      // Liste: aktive Filter (q und ObjectDefinition.Filters)

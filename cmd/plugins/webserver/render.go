@@ -325,7 +325,7 @@ var funcs = template.FuncMap{
 		}
 		return false
 	},
-	"rowTone":       rowTone,
+	"rowTone": rowTone,
 	// recordActionAt (seit 0.54.0): Aktion einer Zeile – ref "row=<dom-id>" bzw.
 	// "section=<element-id>": danach lädt nur diese Zeile bzw. dieser Abschnitt neu.
 	"recordActionAt": func(url, id string, a metamodel.ActionConfig, class, ref string) recordActionCtx {
