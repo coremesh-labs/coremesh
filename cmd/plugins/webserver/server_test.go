@@ -523,7 +523,7 @@ func TestKeyDateMetadata(t *testing.T) {
 func TestReport(t *testing.T) {
 	s, h := newTestServer(t, "")
 	page := do(s, "GET", "/m/crm/Report", nil, false).Body.String()
-	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`, `<small class="muted field-help">Stichtag {datum}</small>`)
+	mustContain(t, page, `action="/action/crm/Report/compute"`, `name="period_to"`, `class="help-icon"`, `role="tooltip" hidden>Stichtag {datum}</span>`)
 	mustContain(t, page, `class="field checks`, `<input type="checkbox" name="kinds" value="MV"`)
 	w := do(s, "POST", "/action/crm/Report/compute", url.Values{"period_to": {"2026-12-31"}, "kinds": {"MV", "SP"}}, false)
 	if d, _ := h.find("compute").Payload.(map[string]any)["data"].(map[string]any); d["kinds"] != "MV,SP" {

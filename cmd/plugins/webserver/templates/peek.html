@@ -13,6 +13,12 @@
   title="{{t "core.peek.show"}}" aria-label="{{t "core.peek.show"}}">ⓘ</button><span class="peek-card" role="dialog"><span
   class="muted">{{t "core.peek.loading"}}</span></span></span>{{end}}{{end}}
 
+{{/* help-icon: „?“ neben der Beschriftung; Klick öffnet die Hilfe des Felds (Field.Help) in
+     einem kleinen Fenster, Klick daneben bzw. Esc schließt es (seit webserver 0.63.0). */}}
+{{define "help-icon"}}{{if .}}&#8288;<span class="help"><button type="button" class="help-icon" aria-expanded="false"
+  title="{{t "core.help.show"}}" aria-label="{{t "core.help.show"}}" onclick="coremeshHelp(this, event)">?</button><span
+  class="help-card" role="tooltip" hidden>{{.}}</span></span>{{end}}{{end}}
+
 {{define "peek"}}
 <span class="peek-head"><small class="muted">{{.Title}}</small><strong>{{.Heading}}</strong></span>
 {{with .Message}}<span class="empty">{{.}}</span>{{else}}

@@ -109,6 +109,7 @@
   "core.peek.no_permission": "Keine Berechtigung, diesen Datensatz zu lesen.",
   "core.peek.not_found": "Datensatz nicht gefunden.",
   "core.peek.open": "Details öffnen",
+  "core.help.show": "Hilfe anzeigen",
   "core.peek.show": "Kopfdaten anzeigen",
   "core.peek.unavailable": "Vorschau zurzeit nicht verfügbar.",
   "core.relation.add": "+ Hinzufügen",

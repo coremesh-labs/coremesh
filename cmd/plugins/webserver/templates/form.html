@@ -56,12 +56,11 @@
 {{if .Hidden}}<input type="hidden" name="{{.Field.Key}}" value="{{.Value}}">{{else if and (eq .Type "select") .Field.Multiple}}
 {{/* Mehrfachauswahl als Kästchen zum Ankreuzen (seit webserver 0.46.0; vorher Liste mit Strg-Klick). */}}
 <div class="field checks{{if .Error}} invalid{{end}}{{if .Field.Wide}} wide{{end}}" role="group" aria-label="{{.Field.Label}}">
-  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}{{template "help-icon" .Field.Help}}</span>
   <span class="check-list">
   {{range .Field.Options}}<label class="check"><input type="checkbox" name="{{$.Field.Key}}" value="{{.Value}}" {{if inList .Value $.Value}}checked{{end}} {{if $.ReadOnly}}disabled{{end}} {{with $.Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}}> {{codeLabel .Value .Label}}</label>
   {{end}}</span>
   <small class="muted">{{t "core.form.multiple"}}</small>
-  {{with .Field.Help}}<small class="muted field-help">{{.}}</small>{{end}}
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>
 {{else if eq .Type "markdown"}}
@@ -69,7 +68,7 @@
      (Field.Snippets, auch mit @ im Text), Vorschau daneben – mit Field.Preview die des
      Objects (z. B. die ganze Mail) –, Kurztasten, Entwurf im Browser gesichert. */}}
 <div class="field wide md-field{{if .Error}} invalid{{end}}" data-md-field="{{.Field.Key}}"{{if .Field.Preview}} data-md-object="{{.Object}}"{{end}}>
-  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}{{template "help-icon" .Field.Help}}</span>
   {{if not .ReadOnly}}<div class="md-toolbar">
     <span class="md-format" role="toolbar">
       <button type="button" class="btn small" data-md="bold" title="{{t "core.markdown.bold"}} (Strg+B)"><b>F</b></button>
@@ -94,12 +93,12 @@
     <div class="md-preview" hidden></div>
   </div>
   <div class="md-at" hidden></div>
-  <small class="muted field-help">{{with .Field.Help}}{{.}} {{end}}{{t "core.markdown.hint"}}</small>
+  <small class="muted field-help">{{t "core.markdown.hint"}}</small>
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>
 {{else}}
 <label class="field{{if .Error}} invalid{{end}}{{if .Field.Wide}} wide{{end}}">
-  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}{{template "help-icon" .Field.Help}}</span>
   {{if eq .Type "select"}}
   <select name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}disabled{{end}}>
     {{if not .Field.Required}}<option value=""></option>{{else if not (hasOption .Field.Options "")}}<option value="" {{if eq .Value ""}}selected{{end}} disabled>{{t "core.form.choose"}}</option>{{end}}
@@ -124,7 +123,6 @@
          {{if eq .Type "number"}}step="any"{{end}} {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>
   {{with .Label}}<small class="lookup-label">{{.}}</small>{{end}}
   {{end}}
-  {{with .Field.Help}}<small class="muted field-help">{{.}}</small>{{end}}
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </label>
 {{end}}

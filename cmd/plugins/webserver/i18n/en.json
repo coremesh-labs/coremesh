@@ -109,6 +109,7 @@
   "core.peek.no_permission": "No permission to read this record.",
   "core.peek.not_found": "Record not found.",
   "core.peek.open": "Open details",
+  "core.help.show": "Show help",
   "core.peek.show": "Show header data",
   "core.peek.unavailable": "Preview currently unavailable.",
   "core.relation.add": "+ Add",

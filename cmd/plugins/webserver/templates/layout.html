@@ -312,6 +312,20 @@
     }
     // Markdown-Editor (seit 0.62.0): Vorschau neben dem Text, beim Tippen nachgeführt;
     // mit data-md-object die Vorschau des Objects (ganze Mail) aus dem ganzen Formular.
+    // Hilfe eines Felds (help-icon): eine offen, Klick daneben bzw. Esc schließt.
+    function coremeshHelp(btn, ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      var card = btn.nextElementSibling, open = card.hidden;
+      coremeshHelpClose();
+      if (open) { card.hidden = false; btn.setAttribute("aria-expanded", "true"); }
+    }
+    function coremeshHelpClose() {
+      document.querySelectorAll(".help-card:not([hidden])").forEach(function (c) {
+        c.hidden = true; c.previousElementSibling.setAttribute("aria-expanded", "false");
+      });
+    }
+    document.addEventListener("click", function (e) { if (!e.target.closest(".help-card")) coremeshHelpClose(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && document.querySelector(".help-card:not([hidden])")) { e.stopPropagation(); coremeshHelpClose(); } }, true);
     function coremeshPreview(btn, field) {
       var f = btn.closest(".md-field"), pv = f.querySelector(".md-preview");
       if (!pv.hidden) { pv.hidden = true; f.classList.remove("md-split"); btn.classList.remove("active"); return; }
