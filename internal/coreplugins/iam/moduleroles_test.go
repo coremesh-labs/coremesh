@@ -78,6 +78,14 @@ func TestSetupModuleRoles(t *testing.T) {
 		return nil
 	}
 	clerk, expert := perms("Verträge - Sachbearbeiter"), perms("Verträge - Fachverantwortlicher")
+	for _, g := range perms("Verträge - Einsicht") {
+		if !strings.HasSuffix(g, ".list") && !strings.HasSuffix(g, ".get") && !strings.HasSuffix(g, "."+formStateAction) {
+			t.Errorf("Einsicht darf mehr als lesen: %s", g)
+		}
+	}
+	if len(perms("Verträge - Einsicht")) == 0 {
+		t.Error("Einsicht ohne Rechte")
+	}
 	for _, want := range []string{"Contract.*", "ContractType.list", "ContractType.get", "ContractPostingService.*",
 		"BusinessPartner.list", "BusinessPartner.get", "Tags.*"} {
 		if !slices.Contains(clerk, want) {

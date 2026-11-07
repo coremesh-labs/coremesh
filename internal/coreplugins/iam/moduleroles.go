@@ -23,6 +23,8 @@ import (
 //     Einstellung sind; Einstellungen (ModuleDefinition.Customizing: Kategorien,
 //     Arten, Kataloge, Kontenplan, Einrichtung) nur lesen (list, get, formState).
 //   - Fachverantwortlicher: zusätzlich alle Actions der Einstellungen.
+//   - Einsicht (seit 0.12.3): alles des Moduls nur lesen (list, get, formState), z. B.
+//     Vorgänge für die Person, die Mietverträge erstellt.
 //
 // Beide lesen die Objects anderer Module, auf die Felder (Auswahl) und Abschnitte
 // verweisen, und pflegen Merkmale, Texte und Dokumente der Datensätze, wenn das
@@ -35,6 +37,7 @@ const setupModuleRolesAction = "setupModuleRoles"
 var moduleRoleKinds = []struct{ key, suffix, desc string }{
 	{"clerk", "Sachbearbeiter", "Modulrolle %s: Objekte anlegen und pflegen, Einstellungen lesen"},
 	{"expert", "Fachverantwortlicher", "Modulrolle %s: Objekte und Einstellungen (Kategorien, Arten, Kontenplan) pflegen"},
+	{"reader", "Einsicht", "Modulrolle %s: alles nur lesen"},
 }
 
 // readActions: lesende Actions einer Einstellung für Sachbearbeiter.
@@ -101,7 +104,7 @@ func (c *catalogView) moduleGrants(m metamodel.ModuleDefinition, kind string) []
 		own[n] = true
 	}
 	for _, n := range names {
-		if kind == "clerk" && slices.Contains(m.Customizing, n) {
+		if kind == "reader" || kind == "clerk" && slices.Contains(m.Customizing, n) {
 			routes := c.routes(n)
 			for _, a := range readActions {
 				if slices.Contains(routes, a) {
@@ -128,6 +131,8 @@ func (c *catalogView) moduleGrants(m metamodel.ModuleDefinition, kind string) []
 			switch {
 			case s.Relation != nil && s.Relation.Object != "":
 				refs = append(refs, s.Relation.Object)
+			case kind == "reader":
+				// Einsicht: Merkmale, Texte, Dokumente nicht pflegen
 			case s.Tags:
 				add(tagservice.Object, "*")
 			case s.Texts:
@@ -178,7 +183,7 @@ func (p *Plugin) roleFormState(ctx context.Context, payload any) (sdk.Response, 
 		v := AllCompanyCodes
 		st.Fields["company_codes"] = metamodel.FieldState{Value: &v}
 	}
-	st.Message = "Je Modul entstehen die Rollen „<Modul> - Sachbearbeiter“ und „<Modul> - Fachverantwortlicher“. " +
+	st.Message = "Je Modul entstehen die Rollen „<Modul> - Sachbearbeiter“, „<Modul> - Fachverantwortlicher“ und „<Modul> - Einsicht“ (nur lesen). " +
 		"Vorhandene Berechtigungen bleiben unverändert, fehlende kommen hinzu."
 	return sdk.Response{Payload: st}, nil
 }

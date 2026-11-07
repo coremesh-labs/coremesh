@@ -87,13 +87,15 @@ schickt das Feld nicht.
 ### Modulrollen (seit 0.11.0)
 
 „Modulrollen anlegen …“ in der Rollenübersicht (`Role.setupModuleRoles`, Felder `modules`
-– vorbelegt alle Module – und `company_codes`, Vorgabe `*`) legt je Modul zwei Rollen an bzw.
+– vorbelegt alle Module – und `company_codes`, Vorgabe `*`) legt je Modul drei Rollen an bzw.
 ergänzt sie, abgeleitet aus dem Catalog:
 
 - **„<Modul> - Sachbearbeiter“**: alle Actions der Objects und Services des Moduls außer den
   Einstellungen; Einstellungen nur lesen (`list`, `get`, `formState`).
 - **„<Modul> - Fachverantwortlicher“**: zusätzlich alle Actions der Einstellungen
   (Kategorien, Arten, Kataloge, Kontenplan, Einrichtung).
+- **„<Modul> - Einsicht“** (seit 0.12.3): alles des Moduls nur lesen; Merkmale, Texte und
+  Dokumente nicht pflegen – z. B. Vorgänge einsehen, ohne sie zu bearbeiten.
 
 Einstellungen sind die Objects und Services in `ModuleDefinition.Customizing` (im Modul
 `crud.Entity.Customizing` bzw. `r.Object(…).Customizing()`). Beide Rollen lesen die Objects
