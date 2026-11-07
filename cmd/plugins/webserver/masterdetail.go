@@ -154,6 +154,8 @@ type relationView struct {
 	// Filterleiste des Abschnitts (Relation.Filters, seit 0.58.0) mit den Werten der Anfrage.
 	FilterBar []filterField
 	Filter    map[string]string
+	// Preview: Unter-Object mit Viewer-Abschnitt – je Zeile „Ansehen“ im Dialog (seit 0.60.0).
+	Preview bool
 }
 
 // GET /m/{module}/{object}/{id}/rel/{section}
@@ -258,9 +260,11 @@ func (s *server) relation(w http.ResponseWriter, r *http.Request) {
 			rv.LookupEdit[f.Key] = moduleURL(mod.Name, f.Lookup.Object)
 		}
 	}
-	if child.Has[string(metamodel.KindItem)] != nil && slices.ContainsFunc(child.Def.Sections, func(sd metamodel.SectionDefinition) bool { return sd.Relation != nil }) {
+	viewer := slices.ContainsFunc(child.Def.Sections, func(sd metamodel.SectionDefinition) bool { return sd.Viewer })
+	if child.Has[string(metamodel.KindItem)] != nil && (viewer || slices.ContainsFunc(child.Def.Sections, func(sd metamodel.SectionDefinition) bool { return sd.Relation != nil })) {
 		rv.DetailURL = child.URL
 	}
+	rv.Preview = viewer
 	if child.Has["create"] != nil && rel.Module == "" { // anderes Modul: dort anlegen (Pflichtfelder kennt nur es)
 		keys := slices.Sorted(maps.Keys(link))
 		var q []string

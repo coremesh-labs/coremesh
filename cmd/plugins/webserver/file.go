@@ -75,5 +75,16 @@ func (s *server) fileContent(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
+// GET /preview/{object}/{id}?title=… (seit 0.60.0): Dialog mit dem eingebetteten Inhalt
+// (Viewer) – z. B. ein Anhang direkt aus der Mail, ohne Herunterladen.
+func (s *server) filePreview(w http.ResponseWriter, r *http.Request) {
+	object, id := r.PathValue("object"), r.PathValue("id")
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	if title == "" {
+		title = id
+	}
+	s.render(w, r, http.StatusOK, "preview", map[string]any{"Title": title, "URL": fileURL(object, id)}, title, "")
+}
+
 // FileURL: fester Link auf den Inhalt eines Datensatzes.
 func fileURL(object, id string) string { return "/file/" + object + "/" + pathEscape(id) }

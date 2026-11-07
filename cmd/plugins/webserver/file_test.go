@@ -235,3 +235,17 @@ func TestLookupActionField(t *testing.T) {
 	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
 	mustContain(t, b, `hx-trigger="coremesh-record-changed from:body"`, `hx-select="#detail"`, `hx-disinherit="*"`)
 }
+
+// TestPreviewDialog: /preview bettet /file/{object}/{id} im Dialog ein; Unter-Objects mit
+// Viewer bekommen in der Relation „Ansehen“ und die Detailansicht.
+func TestPreviewDialog(t *testing.T) {
+	s, _ := newMDServer(t)
+	b := do(s, "GET", "/preview/CustomerContact/k1?title=Vertrag+K1", nil, true).Body.String()
+	mustContain(t, b, `<iframe src="/file/CustomerContact/k1"`, "Vertrag K1", `href="/file/CustomerContact/k1?download=1"`)
+	withDef(t, "CustomerContact", func(d *metamodel.ObjectDefinition) {
+		d.Sections = append(slices.Clone(d.Sections), metamodel.SectionDefinition{Key: "inhalt", Title: "Inhalt", Viewer: true})
+	})
+	s, _ = newMDServer(t)
+	b = do(s, "GET", "/m/crm/Customer/c1/rel/contacts", nil, true).Body.String()
+	mustContain(t, b, `hx-get="/preview/CustomerContact/`, "open-row")
+}

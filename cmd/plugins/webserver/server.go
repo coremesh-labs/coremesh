@@ -79,6 +79,7 @@ func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) 
 	// TagEditor (Abschnitt „Tags“, Plugin tag): siehe tags.go.
 	// Dokumente (Abschnitt „Dokumente“, docservice): siehe docs.go.
 	s.mux.HandleFunc("GET /file/{object}/{id}", s.fileContent)
+	s.mux.HandleFunc("GET /preview/{object}/{id}", s.filePreview)
 	s.mux.HandleFunc("GET /new/{object}", s.newByObject)
 	s.mux.HandleFunc("GET /open/{object}/{id}", s.openByObject)
 	s.mux.HandleFunc("GET /docs/{entity}/{id}", s.docSectionGet)
