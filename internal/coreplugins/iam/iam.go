@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.12.0"
+	Version = "0.12.1"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -69,7 +69,7 @@ func (p *Plugin) Manifest(context.Context) (sdk.Manifest, error) {
 		Capabilities: []sdk.Capability{
 			{Object: "Account", Actions: []string{"Authenticate", "Me", "UpdateProfile", "ChangePassword", "Check", "Granted", "Display"}, Description: "Anmeldung, eigenes Konto, Rechteprüfung, Darstellungsregeln"},
 			{Object: "User", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Benutzerverwaltung"},
-			{Object: "Persona", Actions: []string{"list", "get", "create", "update", "deactivate"}, Description: "Personen eines Benutzers (Auswahl seiner Rollen)"},
+			{Object: "Persona", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Personen eines Benutzers (Auswahl seiner Rollen)"},
 			{Object: "Role", Actions: []string{"list", "get", "create", "update", formStateAction, setupModuleRolesAction}, Description: "Rollen und Berechtigungen, Modulrollen"},
 			{Object: "RoleAuth", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Berechtigungen je Rolle und Object.Action"},
 			{Object: "RoleAuthValue", Actions: []string{"list", "get", "create", "update", "deactivate", formStateAction}, Description: "Erlaubte Feldwerte einer Berechtigung"},
@@ -159,6 +159,8 @@ func (p *Plugin) Handle(ctx context.Context, req sdk.Request) (sdk.Response, err
 		return p.personaSave(ctx, req.Payload, false)
 	case "Persona.deactivate":
 		return p.personaDeactivate(ctx, req.Payload)
+	case "Persona." + formStateAction:
+		return p.personaFormState(ctx, req.Payload)
 	case "Role.list":
 		return p.roleList(ctx)
 	case "Role.get":
@@ -301,11 +303,14 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	list, active := []any{}, ""
+	list, active, modules := []any{}, "", []any{}
 	for _, pr := range pers {
 		list = append(list, map[string]any{"id": pr.ID, "name": pr.Name})
 		if pr.ID == u.PersonaID {
 			active = pr.ID
+			for _, m := range pr.Modules {
+				modules = append(modules, m)
+			}
 		}
 	}
 	formatted := formatPermissions(perms)
@@ -320,7 +325,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
 		"roles": roles, "permissions": ps, "locale": u.Locale, "company_codes": userCompanyCodesText(u.CompanyCodes),
-		"key_date": u.KeyDate, "persona_id": active, "personas": list,
+		"key_date": u.KeyDate, "persona_id": active, "personas": list, "persona_modules": modules,
 	}}, nil
 }
 

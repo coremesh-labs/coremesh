@@ -130,8 +130,12 @@ func (s *server) modules(r *http.Request) []moduleInfo {
 	}
 	_ = sdk.Decode(resp.Payload, &list)
 	var out []moduleInfo
+	u := userFrom(r)
 	for _, m := range list.Modules {
-		if v := m.visibleFor(userFrom(r)); len(v.Objects) > 0 {
+		if u != nil && len(u.PersonaModules) > 0 && !slices.Contains(u.PersonaModules, m.Name) {
+			continue // nicht im Menü der Person (lesen über Auswahlfelder bleibt möglich)
+		}
+		if v := m.visibleFor(u); len(v.Objects) > 0 {
 			out = append(out, s.localizeModule(r, v))
 		}
 	}

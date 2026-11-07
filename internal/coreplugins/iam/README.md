@@ -368,4 +368,5 @@ Ein Benutzer arbeitet oft in verschiedenen Rollen, etwa Buchhaltung, Mietverwalt
 - **Nur Einschränkung:** Eine Person kann nie mehr als der Benutzer. Rollen, die der Benutzer nicht hat, lassen sich nicht eintragen, und eine später entzogene Rolle wirkt auch über die Person nicht mehr.
 - **Zurückwechseln:** geht immer, weil `Account.UpdateProfile` und `Account.Me` zu den Grundrechten jedes Benutzers gehören.
 - **Inaktivieren:** Wird die gewählte Person inaktiviert, gelten wieder alle Rollen.
+- **Module im Menü (seit 0.12.1):** Eine Person kann das Menü auf bestimmte Module beschränken (`modules`). Nötig ist das, weil Modulrollen auch die Objects anderer Module lesen, damit Auswahlfelder funktionieren. Das Lesen bleibt erlaubt, nur das Menü wird kürzer.
 - **Geltungsbereich:** Die Wahl gilt für den Benutzer, also für alle seine Sitzungen, so wie der Stichtag.

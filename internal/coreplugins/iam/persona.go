@@ -10,6 +10,7 @@ import (
 
 	"github.com/coremesh-labs/coremesh/internal/database"
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Personen (seit 0.12.0): Ein Benutzer arbeitet in verschiedenen Rollen (z. B. Buchhaltung,
@@ -22,11 +23,12 @@ type personaRow struct {
 	ID, UserID, Name string
 	Roles            []string // Rollennamen
 	CompanyCodes     []string // leer = die des Benutzers
+	Modules          []string // Module im Menü, leer = alle erlaubten (seit 0.12.1)
 	SortOrder        int
 	Active           bool
 }
 
-const personaCols = `id, user_id, name, company_codes, sort_order, active`
+const personaCols = `id, user_id, name, company_codes, sort_order, active, modules`
 
 func (p *Plugin) scanPersonas(ctx context.Context, q database.Querier, where string, args ...any) ([]personaRow, error) {
 	res, err := database.Query(ctx, q, p.q(`SELECT `+personaCols+` FROM iam__personas `+where+` ORDER BY user_id, sort_order, name`), args...)
@@ -39,7 +41,7 @@ func (p *Plugin) scanPersonas(ctx context.Context, q database.Querier, where str
 		if slices.Contains(ccs, AllCompanyCodes) {
 			ccs = nil
 		}
-		out[i] = personaRow{ID: s(r[0]), UserID: s(r[1]), Name: s(r[2]), CompanyCodes: ccs, SortOrder: int(num(r[4])), Active: b(r[5])}
+		out[i] = personaRow{ID: s(r[0]), UserID: s(r[1]), Name: s(r[2]), CompanyCodes: ccs, SortOrder: int(num(r[4])), Active: b(r[5]), Modules: lines(s(r[6]))}
 		rr, err := database.Query(ctx, q, p.q(`SELECT r.name FROM iam__persona_roles pr JOIN iam__roles r ON r.id = pr.role_id WHERE pr.persona_id = ? ORDER BY r.name`), out[i].ID)
 		if err != nil {
 			return nil, err
@@ -124,7 +126,7 @@ func (p *Plugin) personaGrants(ctx context.Context, q database.Querier, userID s
 
 func personaRecord(pr personaRow) map[string]any {
 	return map[string]any{"id": pr.ID, "user_id": pr.UserID, "name": pr.Name, "roles": strings.Join(pr.Roles, "\n"),
-		"company_codes": strings.Join(pr.CompanyCodes, ","), "sort_order": pr.SortOrder, "active": pr.Active}
+		"company_codes": strings.Join(pr.CompanyCodes, ","), "modules": strings.Join(pr.Modules, ","), "sort_order": pr.SortOrder, "active": pr.Active}
 }
 
 func (p *Plugin) personaList(ctx context.Context, payload any) (sdk.Response, error) {
@@ -163,6 +165,7 @@ func (p *Plugin) personaSave(ctx context.Context, payload any, create bool) (sdk
 			Name         string `json:"name"`
 			Roles        string `json:"roles"`
 			CompanyCodes string `json:"company_codes"`
+			Modules      any    `json:"modules"`
 			SortOrder    any    `json:"sort_order"`
 			Active       *bool  `json:"active"`
 		} `json:"data"`
@@ -172,7 +175,7 @@ func (p *Plugin) personaSave(ctx context.Context, payload any, create bool) (sdk
 	}
 	d := in.Data
 	pr := personaRow{ID: in.ID, UserID: strings.TrimSpace(d.UserID), Name: strings.TrimSpace(d.Name), Roles: lines(d.Roles),
-		SortOrder: int(num(d.SortOrder)), Active: d.Active == nil || *d.Active}
+		SortOrder: int(num(d.SortOrder)), Active: d.Active == nil || *d.Active, Modules: listOf(d.Modules)}
 	if !create {
 		old, err := p.getPersona(ctx, p.pool(), in.ID)
 		if err != nil {
@@ -218,6 +221,17 @@ func (p *Plugin) personaSave(ctx context.Context, payload any, create bool) (sdk
 		}
 	}
 	pr.CompanyCodes = ccs
+	if len(pr.Modules) > 0 {
+		known := map[string]bool{}
+		for _, m := range p.catalog(ctx).modules() {
+			known[m.Name] = true
+		}
+		for _, m := range pr.Modules {
+			if len(known) > 0 && !known[m] {
+				return sdk.Response{}, fmt.Errorf("%w: Modul %q gibt es nicht", sdk.ErrInvalidArgument, m)
+			}
+		}
+	}
 	if create {
 		pr.ID = newID()
 	}
@@ -225,11 +239,11 @@ func (p *Plugin) personaSave(ctx context.Context, payload any, create bool) (sdk
 	err = p.inTx(ctx, func(tx *sql.Tx) error {
 		var err error
 		if create {
-			_, err = tx.ExecContext(ctx, p.q(`INSERT INTO iam__personas (id, user_id, name, company_codes, sort_order, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-				pr.ID, pr.UserID, pr.Name, userCompanyCodes(pr.CompanyCodes), pr.SortOrder, boolInt(pr.Active), now, now)
+			_, err = tx.ExecContext(ctx, p.q(`INSERT INTO iam__personas (id, user_id, name, company_codes, modules, sort_order, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+				pr.ID, pr.UserID, pr.Name, userCompanyCodes(pr.CompanyCodes), nilIfNone(pr.Modules), pr.SortOrder, boolInt(pr.Active), now, now)
 		} else {
-			_, err = tx.ExecContext(ctx, p.q(`UPDATE iam__personas SET name = ?, company_codes = ?, sort_order = ?, active = ?, updated_at = ? WHERE id = ?`),
-				pr.Name, userCompanyCodes(pr.CompanyCodes), pr.SortOrder, boolInt(pr.Active), now, pr.ID)
+			_, err = tx.ExecContext(ctx, p.q(`UPDATE iam__personas SET name = ?, company_codes = ?, modules = ?, sort_order = ?, active = ?, updated_at = ? WHERE id = ?`),
+				pr.Name, userCompanyCodes(pr.CompanyCodes), nilIfNone(pr.Modules), pr.SortOrder, boolInt(pr.Active), now, pr.ID)
 		}
 		if err != nil {
 			return err
@@ -265,4 +279,36 @@ func (p *Plugin) personaDeactivate(ctx context.Context, payload any) (sdk.Respon
 	}
 	p.invalidate()
 	return p.personaGet(ctx, map[string]any{"id": id})
+}
+
+// listOf: Mehrfachauswahl als Liste bzw. Text (Komma, Zeilen).
+func listOf(v any) []string {
+	switch x := v.(type) {
+	case []any:
+		var out []string
+		for _, e := range x {
+			out = append(out, lines(s(e))...)
+		}
+		return out
+	case []string:
+		return x
+	}
+	return lines(s(v))
+}
+
+func nilIfNone(l []string) any {
+	if len(l) == 0 {
+		return nil
+	}
+	return strings.Join(l, ",")
+}
+
+// personaFormState: Auswahl „Module im Menü“ aus dem Catalog.
+func (p *Plugin) personaFormState(ctx context.Context, payload any) (sdk.Response, error) {
+	c := p.catalog(ctx)
+	var opts []metamodel.Option
+	for _, m := range c.modules() {
+		opts = append(opts, metamodel.Option{Value: m.Name, Label: c.tr.Lookup(c.loc, m.TitleKey, m.Title)})
+	}
+	return sdk.Response{Payload: metamodel.FormState{Fields: map[string]metamodel.FieldState{"modules": {Options: opts}}}}, nil
 }

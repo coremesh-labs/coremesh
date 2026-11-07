@@ -35,6 +35,8 @@
   "admin.Persona.fields.active": "Active",
   "admin.Persona.fields.company_codes": "Company codes",
   "admin.Persona.fields.company_codes.help": "Comma-separated; empty = those of the user",
+  "admin.Persona.fields.modules": "Modules in the menu",
+  "admin.Persona.fields.modules.help": "Only these modules appear in the menu; empty = all the roles allow. Reading for selection fields remains possible",
   "admin.Persona.fields.name": "Name",
   "admin.Persona.fields.name.help": "e.g. Accounting, Rental management, Private – appears in the selection at the top",
   "admin.Persona.fields.roles": "Roles",

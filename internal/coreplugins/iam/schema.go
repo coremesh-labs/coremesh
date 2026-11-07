@@ -373,6 +373,12 @@ table "iam__personas" {
     type = text
     null = true
   }
+  # Module im Menü (kommagetrennt); leer = alle erlaubten. Seit 0.12.1: Modulrollen lesen
+  # auch fremde Objects (Auswahlfelder) – das Menü zeigt trotzdem nur die Arbeit der Person.
+  column "modules" {
+    type = text
+    null = true
+  }
   column "sort_order" {
     type    = integer
     default = 0
@@ -565,13 +571,14 @@ var (
 		{Value: modeColumn, Label: "Spalte ausblenden"}, {Value: modeSection, Label: "Abschnitt ausblenden"}}
 	// personaDef: Personen eines Benutzers (seit 0.12.0), gepflegt am Benutzer.
 	personaDef = metamodel.ObjectDefinition{
-		Name: "Persona", Title: "Personen", Icon: "icon-user",
+		Name: "Persona", Title: "Personen", Icon: "icon-user", FormState: formStateAction,
 		Fields: []metamodel.FieldDefinition{
 			{Key: "user_id", Label: "Benutzer", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true,
 				Lookup: &metamodel.Lookup{Object: "User", ValueField: "id", LabelFields: []string{"username"}}},
 			{Key: "name", Label: "Name", Help: "z. B. Buchhaltung, Mietverwaltung, Privat – erscheint in der Auswahl oben", Type: metamodel.TypeText, Required: true, Listable: true, Editable: true},
 			{Key: "roles", Label: "Rollen", Help: "Eine pro Zeile; nur Rollen des Benutzers. Die Person hat nur diese Rechte und sieht nur das zugehörige Menü", Type: metamodel.TypeTextarea, Required: true, Listable: true, Editable: true},
 			{Key: "company_codes", Label: "Buchungskreise", Help: "Kommagetrennt; leer = die des Benutzers", Type: metamodel.TypeText, Listable: true, Editable: true},
+			{Key: "modules", Label: "Module im Menü", Help: "Nur diese Module stehen im Menü; leer = alle, die die Rollen erlauben. Lesen für Auswahlfelder bleibt möglich", Type: metamodel.TypeSelect, Multiple: true, Editable: true},
 			{Key: "sort_order", Label: "Reihenfolge", Type: metamodel.TypeNumber, Editable: true},
 			{Key: "active", Label: "Aktiv", Type: metamodel.TypeBoolean, Listable: true, Editable: true},
 		},
