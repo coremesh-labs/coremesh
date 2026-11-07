@@ -37,6 +37,8 @@
   "admin.Persona.fields.company_codes.help": "Comma-separated; empty = those of the user",
   "admin.Persona.fields.modules": "Modules in the menu",
   "admin.Persona.fields.modules.help": "Only these modules appear in the menu; empty = all the roles allow. Reading for selection fields remains possible",
+  "admin.Persona.fields.settings_menu": "Settings in the menu",
+  "admin.Persona.fields.settings_menu.help": "Off: categories, types, catalogs and other module settings do not appear in the menu – the persona only works. Permissions stay, selection fields still show the values",
   "admin.Persona.fields.name": "Name",
   "admin.Persona.fields.name.help": "e.g. Accounting, Rental management, Private – appears in the selection at the top",
   "admin.Persona.fields.roles": "Roles",

@@ -31,7 +31,8 @@ type moduleInfo struct {
 	Description string         `json:"description"`
 	Available   bool           `json:"available"`
 	Objects     []moduleObject `json:"objects"`
-	Services    []string       `json:"services"` // Objects ohne Metamodell (nur JSON-API)
+	Services    []string       `json:"services"`    // Objects ohne Metamodell (nur JSON-API)
+	Customizing []string       `json:"customizing"` // Einstellungen (Kategorien, Arten, Kataloge)
 
 	TitleKey       string `json:"title_key"`
 	DescriptionKey string `json:"description_key"`
@@ -53,6 +54,22 @@ func (m moduleInfo) visibleFor(u *user) moduleInfo {
 	var objs []moduleObject
 	for _, o := range m.Objects {
 		if o.Available && (u == nil || u.CanAny(o.Object)) {
+			objs = append(objs, o)
+		}
+	}
+	m.Objects = objs
+	return m
+}
+
+// workOnly entfernt die Einstellungen (Customizing) – Menü einer Person ohne
+// „Einstellungen im Menü“. Erreichbar bleiben sie über die Adresse.
+func (m moduleInfo) workOnly(u *user) moduleInfo {
+	if u == nil || !u.PersonaHideSettings || len(m.Customizing) == 0 {
+		return m
+	}
+	var objs []moduleObject
+	for _, o := range m.Objects {
+		if !slices.Contains(m.Customizing, o.Object) {
 			objs = append(objs, o)
 		}
 	}
@@ -135,7 +152,7 @@ func (s *server) modules(r *http.Request) []moduleInfo {
 		if u != nil && len(u.PersonaModules) > 0 && !slices.Contains(u.PersonaModules, m.Name) {
 			continue // nicht im Menü der Person (lesen über Auswahlfelder bleibt möglich)
 		}
-		if v := m.visibleFor(u); len(v.Objects) > 0 {
+		if v := m.visibleFor(u).workOnly(u); len(v.Objects) > 0 {
 			out = append(out, s.localizeModule(r, v))
 		}
 	}
@@ -183,7 +200,11 @@ func (s *server) actionRoutes() http.Handler {
 
 // GET /m/{module}: Einstieg = Übersicht des ersten sichtbaren Objects.
 func (s *server) moduleHome(w http.ResponseWriter, r *http.Request) {
-	r.SetPathValue("object", moduleFrom(r).Objects[0].Object)
+	m := moduleFrom(r)
+	if w := m.workOnly(userFrom(r)); len(w.Objects) > 0 {
+		m = w
+	}
+	r.SetPathValue("object", m.Objects[0].Object)
 	s.list(w, r)
 }
 

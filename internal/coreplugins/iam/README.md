@@ -369,4 +369,5 @@ Ein Benutzer arbeitet oft in verschiedenen Rollen, etwa Buchhaltung, Mietverwalt
 - **Zurückwechseln:** geht immer, weil `Account.UpdateProfile` und `Account.Me` zu den Grundrechten jedes Benutzers gehören.
 - **Inaktivieren:** Wird die gewählte Person inaktiviert, gelten wieder alle Rollen.
 - **Module im Menü (seit 0.12.1):** Eine Person kann das Menü auf bestimmte Module beschränken (`modules`). Nötig ist das, weil Modulrollen auch die Objects anderer Module lesen, damit Auswahlfelder funktionieren. Das Lesen bleibt erlaubt, nur das Menü wird kürzer.
+- **Einstellungen im Menü (seit 0.12.2):** Ist `settings_menu` aus (Vorgabe), blendet das Menü der Person die Einstellungen der Module aus (`ModuleDefinition.Customizing`: Kategorien, Arten, Kataloge, Formate). Rechte und Auswahlfelder bleiben; für die Administration einschalten.
 - **Geltungsbereich:** Die Wahl gilt für den Benutzer, also für alle seine Sitzungen, so wie der Stichtag.

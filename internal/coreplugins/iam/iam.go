@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.12.1"
+	Version = "0.12.2"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -303,11 +303,12 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	if err != nil {
 		return sdk.Response{}, err
 	}
-	list, active, modules := []any{}, "", []any{}
+	list, active, modules, hideSettings := []any{}, "", []any{}, false
 	for _, pr := range pers {
 		list = append(list, map[string]any{"id": pr.ID, "name": pr.Name})
 		if pr.ID == u.PersonaID {
 			active = pr.ID
+			hideSettings = !pr.SettingsMenu
 			for _, m := range pr.Modules {
 				modules = append(modules, m)
 			}
@@ -325,7 +326,7 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	return sdk.Response{Payload: map[string]any{
 		"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "tenant_id": u.TenantID,
 		"roles": roles, "permissions": ps, "locale": u.Locale, "company_codes": userCompanyCodesText(u.CompanyCodes),
-		"key_date": u.KeyDate, "persona_id": active, "personas": list, "persona_modules": modules,
+		"key_date": u.KeyDate, "persona_id": active, "personas": list, "persona_modules": modules, "persona_hide_settings": hideSettings,
 	}}, nil
 }
 

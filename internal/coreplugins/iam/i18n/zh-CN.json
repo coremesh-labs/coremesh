@@ -37,6 +37,8 @@
   "admin.Persona.fields.company_codes.help": "逗号分隔；空 = 用户的公司代码",
   "admin.Persona.fields.modules": "菜单中的模块",
   "admin.Persona.fields.modules.help": "菜单中只显示这些模块；空 = 角色允许的全部。选择字段的读取仍可进行",
+  "admin.Persona.fields.settings_menu": "菜单中的设置",
+  "admin.Persona.fields.settings_menu.help": "关闭：模块的类别、类型、目录等设置不显示在菜单中——该身份只做日常工作。权限保持不变，选择字段仍显示这些值",
   "admin.Persona.fields.name": "名称",
   "admin.Persona.fields.name.help": "如 会计、租赁管理、私人——显示在顶部的选择中",
   "admin.Persona.fields.roles": "角色",

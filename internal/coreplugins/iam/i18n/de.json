@@ -37,6 +37,8 @@
   "admin.Persona.fields.company_codes.help": "Kommagetrennt; leer = die des Benutzers",
   "admin.Persona.fields.modules": "Module im Menü",
   "admin.Persona.fields.modules.help": "Nur diese Module stehen im Menü; leer = alle, die die Rollen erlauben. Lesen für Auswahlfelder bleibt möglich",
+  "admin.Persona.fields.settings_menu": "Einstellungen im Menü",
+  "admin.Persona.fields.settings_menu.help": "Aus: Kategorien, Arten, Kataloge und andere Einstellungen der Module stehen nicht im Menü – die Person arbeitet nur. Die Rechte bleiben, Auswahlfelder zeigen die Werte weiter",
   "admin.Persona.fields.name": "Name",
   "admin.Persona.fields.name.help": "z. B. Buchhaltung, Mietverwaltung, Privat – erscheint in der Auswahl oben",
   "admin.Persona.fields.roles": "Rollen",
