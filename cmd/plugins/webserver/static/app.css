@@ -83,7 +83,7 @@ details.more-menu > summary::-webkit-details-marker { display: none; }
 .more-menu-items > *:hover { background: var(--bg); }
 table.data td.actions button.link:not(.danger) { color: var(--accent); } /* Aktionen mit Rückfrage wie Links */
 .empty { color: var(--muted); }
-dl.fields { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1.5rem;
+dl.fields { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); /* lange Beschriftungen brechen um */ gap: .5rem 1.5rem;
             background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
 dl.fields dt { color: var(--muted); }
 dl.fields dd { margin: 0; }
@@ -348,7 +348,7 @@ tr.open-row:hover td { background: color-mix(in srgb, var(--accent) 6%, var(--su
    Werte und Tabellenzellen brechen um, Eingabefelder schrumpfen mit; die Knöpfe des
    Aktionsabschnitts (z. B. Workflow-Schritt) bleiben beim Scrollen unten im Bild. */
 .detail { max-width: 100cqw; }
-.detail dl.fields { grid-template-columns: max-content minmax(0, 1fr); }
+.detail dl.fields { grid-template-columns: fit-content(40%) minmax(0, 1fr); }
 .detail dl.fields dd { min-width: 0; overflow-wrap: anywhere; }
 /* seit 0.40.8: Wörter bleiben ganz (breite Tabellen scrollen seitwärts), Beträge und Datum
    ohne Umbruch, lange Texte (td.long) mindestens 14rem breit */
