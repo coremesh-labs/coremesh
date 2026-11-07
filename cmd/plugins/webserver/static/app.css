@@ -455,3 +455,12 @@ dialog.modal.max .md-field textarea, dialog.modal.max .md-preview { min-height: 
 .md ul, .md ol { margin: .3em 0; padding-left: 1.5em; }
 .md p { margin: .3em 0; }
 dd .md { white-space: normal; }
+
+/* Ansicht einer Mail (.eml, seit 0.64.7) */
+.eml-page { padding: 1rem 1.5rem; }
+.eml-view { max-width: 60rem; }
+.eml-view .eml-head { margin-bottom: 1rem; }
+.eml-parts ul { list-style: none; padding: 0; margin: 0 0 1rem; }
+.eml-parts li { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; padding: .3rem 0; border-bottom: 1px solid var(--border, #3333); }
+.eml-part-name { font-weight: 600; }
+.eml-text { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; line-height: 1.45; }

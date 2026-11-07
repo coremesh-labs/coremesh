@@ -93,6 +93,16 @@ func localeFuncs(core metamodel.Translations, loc string) template.FuncMap {
 			return linked(rec, f.Key, displayValueIn(rec, f, t("core.app.yes"), t("core.app.no")))
 		},
 		// Listen (seit 0.36.0): bei Verweisen der Schlüssel (kurz, lernt man), der Text als Tooltip
+		// fileSize (seit 0.64.7): Bytes lesbar (z. B. Anhänge einer Mail)
+		"fileSize": func(n int) string {
+			switch {
+			case n >= 1<<20:
+				return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+			case n >= 1<<10:
+				return fmt.Sprintf("%d KB", (n+512)>>10)
+			}
+			return fmt.Sprintf("%d B", n)
+		},
 		"cell": func(rec record, f metamodel.FieldDefinition) template.HTML {
 			if hiddenIn(rec, f.Key) {
 				return "—"
@@ -139,7 +149,7 @@ func cellClass(f metamodel.FieldDefinition, v string) string {
 		return "date"
 	case f.Lookup == nil && amountRe.MatchString(v): // Schlüssel (z. B. Sachkonto 1406) bleiben linksbündig
 		return "num"
-	case f.Type == metamodel.TypeTextarea && f.Wide: // Fließtext, z. B. Vertragsklauseln: breit, Absätze bleiben
+	case f.Type == metamodel.TypeTextarea: // Fließtext (z. B. Verlauf, Vertragsklauseln): breit, Zeilenumbrüche bleiben (seit 0.64.7 alle)
 		return "long text"
 	case utf8.RuneCountInString(v) >= cellLongRunes && strings.Contains(v, " "):
 		return "long"
