@@ -272,11 +272,11 @@ func (oc objectCtx) ObjectActions() []metamodel.ActionConfig { return oc.customs
 func (oc objectCtx) RecordActions() []metamodel.ActionConfig { return oc.customs(true) }
 
 // BulkActions (seit 0.55.0): Aktionen am Datensatz, die auch für mehrere angekreuzte
-// Zeilen laufen (ActionConfig.Bulk, ohne Felder).
+// Zeilen laufen (ActionConfig.Bulk; seit 0.59.0 auch mit Feldern – ein Formular für alle).
 func (oc objectCtx) BulkActions() []metamodel.ActionConfig {
 	var out []metamodel.ActionConfig
 	for _, a := range oc.customs(true) {
-		if a.Bulk && len(a.Fields) == 0 {
+		if a.Bulk {
 			out = append(out, a)
 		}
 	}
@@ -317,6 +317,7 @@ type view struct {
 	ViewParam     string // row | detail – wohin die Antwort von update gehört
 	CancelURL     string
 	ActionID      string // id für custom-Actions
+	BulkIDs       []string // Sammelaktion mit Feldern (seit 0.59.0): angekreuzte Zeilen
 	RowRef        string // seit 0.54.0: Aktion aus einer Listenzeile (dom-id) – danach nur die Zeile neu
 	SectionRef    string // seit 0.54.0: aus einem Abschnitt (element-id) – danach nur der Abschnitt neu
 	FormFields    []fieldCtx

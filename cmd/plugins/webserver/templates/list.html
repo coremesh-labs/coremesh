@@ -64,9 +64,11 @@
 {{/* Sammelaktionen (seit 0.55.0): Zeilen ankreuzen, dann eine Aktion für alle. */}}
 {{if $bulk}}<div class="bulk-bar" data-bulk-bar hidden>
   <span>{{t "core.bulk.selected"}} <strong data-bulk-count>0</strong></span>
-  {{range $bulk}}<button type="button" class="btn primary" hx-post="{{$.ActionURL}}/{{.Name}}/_bulk"
+  {{range $bulk}}{{if .Fields}}<button type="button" class="btn primary" hx-get="{{$.ActionURL}}/{{.Name}}"
+    hx-include="#rows input[name=_ids]:checked" hx-target="#modal">{{.Label}}</button>
+  {{else}}<button type="button" class="btn primary" hx-post="{{$.ActionURL}}/{{.Name}}/_bulk"
     hx-include="#rows input[name=_ids]:checked" hx-target="#modal" hx-disabled-elt="this"
-    hx-confirm="{{t "core.bulk.confirm" .Label}}">{{.Label}}</button>{{end}}
+    hx-confirm="{{t "core.bulk.confirm" .Label}}">{{.Label}}</button>{{end}}{{end}}
   <button type="button" class="link" data-bulk-clear>{{t "core.bulk.clear"}}</button>
 </div>{{end}}
 <table class="data">

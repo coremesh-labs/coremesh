@@ -123,6 +123,8 @@ type FieldDefinition struct {
 	Binary bool `json:"binary,omitempty"`
 	// Wide: Eingabe über die ganze Breite der Maske (lange Texte, z. B. ein Dateiname).
 	Wide bool `json:"wide,omitempty"`
+	// Snippets (TypeMarkdown, TypeTextarea): Object mit Textbausteinen (siehe SnippetAction).
+	Snippets string `json:"snippets,omitempty"`
 	// Help: Hinweis unter der Eingabe im Formular, z. B. die möglichen Platzhalter eines Textes.
 	Help    string `json:"help,omitempty"`
 	HelpKey string `json:"help_key,omitempty"` // Übersetzungsschlüssel, z. B. "…fields.text.help"
@@ -254,7 +256,19 @@ const (
 	// (ActionOnly). Die Aktion erhält den Inhalt als Text im Feld (Binary:
 	// Base64) und den Dateinamen in <Feld>_name.
 	TypeFile FieldType = "file"
+	// TypeMarkdown: längerer Text in Markdown (pkg/sdk/markdown) – Eingabe mit
+	// Vorschau, Anzeige als formatierter Text; mit FieldDefinition.Snippets eine
+	// Leiste mit Textbausteinen.
+	TypeMarkdown FieldType = "markdown"
 )
+
+// Textbausteine (FieldDefinition.Snippets): Das genannte Object liefert über seine
+// Action vom Kind list die Bausteine mit den Feldern code, label und object
+// (Object, aus dem der Anwender zuerst einen Datensatz wählt, z. B.
+// BusinessPartner; leer = ohne Auswahl). Die Action SnippetAction erhält
+// {"code", "key" (Schlüssel des gewählten Datensatzes), "values" (Formularwerte)}
+// und antwortet {"text": …}; die Oberfläche fügt den Text an der Schreibmarke ein.
+const SnippetAction = "snippet"
 
 // Option ist ein Eintrag eines Auswahlfelds.
 type Option struct {
@@ -300,10 +314,11 @@ type ActionConfig struct {
 	// Objects ab (ObjectDefinition.FormState, Mode "action", Action = Name) –
 	// Vorbelegung und Hinweis, z. B. „Buchen bis“ = heute und der letzte Lauf.
 	FormState bool `json:"form_state,omitempty"`
-	// Bulk (seit 0.55.0 webserver): Aktion am Datensatz ohne Felder, die auch für
+	// Bulk (seit 0.55.0 webserver): Aktion am Datensatz, die auch für
 	// mehrere angekreuzte Zeilen der Übersicht nacheinander läuft (z. B. „Buchen“
 	// vorerfasster Belege). Jede Zeile einzeln – Fehler einer Zeile halten die
-	// anderen nicht auf; das Ergebnis nennt sie.
+	// anderen nicht auf; das Ergebnis nennt sie. Seit 0.59.0 webserver auch mit
+	// Fields: ein Formular (Maske wie für die erste Zeile), dieselben Eingaben für alle.
 	Bulk bool `json:"bulk,omitempty"`
 	// Requires (seit 0.57.1 webserver): Objects anderer Module, ohne die die Aktion
 	// keinen Sinn hat (z. B. "Building" für „Aus Immobilien aufbauen …“) – fehlt

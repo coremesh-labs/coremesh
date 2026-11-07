@@ -53,8 +53,9 @@ type Field struct {
 	// FilterOnly: nur in der Filterleiste (Entity.Filters, verarbeitet von
 	// FilterExpr bzw. FilterCtx); kein Datenfeld (nicht in Tabelle, Liste, Detail, Neu, Bearbeiten).
 	FilterOnly bool
-	Binary     bool // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
-	Wide       bool // Eingabe über die ganze Breite der Maske (metamodel.FieldDefinition.Wide)
+	Binary     bool   // Dateifeld mit beliebigem Inhalt: Base64 (metamodel.FieldDefinition.Binary)
+	Wide       bool   // Eingabe über die ganze Breite der Maske (metamodel.FieldDefinition.Wide)
+	Snippets   string // Textbausteine (metamodel.FieldDefinition.Snippets), bei TypeMarkdown
 	Options    []metamodel.Option
 	Multiple   bool              // Mehrfachauswahl (TypeSelect): Komma-Liste (metamodel.FieldDefinition.Multiple)
 	Ref        *Ref              // Verweis (prüfen, Label, Lookup)

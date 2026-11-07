@@ -28,6 +28,7 @@
   {{with .Locked}}<input type="hidden" name="_lock" value="{{.}}">{{end}}
   {{with .Access}}<input type="hidden" name="_access" value="{{.}}">{{end}}
   {{with .ActionID}}<input type="hidden" name="_id" value="{{.}}">{{end}}
+  {{range .BulkIDs}}<input type="hidden" name="_ids" value="{{.}}">{{end}}
   {{with .RowRef}}<input type="hidden" name="_row" value="{{.}}">{{end}}
   {{with .SectionRef}}<input type="hidden" name="_section" value="{{.}}">{{end}}
   {{if eq .Mode "action"}}<input type="hidden" name="_action" value="{{.Action.Name}}">{{end}}
@@ -61,6 +62,19 @@
   {{end}}</span>
   <small class="muted">{{t "core.form.multiple"}}</small>
   {{with .Field.Help}}<small class="muted field-help">{{.}}</small>{{end}}
+  {{with .Error}}<small class="error">{{t .}}</small>{{end}}
+</div>
+{{else if eq .Type "markdown"}}
+{{/* Markdown (seit webserver 0.59.0): Textbausteine (Field.Snippets) und Vorschau über der Eingabe. */}}
+<div class="field wide md-field{{if .Error}} invalid{{end}}" data-md-field="{{.Field.Key}}">
+  <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
+  {{if not .ReadOnly}}<div class="md-toolbar">
+    {{with .Field.Snippets}}<span class="snippet-bar" hx-get="/snippets?object={{.}}&field={{$.Field.Key}}" hx-trigger="load" hx-swap="outerHTML"></span>{{end}}
+    <button type="button" class="btn small" onclick="coremeshPreview(this,'{{.Field.Key}}')">{{t "core.markdown.preview"}}</button>
+  </div>{{end}}
+  <textarea name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} rows="12" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
+  <div class="md-preview" hidden></div>
+  <small class="muted field-help">{{with .Field.Help}}{{.}} {{end}}{{t "core.markdown.hint"}}</small>
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>
 {{else}}
@@ -134,3 +148,11 @@
   {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
 {{else}}<button type="submit" name="_submit" value="{{.Value}}" class="btn{{if .Primary}} primary{{end}}" {{with .Confirm}}hx-confirm="{{.}}"{{end}}>{{.Label}}</button>
 {{end}}{{end}}{{end}}
+
+{{/* Leiste der Textbausteine (GET /snippets). Daten: snippetBar {Field, Source, Buttons}. */}}
+{{define "snippet-bar"}}
+<span class="snippet-bar">{{range .Buttons}}
+  {{if .Object}}<button type="button" class="btn small" hx-get="/lookup?object={{.Object}}&field={{$.Field}}&snippet={{$.Source}}:{{.Code}}" hx-target="#lookup" hx-swap="innerHTML">{{.Label}} …</button>
+  {{else}}<button type="button" class="btn small" onclick="coremeshSnippet('{{$.Field}}','{{$.Source}}:{{.Code}}','')">{{.Label}}</button>{{end}}
+{{end}}</span>
+{{end}}

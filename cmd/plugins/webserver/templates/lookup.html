@@ -26,7 +26,7 @@
 
 {{define "lookup-rows"}}
 {{range .Rows}}
-<tr class="pick" tabindex="0" data-field="{{$.Field}}" data-value="{{.Value}}" data-label="{{.Label}}"
+<tr class="pick" tabindex="0" data-field="{{$.Field}}" data-value="{{.Value}}" data-label="{{.Label}}"{{with $.Snippet}} data-snippet="{{.}}"{{end}}
     onclick="coremeshPick(this)" onkeydown="if(event.key==='Enter')coremeshPick(this)">
   {{range .Cells}}<td>{{.}}</td>{{end}}
 </tr>
