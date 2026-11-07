@@ -24,6 +24,7 @@ type userRow struct {
 	// ein; [*] = keine Einschränkung.
 	CompanyCodes []string
 	KeyDate      string // Stichtag (JJJJ-MM-TT), "" = heute
+	PersonaID    string // gewählte Person, "" = alle Rollen (seit 0.12.0)
 	CreatedAt    string
 	Roles        []string // Rollennamen
 }
@@ -121,12 +122,12 @@ func (p *Plugin) countUsers(ctx context.Context) (int, error) {
 
 // --- Benutzer ------------------------------------------------------------------
 
-const userCols = `id, username, display_name, tenant_id, active, created_at, locale, company_codes, key_date`
+const userCols = `id, username, display_name, tenant_id, active, created_at, locale, company_codes, key_date, persona_id`
 
 func scanUser(r []any) userRow {
 	ccs, _ := parseCompanyCodes(s(r[7]))
 	return userRow{ID: s(r[0]), Username: s(r[1]), DisplayName: s(r[2]), TenantID: s(r[3]), Active: b(r[4]), CreatedAt: s(r[5]), Locale: s(r[6]),
-		CompanyCodes: ccs, KeyDate: s(r[8])}
+		CompanyCodes: ccs, KeyDate: s(r[8]), PersonaID: s(r[9])}
 }
 
 // userCompanyCodes: Spaltenwert der Einschränkung ("" = keine).
@@ -278,7 +279,8 @@ func (p *Plugin) userGrants(ctx context.Context, q database.Querier, userID stri
 		return gs, err
 	}
 	ccs, _ := parseCompanyCodes(s(res.Rows[0][0]))
-	return restrictGrants(gs, ccs), nil
+	gs = restrictGrants(gs, ccs)
+	return p.personaGrants(ctx, q, userID, gs)
 }
 
 // restrictGrants schneidet die Buchungskreise jeder Berechtigung mit denen des

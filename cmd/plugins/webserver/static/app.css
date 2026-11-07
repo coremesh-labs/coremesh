@@ -195,6 +195,12 @@ tr.pick:hover, tr.pick:focus { background: var(--bg); outline: none; }
 dialog.end-dialog input[type=date] { max-width: 14rem; }
 
 /* --- Sprachwähler --- */
+/* Person wechseln (seit 0.64.0) */
+.persona-switch { margin: 0 0 .8rem; font-size: .85rem; }
+.persona-switch label { display: grid; gap: .2rem; color: var(--muted); }
+.persona-switch select { font: inherit; font-size: .9rem; padding: .3rem .4rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); width: 100%; }
+.persona-switch.active select { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+html.nav-collapsed .sidebar:not(:hover) .persona-switch { display: none; }
 .key-date { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
 .key-date input { font: inherit; font-size: .85rem; padding: .1rem .3rem; border: 1px solid var(--border); border-radius: 4px; }
 .key-date.active { color: #b45309; font-weight: 600; }

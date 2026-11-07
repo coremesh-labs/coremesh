@@ -358,3 +358,14 @@ plugins:
 Das Modul `admin` bringt eigene Texte in Deutsch, Englisch und Chinesisch mit
 (`i18n/*.json`, Schlüssel `admin.…`). Die Metamodelle erhalten ihre Schlüssel über
 `metamodel.WithKeys`.
+
+### Personen (seit 0.12.0)
+
+Ein Benutzer arbeitet oft in verschiedenen Rollen, etwa Buchhaltung, Mietverwaltung oder Privat. Eine **Person** (`Persona`, gepflegt am Benutzer im Abschnitt „Personen“) ist eine Auswahl seiner Rollen und optional seiner Buchungskreise.
+
+- **Wechseln:** Oben in der Seitenleiste wählt der Benutzer seine Person, ohne sich neu anzumelden. Technisch ist das `Account.UpdateProfile` mit `persona_id`; `""` bedeutet alle Rollen. Gespeichert wird die Wahl in `iam__users.persona_id`.
+- **Wirkung:** Ist eine Person gewählt, gelten nur die Berechtigungen ihrer Rollen, in ihren Buchungskreisen. Das betrifft alle Prüfungen (`Allowed`, `Check`, `Granted`) und damit auch das Menü.
+- **Nur Einschränkung:** Eine Person kann nie mehr als der Benutzer. Rollen, die der Benutzer nicht hat, lassen sich nicht eintragen, und eine später entzogene Rolle wirkt auch über die Person nicht mehr.
+- **Zurückwechseln:** geht immer, weil `Account.UpdateProfile` und `Account.Me` zu den Grundrechten jedes Benutzers gehören.
+- **Inaktivieren:** Wird die gewählte Person inaktiviert, gelten wieder alle Rollen.
+- **Geltungsbereich:** Die Wahl gilt für den Benutzer, also für alle seine Sitzungen, so wie der Stichtag.
