@@ -65,16 +65,35 @@
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>
 {{else if eq .Type "markdown"}}
-{{/* Markdown (seit webserver 0.59.0): Textbausteine (Field.Snippets) und Vorschau über der Eingabe. */}}
-<div class="field wide md-field{{if .Error}} invalid{{end}}" data-md-field="{{.Field.Key}}">
+{{/* Markdown-Editor (seit webserver 0.59.0, Editor 0.62.0): Formatleiste, Textbausteine
+     (Field.Snippets, auch mit @ im Text), Vorschau daneben – mit Field.Preview die des
+     Objects (z. B. die ganze Mail) –, Kurztasten, Entwurf im Browser gesichert. */}}
+<div class="field wide md-field{{if .Error}} invalid{{end}}" data-md-field="{{.Field.Key}}"{{if .Field.Preview}} data-md-object="{{.Object}}"{{end}}>
   <span>{{.Field.Label}}{{if .Field.Required}} <abbr title="{{t "core.app.required"}}">*</abbr>{{end}}</span>
   {{if not .ReadOnly}}<div class="md-toolbar">
+    <span class="md-format" role="toolbar">
+      <button type="button" class="btn small" data-md="bold" title="{{t "core.markdown.bold"}} (Strg+B)"><b>F</b></button>
+      <button type="button" class="btn small" data-md="italic" title="{{t "core.markdown.italic"}} (Strg+I)"><i>K</i></button>
+      <button type="button" class="btn small" data-md="underline" title="{{t "core.markdown.underline"}} (Strg+U)"><u>U</u></button>
+      <button type="button" class="btn small" data-md="strike" title="{{t "core.markdown.strike"}}"><s>S</s></button>
+      <button type="button" class="btn small" data-md="h2" title="{{t "core.markdown.heading"}}">H</button>
+      <button type="button" class="btn small" data-md="ul" title="{{t "core.markdown.bullets"}}">•</button>
+      <button type="button" class="btn small" data-md="ol" title="{{t "core.markdown.numbers"}}">1.</button>
+      <button type="button" class="btn small" data-md="quote" title="{{t "core.markdown.quote"}}">❝</button>
+      <button type="button" class="btn small" data-md="link" title="{{t "core.markdown.link"}} (Strg+K)">🔗</button>
+      <button type="button" class="btn small" data-md="table" title="{{t "core.markdown.table"}}">▦</button>
+      <button type="button" class="btn small" data-md="hr" title="{{t "core.markdown.rule"}}">―</button>
+    </span>
     {{with .Field.Snippets}}<span class="snippet-bar" hx-get="/snippets?object={{.}}&field={{$.Field.Key}}" hx-trigger="load" hx-swap="outerHTML"></span>{{end}}
-    <button type="button" class="btn small" onclick="coremeshPreview(this,'{{.Field.Key}}')">{{t "core.markdown.preview"}}</button>
+    <button type="button" class="btn small md-preview-btn" onclick="coremeshPreview(this,'{{.Field.Key}}')">{{t "core.markdown.preview"}}</button>
     <button type="button" class="btn small md-max" title="{{t "core.markdown.maximize"}}" onclick="var d=this.closest('dialog');if(d){d.classList.toggle('max');this.classList.toggle('active')}">⤢</button>
-  </div>{{end}}
-  <textarea name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} rows="12" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
-  <div class="md-preview" hidden></div>
+  </div>
+  <div class="md-draft" hidden><small class="muted"></small> <button type="button" class="btn small">{{t "core.markdown.restore"}}</button></div>{{end}}
+  <div class="md-body">
+    <textarea name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} rows="12" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
+    <div class="md-preview" hidden></div>
+  </div>
+  <div class="md-at" hidden></div>
   <small class="muted field-help">{{with .Field.Help}}{{.}} {{end}}{{t "core.markdown.hint"}}</small>
   {{with .Error}}<small class="error">{{t .}}</small>{{end}}
 </div>

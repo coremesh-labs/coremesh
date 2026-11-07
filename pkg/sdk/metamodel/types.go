@@ -125,6 +125,9 @@ type FieldDefinition struct {
 	Wide bool `json:"wide,omitempty"`
 	// Snippets (TypeMarkdown, TypeTextarea): Object mit Textbausteinen (siehe SnippetAction).
 	Snippets string `json:"snippets,omitempty"`
+	// Preview (TypeMarkdown, seit 0.62.0): die Vorschau liefert das eigene Object über
+	// PreviewAction – z. B. die ganze Mail mit Kopf und Signatur statt nur des Texts.
+	Preview bool `json:"preview,omitempty"`
 	// Help: Hinweis unter der Eingabe im Formular, z. B. die möglichen Platzhalter eines Textes.
 	Help    string `json:"help,omitempty"`
 	HelpKey string `json:"help_key,omitempty"` // Übersetzungsschlüssel, z. B. "…fields.text.help"
@@ -269,6 +272,11 @@ const (
 // {"code", "key" (Schlüssel des gewählten Datensatzes), "values" (Formularwerte)}
 // und antwortet {"text": …}; die Oberfläche fügt den Text an der Schreibmarke ein.
 const SnippetAction = "snippet"
+
+// PreviewAction (FieldDefinition.Preview): erhält {"field", "values" (Formularwerte)} und
+// antwortet {"html": vollständiges HTML-Dokument}; die Oberfläche zeigt es in einem
+// abgeschotteten Rahmen (iframe sandbox, ohne Skripte).
+const PreviewAction = "mdPreview"
 
 // Option ist ein Eintrag eines Auswahlfelds.
 type Option struct {

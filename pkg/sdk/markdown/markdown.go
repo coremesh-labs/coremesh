@@ -5,6 +5,9 @@
 //	# Titel, ## Abschnitt, ### Unterabschnitt   Überschriften
 //	Leerzeile                                   neuer Absatz; zwei Leerzeichen oder \ am Zeilenende: Zeilenumbruch
 //	**fett**, *kursiv*, [Text](https://…)
+//	++unterstrichen++, ~~durchgestrichen~~      (seit 0.62.0; nur HTML – mdtex der PDF-Vorlagen zeigt sie als Text)
+//	> Zitat                                     Zitat (zusammenhängende Zeilen)
+//	---                                         Trennlinie (drei oder mehr -)
 //	- Punkt  bzw.  * Punkt                      Aufzählung
 //	1. Punkt                                    nummerierte Liste
 //	a) Punkt                                    Liste a), b), …
@@ -28,6 +31,8 @@ var (
 	mdInline  = regexp.MustCompile(`\*\*(.+?)\*\*|\*([^*\s][^*]*?)\*`)
 	mdLink    = regexp.MustCompile(`\[([^\]]+)\]\(((?:https?://|mailto:)[^\s)]+)\)`)
 	mdRule    = regexp.MustCompile(`^:?-+:?$`)
+	mdExtra   = regexp.MustCompile(`\+\+(.+?)\+\+|~~(.+?)~~`)
+	mdHR      = regexp.MustCompile(`^\s*(-\s*){3,}$|^\s*(\*\s*){3,}$`)
 )
 
 // Options: Darstellung.
@@ -46,6 +51,7 @@ func HTML(src string, o Options) string {
 	list, item := "", []string(nil) // offene Liste: ul, ol, ola
 	var items [][]string
 	var table []string
+	var quote []string
 	flushPara := func() {
 		if len(para) > 0 {
 			b.WriteString("<p>" + mdLines(para) + "</p>\n")
@@ -77,7 +83,13 @@ func HTML(src string, o Options) string {
 			table = nil
 		}
 	}
-	flush := func() { flushPara(); flushList(); flushTable() }
+	flushQuote := func() {
+		if len(quote) > 0 {
+			b.WriteString(`<blockquote style="margin:.5em 0;padding-left:.8em;border-left:3px solid #ccc;color:#555">` + mdLines(quote) + "</blockquote>\n")
+			quote = nil
+		}
+	}
+	flush := func() { flushPara(); flushList(); flushTable(); flushQuote() }
 	for _, raw := range lines {
 		line := strings.TrimRight(raw, " \t")
 		trim := strings.TrimSpace(line)
@@ -85,7 +97,16 @@ func HTML(src string, o Options) string {
 		case trim == "":
 			flushPara()
 			flushList()
+			flushQuote()
 			// Tabellenzeilen über Leerzeilen hinweg bleiben eine Tabelle
+		case mdHR.MatchString(line):
+			flush()
+			b.WriteString("<hr>\n")
+		case strings.HasPrefix(trim, ">"):
+			flushPara()
+			flushList()
+			flushTable()
+			quote = append(quote, strings.TrimPrefix(strings.TrimPrefix(trim, ">"), " "))
 		case strings.HasPrefix(trim, "|"):
 			flushPara()
 			flushList()
@@ -150,10 +171,18 @@ func mdLines(ls []string) string {
 	return b.String()
 }
 
-// mdInlineHTML: maskieren, dann [Text](https://…), **fett** und *kursiv*.
+// mdInlineHTML: maskieren, dann [Text](https://…), ++unterstrichen++, ~~durchgestrichen~~,
+// **fett** und *kursiv*.
 func mdInlineHTML(s string) string {
 	esc := html.EscapeString(s)
 	esc = mdLink.ReplaceAllString(esc, `<a href="$2">$1</a>`)
+	esc = mdExtra.ReplaceAllStringFunc(esc, func(m string) string {
+		p := mdExtra.FindStringSubmatch(m)
+		if p[1] != "" {
+			return "<u>" + p[1] + "</u>"
+		}
+		return "<s>" + p[2] + "</s>"
+	})
 	return mdInline.ReplaceAllStringFunc(esc, func(m string) string {
 		p := mdInline.FindStringSubmatch(m)
 		if p[1] != "" {

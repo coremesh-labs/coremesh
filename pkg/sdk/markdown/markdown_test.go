@@ -17,3 +17,16 @@ func TestHTML(t *testing.T) {
 		t.Error("javascript-Link")
 	}
 }
+
+// TestExtras: unterstrichen, durchgestrichen, Zitat, Trennlinie (seit 0.62.0).
+func TestExtras(t *testing.T) {
+	got := HTML("++Gretchen++ und ~~Mephisto~~\n\n> Verweile doch,\n> du bist so schön\n\n---\n\n- Punkt", Options{})
+	for _, want := range []string{"<u>Gretchen</u>", "<s>Mephisto</s>", "<blockquote", "Verweile doch, du bist so schön</blockquote>", "<hr>", "<li>Punkt</li>"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("fehlt %q in %s", want, got)
+		}
+	}
+	if got := HTML("<b>x</b> > y", Options{}); strings.Contains(got, "<b>") || strings.Contains(got, "blockquote") {
+		t.Errorf("HTML durchgelassen bzw. Zitat mitten in der Zeile: %s", got)
+	}
+}
