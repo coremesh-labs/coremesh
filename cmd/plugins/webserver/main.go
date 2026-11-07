@@ -20,7 +20,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.62.3"
+	version = "0.63.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.

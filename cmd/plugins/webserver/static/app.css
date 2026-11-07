@@ -216,6 +216,16 @@ fieldset.tag-set legend { font-weight: 600; padding: 0 .35rem; }
 .tag-valid-from { display: grid; gap: .2rem; font-size: .9rem; color: var(--muted); }
 .field .badge { margin-left: .35rem; font-weight: 400; }
 
+/* Hilfe eines Felds (help-icon, seit 0.63.0): „?“ im Kreis, Fenster per Klick */
+.help { position: relative; display: inline-block; margin-left: .35rem; vertical-align: .05em; }
+.help-icon { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; padding: 0; border: 1px solid var(--muted); border-radius: 50%;
+  background: none; color: var(--muted); font: 600 .72rem/1 system-ui, sans-serif; cursor: pointer; }
+.help-icon:hover, .help-icon:focus-visible, .help-icon[aria-expanded=true] { color: var(--accent); border-color: var(--accent); }
+.help-card { position: absolute; z-index: 60; top: calc(100% + .35rem); left: -.5rem; width: max-content; max-width: min(24rem, 80vw);
+  padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface, var(--bg)); color: var(--text, inherit);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: .85rem; font-weight: normal; line-height: 1.45; white-space: pre-line; text-transform: none; letter-spacing: normal; }
+.help-card[hidden] { display: none; }
+
 /* Kopfdaten-Vorschau (peek): Hinweissymbol neben Verweisen, Karte beim Überfahren */
 .peek { position: relative; display: inline-block; margin-left: .3rem; vertical-align: baseline; }
 .peek-icon { background: none; border: 0; padding: 0 .1rem; color: var(--muted); cursor: help; font: inherit; line-height: 1; }

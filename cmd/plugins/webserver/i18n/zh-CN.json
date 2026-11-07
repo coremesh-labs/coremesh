@@ -109,6 +109,7 @@
   "core.peek.no_permission": "无权读取此记录。",
   "core.peek.not_found": "未找到记录。",
   "core.peek.open": "打开详情",
+  "core.help.show": "显示帮助",
   "core.peek.show": "显示抬头数据",
   "core.peek.unavailable": "预览暂不可用。",
   "core.relation.add": "+ 添加",
