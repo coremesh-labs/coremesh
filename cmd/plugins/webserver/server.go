@@ -752,6 +752,13 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 				}
 			}
 		}
+		// Seit 0.64.6: beim Nachladen (Trigger) füllt die Maske leere Felder vor, z. B. Vertrag
+		// und Partner aus dem gewählten Vorgang – Eingaben bleiben, Häkchen bleiben wie gesetzt.
+		for _, f := range def.Fields {
+			if fs, ok := st.Fields[f.Key]; ok && fs.Value != nil && values[f.Key] == "" && f.Type != metamodel.TypeBoolean {
+				values[f.Key] = *fs.Value
+			}
+		}
 	}
 	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger, readonly: readonly}), keys)
 	return v
