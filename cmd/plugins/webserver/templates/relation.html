@@ -53,6 +53,8 @@
            hx-target="#modal" title="{{t "core.relation.edit_linked"}}">✎</a>{{end}}{{end}}</td>
       {{end}}
       <td class="actions">
+        {{if .Rel.Preview}}<a class="link" href="/file/{{.Rel.Child.Object}}/{{pathEscape $.ID}}" hx-get="/preview/{{.Rel.Child.Object}}/{{pathEscape $.ID}}?title={{urlquery (raw $.Row .Rel.Child.Def.TitleField)}}"
+           hx-target="#modal">{{t "core.viewer.preview"}}</a>{{end}}
         {{if not (locked .Row)}}{{with .Rel.Child.Has.update}}
         <a href="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit"
            hx-get="{{$.Rel.Child.URL}}/{{pathEscape $.ID}}/edit?view=refresh&_lock={{$.Rel.ForeignKey}}&section=rel-{{$.Rel.Section.Key}}" hx-target="#modal">{{.Label}}</a>

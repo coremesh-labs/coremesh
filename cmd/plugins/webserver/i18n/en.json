@@ -167,6 +167,7 @@
   "core.validation.required": "Required",
   "core.viewer.download": "Download",
   "core.viewer.open": "Open in new window",
+  "core.viewer.preview": "View",
   "core.bulk.select_all": "Tick all rows",
   "core.bulk.select": "Tick row",
   "core.bulk.selected": "ticked:",

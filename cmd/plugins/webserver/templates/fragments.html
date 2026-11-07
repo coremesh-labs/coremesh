@@ -95,3 +95,16 @@
 {{- else}}
 <a class="{{.Class}}" href="{{.URL}}/{{.Action.Name}}?id={{.ID}}" hx-get="{{.URL}}/{{.Action.Name}}?id={{.ID}}{{with .Ref}}&{{.}}{{end}}" hx-target="#modal">{{.Action.Label}}</a>
 {{- end}}{{end}}
+
+{{/* GET /preview/{object}/{id}: Vorschau im Dialog (Viewer). Daten: {Title, URL}. */}}
+{{define "preview"}}
+<dialog open class="modal preview-dialog"><article>
+  <h2>{{.Title}}</h2>
+  <div class="doc-viewer"><iframe src="{{.URL}}" title="{{.Title}}"></iframe></div>
+  <footer>
+    <a class="btn" href="{{.URL}}" target="_blank" rel="noopener">{{t "core.viewer.open"}}</a>
+    <a class="btn" href="{{.URL}}?download=1">{{t "core.viewer.download"}}</a>
+    <button type="button" class="btn primary" onclick="document.getElementById('modal').innerHTML=''">{{t "core.app.close"}}</button>
+  </footer>
+</article></dialog>
+{{end}}

@@ -167,6 +167,7 @@
   "core.validation.required": "必填项",
   "core.viewer.download": "下载",
   "core.viewer.open": "在新窗口中打开",
+  "core.viewer.preview": "查看",
   "core.bulk.select_all": "勾选所有行",
   "core.bulk.select": "勾选此行",
   "core.bulk.selected": "已勾选：",
