@@ -916,7 +916,8 @@ func (s *server) runAction(w http.ResponseWriter, r *http.Request) {
 	// (SectionDefinition.Buttons) – keine Eingaben, nicht „alle Felder“. Ebenso eine
 	// Aktion am Datensatz ohne Felder und ohne Maske (z. B. „Rechnen“): der Schlüssel
 	// steht im Datensatz, nichts ist abzufragen.
-	direct := len(act.Fields) == 0 && (act.Confirm != "" || (act.Record && !act.FormState) || r.PostForm.Get("_button") != "")
+	// Seit 0.64.5 ebenso eine Aktion der Übersicht ohne Felder und ohne Maske (z. B. „Aktualisieren“).
+	direct := len(act.Fields) == 0 && (act.Confirm != "" || !act.FormState || r.PostForm.Get("_button") != "")
 	// Knopf der Maske (FormState.Buttons): Wert als button im Payload; ohne Prüfung
 	// (NoValidate) kommen keine Eingaben mit.
 	pressed := strings.TrimSpace(r.PostForm.Get("_submit"))
