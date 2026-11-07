@@ -19,7 +19,12 @@
       <a class="btn primary" href="{{$.URL}}/new" hx-get="{{$.URL}}/new" hx-target="#modal">{{.Label}}</a>
       {{end}}
       {{range .ObjectActions}}
+      {{/* seit 0.64.5: ohne Felder und ohne Maske direkt ausführen (z. B. „Aktualisieren“) – kein Formular */}}
+      {{if and (not .Fields) (or .Confirm (not .FormState))}}
+      <button type="button" class="btn" hx-post="{{$.ActionURL}}/{{.Name}}" {{with .Confirm}}hx-confirm="{{.}}" {{end}}hx-target="#modal">{{.Label}}</button>
+      {{else}}
       <a class="btn" href="{{$.ActionURL}}/{{.Name}}" hx-get="{{$.ActionURL}}/{{.Name}}" hx-target="#modal">{{.Label}}</a>
+      {{end}}
       {{end}}
       {{if .HasHistory}}{{template "history-toggle" (historyCtx .URL .History "#list" "outerHTML")}}{{end}}
     </div>
