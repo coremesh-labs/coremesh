@@ -183,8 +183,10 @@
   "core.texts.local_yes": "是，仅限本地",
   "core.texts.local_no": "否，可以发布",
   "core.markdown.preview": "预览",
+  "core.markdown.maximize": "放大或还原窗口",
   "core.markdown.empty": "尚无文本。",
   "core.markdown.hint": "Markdown：# 标题、**粗体**、*斜体*、- 项目符号、1. 列表、[文本](https://…)、表格 | 列 | 列 |；空行 = 新段落",
   "core.snippet.failed": "无法插入文本模块：%s",
+  "core.snippet.none": "没有文本模块——设置 → 文本模块 → “创建示例”",
   "core.bulk.form_title": "%s – %s（%d 行）"
 }
