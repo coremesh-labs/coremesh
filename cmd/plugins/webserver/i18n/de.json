@@ -183,8 +183,10 @@
   "core.texts.local_yes": "ja, nur lokal",
   "core.texts.local_no": "nein, darf veröffentlicht werden",
   "core.markdown.preview": "Vorschau",
+  "core.markdown.maximize": "Fenster vergrößern bzw. zurück",
   "core.markdown.empty": "Noch kein Text.",
   "core.markdown.hint": "Markdown: # Überschrift, **fett**, *kursiv*, - Aufzählung, 1. Liste, [Text](https://…), Tabelle | Spalte | Spalte |; Leerzeile = neuer Absatz",
   "core.snippet.failed": "Baustein nicht einfügbar: %s",
+  "core.snippet.none": "Keine Textbausteine – Einstellungen → Textbausteine → „Beispiele anlegen“",
   "core.bulk.form_title": "%s – %s (%d Zeilen)"
 }

@@ -183,8 +183,10 @@
   "core.texts.local_yes": "yes, local only",
   "core.texts.local_no": "no, may be published",
   "core.markdown.preview": "Preview",
+  "core.markdown.maximize": "Enlarge window or restore",
   "core.markdown.empty": "No text yet.",
   "core.markdown.hint": "Markdown: # heading, **bold**, *italic*, - bullets, 1. list, [text](https://…), table | col | col |; blank line = new paragraph",
   "core.snippet.failed": "Snippet could not be inserted: %s",
+  "core.snippet.none": "No text snippets – Settings → Text snippets → “Create examples”",
   "core.bulk.form_title": "%s – %s (%d rows)"
 }

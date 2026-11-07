@@ -71,6 +71,7 @@
   {{if not .ReadOnly}}<div class="md-toolbar">
     {{with .Field.Snippets}}<span class="snippet-bar" hx-get="/snippets?object={{.}}&field={{$.Field.Key}}" hx-trigger="load" hx-swap="outerHTML"></span>{{end}}
     <button type="button" class="btn small" onclick="coremeshPreview(this,'{{.Field.Key}}')">{{t "core.markdown.preview"}}</button>
+    <button type="button" class="btn small md-max" title="{{t "core.markdown.maximize"}}" onclick="var d=this.closest('dialog');if(d){d.classList.toggle('max');this.classList.toggle('active')}">⤢</button>
   </div>{{end}}
   <textarea name="{{.Field.Key}}" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} rows="12" {{if .Field.Required}}required{{end}} {{if .ReadOnly}}readonly{{end}}>{{.Value}}</textarea>
   <div class="md-preview" hidden></div>
@@ -151,7 +152,7 @@
 
 {{/* Leiste der Textbausteine (GET /snippets). Daten: snippetBar {Field, Source, Buttons}. */}}
 {{define "snippet-bar"}}
-<span class="snippet-bar">{{range .Buttons}}
+<span class="snippet-bar">{{if not .Buttons}}<small class="muted">{{t "core.snippet.none"}}</small>{{end}}{{range .Buttons}}
   {{if .Object}}<button type="button" class="btn small" hx-get="/lookup?object={{.Object}}&field={{$.Field}}&snippet={{$.Source}}:{{.Code}}" hx-target="#lookup" hx-swap="innerHTML">{{.Label}} …</button>
   {{else}}<button type="button" class="btn small" onclick="coremeshSnippet('{{$.Field}}','{{$.Source}}:{{.Code}}','')">{{.Label}}</button>{{end}}
 {{end}}</span>
