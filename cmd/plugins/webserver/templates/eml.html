@@ -1,0 +1,39 @@
+{{/* Ansicht einer Mail (.eml, seit 0.64.7): eigene Seite – im neuen Fenster bzw. im Viewer
+     (iframe). Daten: {Mail emlMsg, URL, FileName, Theme}. Nur Text aus der Mail. */}}
+{{define "eml-view"}}<!doctype html>
+<html lang="{{locale}}"{{with .Theme}} data-theme="{{.}}"{{end}}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Mail.Subject}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="eml-page">
+<main class="eml-view">
+  <header class="page-header">
+    <h1>{{with .Mail.Subject}}{{.}}{{else}}{{t "core.eml.no_subject"}}{{end}}</h1>
+    <div class="toolbar"><a class="btn" href="{{.URL}}?download=1">{{t "core.eml.download"}}</a></div>
+  </header>
+  <dl class="fields eml-head">
+    <dt>{{t "core.eml.from"}}</dt><dd>{{.Mail.From}}</dd>
+    <dt>{{t "core.eml.to"}}</dt><dd>{{.Mail.To}}</dd>
+    {{with .Mail.Cc}}<dt>{{t "core.eml.cc"}}</dt><dd>{{.}}</dd>{{end}}
+    <dt>{{t "core.eml.date"}}</dt><dd>{{.Mail.Date}}</dd>
+  </dl>
+  {{if .Mail.Parts}}
+  <section class="eml-parts">
+    <h2>{{t "core.eml.attachments"}}</h2>
+    <ul>
+    {{range .Mail.Parts}}
+      <li><span class="eml-part-name">{{.Name}}</span> <small>{{.Type}}, {{fileSize .Size}}</small>
+        {{if .Viewable}}<a class="btn" href="{{$.URL}}?part={{.No}}" target="_blank" rel="noopener">{{t "core.viewer.preview"}}</a>{{end}}
+        <a class="btn" href="{{$.URL}}?part={{.No}}&download=1">{{t "core.viewer.download"}}</a></li>
+    {{end}}
+    </ul>
+  </section>
+  {{end}}
+  <pre class="eml-text">{{.Mail.Text}}</pre>
+</main>
+</body>
+</html>
+{{end}}

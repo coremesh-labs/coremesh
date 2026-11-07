@@ -49,6 +49,11 @@ func (s *server) fileContent(w http.ResponseWriter, r *http.Request) {
 		typ = http.DetectContentType(b)
 		typ, _, _ = mime.ParseMediaType(typ)
 	}
+	// seit 0.64.7: Mail (.eml) als Ansicht mit Anhängen statt Download
+	if (typ == "message/rfc822" || strings.HasSuffix(strings.ToLower(c.FileName), ".eml")) && r.URL.Query().Get("download") == "" {
+		s.serveEML(w, r, object, id, c.FileName, b)
+		return
+	}
 	disposition := "inline"
 	if r.URL.Query().Get("download") != "" || !inlineTypes[typ] {
 		disposition = "attachment"
