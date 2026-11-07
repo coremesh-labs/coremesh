@@ -41,6 +41,9 @@ type Options struct {
 	HeadingShift int
 	// TableClass: CSS-Klasse der Tabellen (leer = Rahmenlinien als Stil, z. B. für Mails).
 	TableClass string
+	// Breaks (seit 0.62.1): jeder Zeilenwechsel im Absatz bleibt ein Umbruch (Mails,
+	// Signaturen) – sonst nur bei zwei Leerzeichen oder \ am Zeilenende.
+	Breaks bool
 }
 
 // HTML: Text als HTML (maskiert, nur die Strukturen oben).
@@ -54,7 +57,7 @@ func HTML(src string, o Options) string {
 	var quote []string
 	flushPara := func() {
 		if len(para) > 0 {
-			b.WriteString("<p>" + mdLines(para) + "</p>\n")
+			b.WriteString("<p>" + mdLines(para, o.Breaks) + "</p>\n")
 			para = nil
 		}
 	}
@@ -72,7 +75,7 @@ func HTML(src string, o Options) string {
 		}
 		b.WriteString("<" + tag + attr + ">")
 		for _, it := range items {
-			b.WriteString("<li>" + mdLines(it) + "</li>")
+			b.WriteString("<li>" + mdLines(it, o.Breaks) + "</li>")
 		}
 		b.WriteString("</" + tag + ">\n")
 		list, items = "", nil
@@ -85,7 +88,7 @@ func HTML(src string, o Options) string {
 	}
 	flushQuote := func() {
 		if len(quote) > 0 {
-			b.WriteString(`<blockquote style="margin:.5em 0;padding-left:.8em;border-left:3px solid #ccc;color:#555">` + mdLines(quote) + "</blockquote>\n")
+			b.WriteString(`<blockquote style="margin:.5em 0;padding-left:.8em;border-left:3px solid #ccc;color:#555">` + mdLines(quote, o.Breaks) + "</blockquote>\n")
 			quote = nil
 		}
 	}
@@ -154,10 +157,10 @@ func HTML(src string, o Options) string {
 
 // mdLines: Zeilen eines Absatzes bzw. Listenpunkts; Zeilenumbruch bei zwei
 // Leerzeichen oder \ am Ende, sonst Leerzeichen.
-func mdLines(ls []string) string {
+func mdLines(ls []string, breaks bool) string {
 	var b strings.Builder
 	for i, l := range ls {
-		brk := strings.HasSuffix(l, "  ") || strings.HasSuffix(strings.TrimRight(l, " "), `\`)
+		brk := breaks || strings.HasSuffix(l, "  ") || strings.HasSuffix(strings.TrimRight(l, " "), `\`)
 		l = strings.TrimSuffix(strings.TrimSpace(l), `\`)
 		b.WriteString(mdInlineHTML(strings.TrimSpace(l)))
 		if i < len(ls)-1 {
