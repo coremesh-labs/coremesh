@@ -235,9 +235,17 @@ func (m *Module) detachAction(ctx context.Context, req sdk.Request) (sdk.Respons
 	if err := m.target(ctx, old.EntityType, old.EntityID, true); err != nil {
 		return sdk.Response{}, err
 	}
-	_, err = m.db.Exec(ctx, `UPDATE document__reference SET removed_at = ?, removed_by = ? WHERE id = ?`, now(),
-		nullable(sdk.CallFromContext(ctx).UserID), in.ID)
-	return sdk.Response{Payload: map[string]any{"id": in.ID, "removed": true}}, err
+	if _, err = m.db.Exec(ctx, `UPDATE document__reference SET removed_at = ?, removed_by = ? WHERE id = ?`, now(),
+		nullable(sdk.CallFromContext(ctx).UserID), in.ID); err != nil {
+		return sdk.Response{}, err
+	}
+	// seit 0.3.0: Event Documents.detach – ein DMS löst daraufhin seinen Bezug
+	// (Verweis-ID in entity_id, Ziel in data).
+	if err := events.Push(ctx, m.services, events.Event{Object: docservice.Object, Action: docservice.ActionDetach, EntityID: in.ID,
+		Data: map[string]any{"entity_type": old.EntityType, "entity_id": old.EntityID}}); err != nil {
+		m.log.WarnContext(ctx, "Event detach nicht gemeldet", "id", in.ID, "err", err.Error())
+	}
+	return sdk.Response{Payload: map[string]any{"id": in.ID, "removed": true}}, nil
 }
 
 // onRekey: <Object>.rekey (old_id → new_id) – Verweise folgen dem neuen
