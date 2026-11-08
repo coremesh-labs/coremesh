@@ -46,7 +46,7 @@ func New() *Module {
 	ents := m.entities()
 	for _, e := range ents {
 		switch e.Object {
-		case "PartnerRole", "PartnerAddress", "PartnerContact", "PartnerBankDetail":
+		case "PartnerRole", "PartnerAddress", "PartnerContact", "PartnerBankDetail", "PartnerRelation":
 			e.Prepare = m.childValidFrom(e.Prepare)
 		}
 	}
