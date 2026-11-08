@@ -3,6 +3,7 @@ package qrcode
 import (
 	"bytes"
 	"fmt"
+	"image/png"
 	"slices"
 	"strings"
 	"testing"
@@ -276,4 +277,29 @@ func decode(c *Code) (string, error) {
 		out[i] = byte(get(4+cb+8*i, 8))
 	}
 	return string(out), nil
+}
+
+func TestPNG(t *testing.T) {
+	c, err := Encode("https://example.org/#code:7KQ4M9TX2HPA", M)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := c.PNG(4, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := (c.Size + 8) * 4; img.Bounds().Dx() != n {
+		t.Fatalf("Größe %d, erwartet %d", img.Bounds().Dx(), n)
+	}
+	// Ecke der Ruhezone weiß, Finder oben links schwarz
+	if r, _, _, _ := img.At(0, 0).RGBA(); r == 0 {
+		t.Fatal("Ruhezone nicht weiß")
+	}
+	if r, _, _, _ := img.At(16, 16).RGBA(); r != 0 {
+		t.Fatal("Finder nicht schwarz")
+	}
 }

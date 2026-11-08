@@ -11,8 +11,12 @@
 package qrcode
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"strings"
 )
 
@@ -495,4 +499,31 @@ func (c *Code) SVG(quiet int) string {
 	}
 	b.WriteString(`"/></svg>`)
 	return b.String()
+}
+
+// PNG: der Code als PNG (schwarz auf weiß, 1 Bit je Pixel), scale Pixel je Modul,
+// quiet Ruhezone in Modulen – für Briefe (LaTeX) und eingebettete Bilder in Mails.
+func (c *Code) PNG(scale, quiet int) ([]byte, error) {
+	if scale < 1 {
+		scale = 1
+	}
+	n := (c.Size + 2*quiet) * scale
+	img := image.NewPaletted(image.Rect(0, 0, n, n), color.Palette{color.White, color.Black})
+	for y := range c.Size {
+		for x := range c.Size {
+			if !c.modules[y][x] {
+				continue
+			}
+			for dy := range scale {
+				for dx := range scale {
+					img.SetColorIndex((x+quiet)*scale+dx, (y+quiet)*scale+dy, 1)
+				}
+			}
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
