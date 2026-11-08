@@ -384,7 +384,7 @@ func (m *Module) resolve(ctx context.Context, req sdk.Request) (sdk.Response, er
 // Kreditor fehlte dann z. B. für eine ältere Rechnung), frühestens ab dem
 // Beginn ihres Katalogeintrags (Rolle, Kommunikationstyp, Adressrolle).
 func (m *Module) childValidFrom(next func(context.Context, record) error) func(context.Context, record) error {
-	catalogs := map[string]string{"role_code": "partner__role_types", "comm_type_code": "partner__comm_types", "address_role_code": "partner__address_roles"}
+	catalogs := map[string]string{"role_code": "partner__role_types", "comm_type_code": "partner__comm_types", "address_role_code": "partner__address_roles", "relation_type": "partner__relation_types"}
 	return func(ctx context.Context, rec record) error {
 		if strings.TrimSpace(str(rec["valid_from"])) == "" && str(rec["bp_id"]) != "" {
 			from := ""

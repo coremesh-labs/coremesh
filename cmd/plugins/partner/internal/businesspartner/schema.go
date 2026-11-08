@@ -216,6 +216,34 @@ table "partner__roles" {
   primary_key { columns = [column.bp_id, column.role_code, column.valid_from] }
 }
 
+# seit 0.18.0: Beziehungsarten und Beziehungen zwischen Partnern
+table "partner__relation_types" {
+  schema = schema.main
+  column "code"                { type = text }
+  column "description"         { type = text }
+  column "inverse_description" { type = text }
+  column "valid_from"          { type = date }
+  column "valid_to"            { type = date }
+  primary_key { columns = [column.code, column.valid_from] }
+}
+
+table "partner__relations" {
+  schema = schema.main
+  column "id"            { type = text }
+  column "bp_id"         { type = text }
+  column "relation_type" { type = text }
+  column "related_bp_id" { type = text }
+  column "note" {
+    type = text
+    null = true
+  }
+  column "valid_from" { type = date }
+  column "valid_to"   { type = date }
+  primary_key { columns = [column.id, column.valid_from] }
+  index "partner__relations_bp" { columns = [column.bp_id] }
+  index "partner__relations_related" { columns = [column.related_bp_id] }
+}
+
 table "partner__addresses" {
   schema = schema.main
   column "id"     { type = text }
@@ -396,6 +424,12 @@ var seeds = []sdk.SchemaSeed{
 		row("code", "HERR", "description", "Herr", "letter_text", "Sehr geehrter Herr {name1}", "person_type", "PERSON", "gender", "MALE", "sort_order", 20, "is_active", true),
 		row("code", "NEUTRAL", "description", "Guten Tag", "letter_text", "Guten Tag {name2} {name1}", "person_type", "PERSON", "gender", "DIVERSE", "sort_order", 30, "is_active", true),
 		row("code", "FIRMA", "description", "Firma", "letter_text", "Sehr geehrte Damen und Herren", "person_type", "ORGANIZATION", "sort_order", 40, "is_active", true),
+	}},
+	// seit 0.18.0
+	{Table: "partner__relation_types", Rows: []map[string]any{
+		row("code", "EMPLOYEE", "description", "ist angestellt bei", "inverse_description", "beschäftigt", "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "CONTACT", "description", "ist Ansprechpartner für", "inverse_description", "hat als Ansprechpartner", "valid_from", dateMin, "valid_to", dateMax),
+		row("code", "REPRESENTS", "description", "vertritt", "inverse_description", "wird vertreten von", "valid_from", dateMin, "valid_to", dateMax),
 	}},
 	{Table: "partner__role_types", Rows: []map[string]any{
 		row("code", "DEBITOR", "description", "Debitor", "is_debitor", true, "is_creditor", false, "valid_from", dateMin, "valid_to", dateMax),

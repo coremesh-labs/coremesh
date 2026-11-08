@@ -37,8 +37,8 @@ var (
 func (m *Module) entities() []*entity {
 	return []*entity{
 		m.businessPartner(), m.partnerRole(), m.partnerCompanyCode(),
-		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(),
-		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.dialCodeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(), m.salutationCatalog(),
+		m.address(), m.partnerAddress(), m.partnerContact(), m.partnerBankDetail(), m.partnerRelation(),
+		m.addressRoleCatalog(), m.commCategoryCatalog(), m.commTypeCatalog(), m.dialCodeCatalog(), m.roleTypeCatalog(), m.partnerGroupCatalog(), m.salutationCatalog(), m.relationTypeCatalog(),
 	}
 }
 
@@ -176,6 +176,7 @@ func (m *Module) businessPartner() *entity {
 				Columns: []string{"company_code", "role_code", "reconciliation_account", "payment_terms", "dunning_block", "posting_block"}}},
 			// Tags aus dem TagManagement (Plugin tag) – je nach Tag Sets für BusinessPartner
 			// und Buchungskreis. Fehlt das Plugin, zeigt der Abschnitt einen Hinweis.
+			relationSections[0], relationSections[1], // seit 0.18.0
 			{Key: "merkmale", Title: "Merkmale", Tags: true},
 			{Key: "dokumente", Title: "Dokumente", Collapsed: true, Documents: true},
 			// Texte aus dem Textmanagement (Plugin tag), z. B. Stellung der Unterschrift im Brief.
