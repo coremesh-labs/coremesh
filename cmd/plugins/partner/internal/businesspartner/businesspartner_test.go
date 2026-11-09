@@ -321,6 +321,9 @@ func TestBusinessPartnerAndContacts(t *testing.T) {
 	if got := e.items("BusinessPartner", map[string]any{"q": "acme"}); len(got) != 1 {
 		t.Fatalf("Suche: %v", got)
 	}
+	if got := e.items("BusinessPartner", map[string]any{"q": "100000"}); len(got) != 1 { // Partnernummer (seit 0.18.1)
+		t.Fatalf("Suche nach Nummer: %v", got)
+	}
 	id := bp["id"].(string)
 
 	contact := func(typ, value string) error {

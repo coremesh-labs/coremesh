@@ -139,7 +139,8 @@ func (m *Module) businessPartner() *entity {
 		Object: "BusinessPartner", Title: "Geschäftspartner", Icon: "icon-users", Table: "partner__bp",
 		Events: true, // seit 0.15.3: Änderungen melden (z. B. Suchtext im DMS)
 		Keys:   []string{"id", "valid_from"}, TimeSlice: true, Order: "search_term, name1, valid_from",
-		Search: []string{"name1", "name2", "search_term", "abbreviation"},
+		// seit 0.18.1: auch die Partnernummer (z. B. 100053 in Auswahllisten)
+		Search: []string{"id", "name1", "name2", "search_term", "abbreviation"},
 		// Filter role: nur Partner, die die Rolle heute haben (Auswahl in anderen
 		// Modulen, z. B. Eigentümer eines Mietobjekts – Lookup.Filters {"role": …}).
 		// Filter role_kind (CREDITOR, DEBITOR): Partner mit einer Rolle, deren Rollenart
