@@ -19,6 +19,7 @@ import (
 type providerRow struct {
 	Code, Name, BaseURL, AuthMethod, AuthName, Model, KeyEnv, Headers, Fallback string
 	FilePart                                                                    string // AUTO, IMAGE_URL, FILE
+	API                                                                         string // OPENAI, ANTHROPIC (seit 0.5.0)
 	Structured                                                                  bool
 	Timeout                                                                     time.Duration
 	key                                                                         string
@@ -27,7 +28,7 @@ type providerRow struct {
 // loadProvider: Dienst (code; leer = erster aktiver) mit Schlüssel aus der
 // Umgebungsvariablen bzw. der eigenen Tabelle.
 func (m *Module) loadProvider(ctx context.Context, code string) (*providerRow, error) {
-	q := `SELECT code, name, base_url, auth_method, auth_name, model, api_key_env, extra_headers, plain_json, timeout_seconds, fallback_provider, file_part FROM ai__provider WHERE is_active = ?`
+	q := `SELECT code, name, base_url, auth_method, auth_name, model, api_key_env, extra_headers, plain_json, timeout_seconds, fallback_provider, file_part, api_kind FROM ai__provider WHERE is_active = ?`
 	args := []any{true}
 	if code != "" {
 		q += ` AND code = ?`
@@ -46,7 +47,8 @@ func (m *Module) loadProvider(ctx context.Context, code string) (*providerRow, e
 	r := res.Rows[0]
 	p := &providerRow{Code: crud.Str(r[0]), Name: crud.Str(r[1]), BaseURL: strings.TrimRight(crud.Str(r[2]), "/"), AuthMethod: crud.Str(r[3]),
 		AuthName: crud.Str(r[4]), Model: crud.Str(r[5]), KeyEnv: crud.Str(r[6]), Headers: crud.Str(r[7]), Structured: !crud.AsBool(r[8]),
-		Timeout: time.Duration(toInt(r[9])) * time.Second, Fallback: crud.Str(r[10]), FilePart: firstOf(crud.Str(r[11]), filePartAuto)}
+		Timeout: time.Duration(toInt(r[9])) * time.Second, Fallback: crud.Str(r[10]), FilePart: firstOf(crud.Str(r[11]), filePartAuto),
+		API: firstOf(crud.Str(r[12]), apiOpenAI)}
 	if p.Timeout <= 0 {
 		p.Timeout = 90 * time.Second
 	}
@@ -136,6 +138,9 @@ func (m *Module) chatRetry(ctx context.Context, p *providerRow, req chatRequest)
 }
 
 func (m *Module) chatOnce(ctx context.Context, p *providerRow, req chatRequest) (*chatAnswer, int, error) {
+	if p.API == apiAnthropic {
+		return m.anthropicOnce(ctx, p, req)
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, 0, err

@@ -1,7 +1,8 @@
 # KI (`ai`)
 
 Anfragen an KI-Dienste mit OpenAI-kompatibler Schnittstelle (`/chat/completions`), z. B.
-Google Gemini (`https://generativelanguage.googleapis.com/v1beta/openai`). Menü **KI**.
+Google Gemini (`https://generativelanguage.googleapis.com/v1beta/openai`), und an die Messages API
+von Anthropic (Claude, seit 0.5.0). Menü **KI**.
 
 ## KI-Dienste (`AiProvider`)
 
@@ -17,6 +18,15 @@ neu eintragen (seit 0.3.2, Textfeld).
 Anhang mit. Wie, steht am Dienst unter **Dateien senden als** (seit 0.3.3): `image_url` (Gemini,
 auch PDF), `file` (OpenAI für PDF) oder automatisch (erst `image_url`, lehnt der Dienst die Art
 ab, einmal `file`). Bilder gehen immer als `image_url`.
+
+**Schnittstelle** (seit 0.5.0): `OPENAI` (Standard) oder `ANTHROPIC`. Bei `ANTHROPIC` übersetzt das
+Plugin dieselbe Anfrage für die Messages API (offizielle Go-SDK, ohne Umgebungsvorgaben des
+Servers): `system` getrennt, PDF als `document`, Bilder als `image`, jeweils vor dem Text;
+`response_format` als `output_config.format` mit strengem Schema (`additionalProperties: false`,
+alle Eigenschaften Pflicht, Zahlen auch `null`, Auswahlwerte auch `""`). Lehnt der Dienst das Schema
+ab (HTTP 400), einmal ohne. Temperatur entfällt, Antwort bis 16 000 Tokens. URL
+`https://api.anthropic.com`, Modell z. B. `claude-haiku-5-5`, Schlüssel aus der Claude Console
+(Anmeldung `BEARER`, wird gesetzt). Wiederholung, Ausweich-Dienst und Protokoll wie bei OpenAI.
 
 Bei Überlast (HTTP 429, 5xx) wiederholt das Plugin die Anfrage zweimal. Bleibt der Dienst gestört
 (auch nicht erreichbar oder Zeitlimit), springt der **Ausweich-Dienst** ein (Feld am Dienst, mit
