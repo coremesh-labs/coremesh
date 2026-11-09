@@ -172,7 +172,7 @@ func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
 	_ = json.Unmarshal(b, &body)
 	f.mu.Lock()
 	f.bodies = append(f.bodies, body)
-	f.auth = append(f.auth, r.Header.Get("Authorization")+"|"+r.Header.Get("X-Extra")+"|"+r.URL.String())
+	f.auth = append(f.auth, r.Header.Get("Authorization")+r.Header.Get("X-Api-Key")+"|"+r.Header.Get("X-Extra")+"|"+r.URL.String())
 	status, answer := f.status, f.answer
 	if f.failFirst > 0 {
 		f.failFirst--
@@ -187,13 +187,18 @@ func (f *fakeAI) Do(r *http.Request) (*http.Response, error) {
 		status = 200
 	}
 	var out []byte
-	if status == 200 {
+	switch {
+	case status == 200 && strings.HasSuffix(r.URL.Path, "/v1/messages"): // Anthropic Messages API
+		out, _ = json.Marshal(map[string]any{"id": "msg_1", "type": "message", "role": "assistant", "model": "claude-fake", "stop_reason": "end_turn",
+			"content": []any{map[string]any{"type": "thinking", "thinking": "", "signature": "x"}, map[string]any{"type": "text", "text": answer}},
+			"usage":   map[string]any{"input_tokens": 30, "output_tokens": 12}})
+	case status == 200:
 		out, _ = json.Marshal(map[string]any{"model": "fake", "choices": []any{map[string]any{"message": map[string]any{"content": answer}}},
 			"usage": map[string]any{"total_tokens": 42}})
-	} else {
+	default:
 		out = []byte(`{"error":{"message":"Schlüssel ungültig"}}`)
 	}
-	return &http.Response{StatusCode: status, Body: io.NopCloser(bytes.NewReader(out)), Header: http.Header{}}, nil
+	return &http.Response{StatusCode: status, Body: io.NopCloser(bytes.NewReader(out)), Header: http.Header{"Content-Type": {"application/json"}}}, nil
 }
 
 type env struct {

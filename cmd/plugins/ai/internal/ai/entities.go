@@ -47,8 +47,12 @@ func (m *Module) provider() *crud.Entity {
 		Fields: []crud.Field{
 			{Key: "code", Label: "Schlüssel", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "name", Label: "Bezeichnung", Type: tText, Required: true, Listable: true},
-			{Key: "base_url", Label: "URL der Schnittstelle (OpenAI-kompatibel, ohne /chat/completions)", Short: "URL", Type: tText, Required: true, Listable: true},
-			{Key: "model", Label: "Modell (z. B. gemini-flash-latest)", Type: tText, Required: true, Listable: true},
+			{Key: "api_kind", Label: "Schnittstelle", Type: tSel, Listable: true, Options: apiKindOptions,
+				Help: "OpenAI-kompatibel: Gemini, OpenAI und andere Dienste mit /chat/completions.\nAnthropic: Claude über die Messages API – liest PDFs als Dokument; URL https://api.anthropic.com, Modell z. B. claude-haiku-5-5, Schlüssel aus der Claude Console (platform.claude.com → Settings → API Keys); Anmeldung wird auf Bearer gesetzt."},
+			{Key: "base_url", Label: "URL der Schnittstelle", Short: "URL", Type: tText, Required: true, Listable: true,
+				Help: "OpenAI-kompatibel: ohne /chat/completions, z. B. https://generativelanguage.googleapis.com/v1beta/openai\nAnthropic: https://api.anthropic.com"},
+			{Key: "model", Label: "Modell", Type: tText, Required: true, Listable: true,
+				Help: "z. B. gemini-flash-latest (Google) oder claude-haiku-5-5 (Anthropic)"},
 			{Key: "auth_method", Label: "Anmeldung", Type: tSel, Required: true, Options: authMethods},
 			{Key: "auth_name", Label: "Name des Headers bzw. Parameters (bei eigenem Header / URL-Parameter)", Type: tText,
 				ShowIf: &metamodel.Condition{Field: "auth_method", Values: []string{"HEADER", "QUERY"}}},
@@ -85,6 +89,13 @@ func (m *Module) checkProvider(ctx context.Context, rec, _ crud.Record) error {
 		return crud.Invalid("URL %q: http(s)://… erwartet", crud.Str(rec["base_url"]))
 	}
 	rec["base_url"] = strings.TrimRight(u.String(), "/")
+	rec["api_kind"] = firstOf(strings.ToUpper(strings.TrimSpace(crud.Str(rec["api_kind"]))), apiOpenAI)
+	if !slices.ContainsFunc(apiKindOptions, func(o metamodel.Option) bool { return o.Value == rec["api_kind"] }) {
+		return crud.Invalid("Schnittstelle %q unbekannt", rec["api_kind"])
+	}
+	if rec["api_kind"] == apiAnthropic { // die SDK sendet den Schlüssel als Authorization: Bearer
+		rec["auth_method"] = "BEARER"
+	}
 	rec["auth_method"] = strings.ToUpper(strings.TrimSpace(crud.Str(rec["auth_method"])))
 	switch rec["auth_method"] {
 	case "BEARER", "NONE":

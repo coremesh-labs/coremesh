@@ -263,3 +263,52 @@ func TestTextWithFile(t *testing.T) {
 		t.Fatalf("IMAGE_URL: %v, %d Anfragen", out["status"], len(e.ai.bodies)-n)
 	}
 }
+
+// Schnittstelle Anthropic: Messages API mit Bearer-Schlüssel, PDF als document vor dem
+// Text, system getrennt, JSON-Schema streng (additionalProperties, required,
+// Zahlen auch null, Auswahl auch ""); Antwort aus den Text-Blöcken.
+func TestAnthropicProvider(t *testing.T) {
+	e := setup(t)
+	e.partnerRequest()
+	e.must(providerObject, "update", map[string]any{"id": "TEST", "data": map[string]any{"code": "TEST", "name": "Claude", "base_url": "https://api.anthropic.example/v1",
+		"api_kind": "ANTHROPIC", "model": "claude-haiku-5-5", "auth_method": "BEARER"}})
+	p := e.must(providerObject, "get", map[string]any{"id": "TEST"})
+	if p["auth_method"] != "BEARER" {
+		t.Errorf("Anmeldung: %v %v", p["auth_method"], p["auth_name"])
+	}
+	e.ai.answer = `{"partner":{"name1":"Sanitär Altmayer","type":""},"addresses":[],"contacts":[]}`
+	pdf := base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 x"))
+	out := e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "Angebot", "input": pdf, "content_type": "application/pdf"})
+	if out["status"] != stDone || out["result"].(map[string]any)["partner"].(map[string]any)["name1"] != "Sanitär Altmayer" {
+		t.Fatalf("run: %v", out)
+	}
+	if a := e.ai.auth[0]; !strings.HasPrefix(a, "Bearer geheim-123|ja|https://api.anthropic.example/v1/messages") {
+		t.Errorf("Aufruf: %s", a)
+	}
+	body := e.ai.bodies[0]
+	if body["model"] != "claude-haiku-5-5" || body["temperature"] != nil || body["max_tokens"] != float64(anthropicMaxTokens) {
+		t.Errorf("Kopf: %v %v %v", body["model"], body["temperature"], body["max_tokens"])
+	}
+	sys, _ := json.Marshal(body["system"])
+	mustContain(t, string(sys), "nichts erfinden")
+	msgs, _ := json.Marshal(body["messages"])
+	mustContain(t, string(msgs), `"role":"user"`, `{"source":{"data":"`+pdf+`","media_type":"application/pdf","type":"base64"},"type":"document"}`, `Eingang:\nAngebot`)
+	if strings.Index(string(msgs), `"type":"document"`) > strings.Index(string(msgs), `"type":"text"`) {
+		t.Errorf("Dokument nicht vor dem Text: %s", msgs)
+	}
+	of, _ := json.Marshal(body["output_config"])
+	mustContain(t, string(of), `"type":"json_schema"`, `"additionalProperties":false`, `"required":["addresses","contacts","partner"]`, `"enum":["MAIN","INVOICE",""]`)
+	if l := e.must(logObject, "get", map[string]any{"id": fmt.Sprint(out["log_id"])}); l["tokens"] != 42.0 || l["provider"] != "TEST" {
+		t.Errorf("Protokoll: %v %v", l["tokens"], l["provider"])
+	}
+	// Verbindung prüfen
+	if r := e.must(providerObject, "test", map[string]any{"id": "TEST"}); !strings.Contains(fmt.Sprint(r["message"]), "claude-fake") {
+		t.Errorf("Test: %v", r)
+	}
+	// Störung (503) wird wie bei OpenAI wiederholt, dann Fehler mit Meldung des Dienstes
+	retryWaits = []time.Duration{time.Millisecond, time.Millisecond}
+	e.ai.failFirst = 3
+	if out := e.must(serviceObject, "run", map[string]any{"request": "BP", "text": "x"}); out["status"] != stError || !strings.Contains(fmt.Sprint(out["message"]), "HTTP 503") {
+		t.Errorf("503: %v", out)
+	}
+}

@@ -41,6 +41,11 @@ table "ai__provider" {
     type    = text
     default = "AUTO"
   }
+  # Schnittstelle: OPENAI (/chat/completions), ANTHROPIC (Messages API) (seit 0.5.0)
+  column "api_kind" {
+    type    = text
+    default = "OPENAI"
+  }
   # Ausweich-Dienst bei Störung (Überlast, nicht erreichbar)
   column "fallback_provider" {
     type = text` + opt + `
