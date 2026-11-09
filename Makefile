@@ -59,7 +59,7 @@ plugins:
 	cd cmd/plugins/partner && go build -o ../../../$(BIN_DIR)/plugins/pa/partner-0.18.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/tag && go build -o ../../../$(BIN_DIR)/plugins/ta/tag-0.5.6-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/document && go build -o ../../../$(BIN_DIR)/plugins/do/document-0.3.0-$(GOOS)-$(GOARCH)$(EXT) .
-	cd cmd/plugins/ai && go build -o ../../../$(BIN_DIR)/plugins/ai/ai-0.4.4-$(GOOS)-$(GOARCH)$(EXT) .
+	cd cmd/plugins/ai && go build -o ../../../$(BIN_DIR)/plugins/ai/ai-0.5.0-$(GOOS)-$(GOARCH)$(EXT) .
 	cd cmd/plugins/script && go build -o ../../../$(BIN_DIR)/plugins/sc/script-0.2.3-$(GOOS)-$(GOARCH)$(EXT) .
 
 test:
