@@ -259,6 +259,9 @@ func texts(d metamodel.DescribeResponse) map[string]string {
 			if f.ShortKey != "" {
 				out[f.ShortKey] = f.Short
 			}
+			if f.HelpKey != "" {
+				out[f.HelpKey] = f.Help
+			}
 			if f.GroupKey != "" {
 				out[f.GroupKey] = f.Group
 			}

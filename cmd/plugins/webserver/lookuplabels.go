@@ -30,49 +30,70 @@ func textCell(rec record, key string) bool {
 }
 
 func (s *server) fillLookupLabels(r *http.Request, fields []metamodel.FieldDefinition, recs ...record) {
-	cache := map[string]string{}    // Object|Wert → Text
+	cache := map[string]string{}    // Object|Wertfeld|Wert → Text
 	tgts := map[string]*objectCtx{} // Object → Definition (nil = nicht lesbar)
-	for _, f := range fields {
-		if f.Lookup == nil || len(f.Lookup.LabelFields) == 0 || f.Lookup.By != "" {
-			continue
-		}
-		var values []string
-		seen := map[string]bool{}
-		for _, rec := range recs {
-			v := scalar(rec[f.Key])
-			if v == "" || seen[v] || labelsOf(rec)[f.Key] != "" {
-				continue
-			}
-			seen[v] = true
-			values = append(values, v)
-		}
-		if len(values) > lookupLabelMax || len(recs) == 0 {
-			continue
-		}
-		tgt, ok := tgts[f.Lookup.Object]
+	target := func(object string) *objectCtx {
+		tgt, ok := tgts[object]
 		if !ok {
-			if oc, err := s.targetDef(r, f.Lookup.Object); err == nil {
+			if oc, err := s.targetDef(r, object); err == nil {
 				tgt = &oc
 			}
-			tgts[f.Lookup.Object] = tgt
+			tgts[object] = tgt
 		}
-		if tgt == nil {
+		return tgt
+	}
+	for _, f := range fields {
+		if f.Lookup == nil || len(recs) == 0 {
 			continue
 		}
-		if tgt.Def.TechnicalID {
-			for _, rec := range recs {
+		// Je Datensatz der Lookup seiner Variante (Lookup.By, seit 0.65.0 – z. B. das
+		// Objekt je Objektart); ohne By ist es für alle derselbe.
+		type want struct {
+			lk *metamodel.Lookup
+			ck string
+		}
+		wants := make([]want, len(recs))
+		distinct := map[string]*metamodel.Lookup{}
+		for i, rec := range recs {
+			v := scalar(rec[f.Key])
+			if v == "" || labelsOf(rec)[f.Key] != "" {
+				continue
+			}
+			lk := f.Lookup.For(func(k string) string { return scalar(rec[k]) })
+			if lk.Object == "" || len(lk.LabelFields) == 0 {
+				continue
+			}
+			ck := lk.Object + "|" + lk.ValueField + "|" + v
+			wants[i] = want{lk, ck}
+			distinct[ck] = lk
+		}
+		if len(distinct) > lookupLabelMax {
+			continue
+		}
+		for i, rec := range recs {
+			wt := wants[i]
+			if wt.lk == nil {
+				if f.Lookup.By == "" {
+					// Text kam vom Modul: die Zelle zeigt ihn trotzdem bei technischer ID.
+					if tgt := target(f.Lookup.Object); tgt != nil && tgt.Def.TechnicalID {
+						rec[textCellsKey] = addMarkers(rec[textCellsKey], map[string]bool{f.Key: true})
+					}
+				}
+				continue
+			}
+			tgt := target(wt.lk.Object)
+			if tgt == nil {
+				continue
+			}
+			if tgt.Def.TechnicalID {
 				rec[textCellsKey] = addMarkers(rec[textCellsKey], map[string]bool{f.Key: true})
 			}
-		}
-		for _, v := range values {
-			ck := f.Lookup.Object + "|" + f.Lookup.ValueField + "|" + v
-			if _, ok := cache[ck]; !ok {
-				cache[ck] = s.lookupText(r, *tgt, f.Lookup, v)
+			t, ok := cache[wt.ck]
+			if !ok {
+				t = s.lookupText(r, *tgt, wt.lk, scalar(rec[f.Key]))
+				cache[wt.ck] = t
 			}
-		}
-		for _, rec := range recs {
-			t := cache[f.Lookup.Object+"|"+f.Lookup.ValueField+"|"+scalar(rec[f.Key])]
-			if t == "" || labelsOf(rec)[f.Key] != "" {
+			if t == "" {
 				continue
 			}
 			labels, _ := rec["_labels"].(map[string]any)

@@ -31,6 +31,9 @@ func texts(t *testing.T) map[string]string {
 			if f.ShortKey != "" {
 				add(f.ShortKey, f.Short)
 			}
+			if f.HelpKey != "" {
+				add(f.HelpKey, f.Help)
+			}
 			for _, opt := range f.Options {
 				add(opt.LabelKey, opt.Label)
 			}

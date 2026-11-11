@@ -828,6 +828,9 @@ func TestTranslationsComplete(t *testing.T) {
 			if f.ShortKey != "" {
 				want[f.ShortKey] = true
 			}
+			if f.HelpKey != "" {
+				want[f.HelpKey] = true
+			}
 			for _, op := range f.Options {
 				want[op.LabelKey] = true
 			}

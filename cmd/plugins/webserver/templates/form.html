@@ -112,7 +112,7 @@
   {{block "lookup-field" .}}
   <span class="lookup">
     <input type="text" name="{{.Field.Key}}" value="{{.Value}}" autocomplete="off" {{with .Trigger}}hx-post="{{.}}" hx-trigger="change" hx-include="closest form" hx-target="closest .form-body" hx-swap="outerHTML"{{end}} {{if .Field.Required}}required{{end}}
-           oninput="var l=this.parentNode.querySelector('.lookup-label');if(l)l.textContent=''">
+           oninput="var l=this.parentNode.querySelector('.lookup-label');if(l){l.textContent='';l.classList.remove('unknown')}">
     <button type="button" class="btn lookup-btn" title="{{t "core.lookup.select_from" .Field.Label}}"
             hx-get="/lookup?from={{.Object}}&field={{.Field.Key}}" hx-target="#lookup" hx-swap="innerHTML" hx-include="closest form">{{t "core.lookup.select"}}</button>
     <span class="lookup-label" data-lookup-label="{{.Field.Key}}">{{.Label}}</span>

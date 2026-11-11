@@ -161,6 +161,9 @@ func texts(d metamodel.DescribeResponse) map[string]string {
 			if f.ShortKey != "" {
 				out[f.ShortKey] = f.Short
 			}
+			if f.HelpKey != "" {
+				out[f.HelpKey] = f.Help
+			}
 			for _, opt := range f.Options {
 				out[opt.LabelKey] = opt.Label
 			}

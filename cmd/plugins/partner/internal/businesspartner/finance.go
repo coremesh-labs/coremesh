@@ -71,7 +71,7 @@ func (m *Module) partnerRole() *entity {
 			// Nur beim Anlegen: Buchungskreise der Finanzrolle, eine Zeile je
 			// Buchungskreis "BUKRS[;Abstimmkonto[;Zahlungsbedingung]]" – oder
 			// in der API eine Liste von Objekten.
-			field{Key: "company_codes", Label: "Buchungskreise (bei Finanzrollen Pflicht, nur beim Anlegen: 1000;140000;NT30 je Zeile)",
+			field{Key: "company_codes", Label: "Buchungskreise", Help: "Bei Finanzrollen Pflicht, nur beim Anlegen: 1000;140000;NT30 je Zeile",
 				Type: metamodel.TypeTextarea, Listable: true, Virtual: true},
 		),
 		AfterCreate: func(ctx context.Context, rec record) error {

@@ -41,13 +41,13 @@ func (m *Module) dialCodeCatalog() *entity {
 		Object: "PartnerDialCode", Customizing: true, Section: "Kataloge", Title: "Ländervorwahlen", Icon: "icon-phone", Table: "partner__dial_codes",
 		Keys: []string{"country"}, Order: "country", Search: []string{"country", "description"},
 		Fields: []field{
-			{Key: "country", Label: "Land (ISO-2, wie in der Anschrift)", Short: "Land", Type: tText, Required: true, Listable: true, Immutable: true},
+			{Key: "country", Label: "Land", Help: "ISO-2, wie in der Anschrift", Short: "Land", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Bezeichnung", Type: tText, Required: true, Listable: true},
-			{Key: "dial_code", Label: "Ländervorwahl (ohne +, z. B. 49)", Short: "Vorwahl", Type: tText, Required: true, Listable: true},
-			{Key: "trunk_prefix", Label: "Verkehrsausscheidungsziffer (entfällt international, z. B. 0; leer = keine)", Short: "Präfix", Type: tText, Listable: true},
-			{Key: "is_main", Label: "Heimatland (für Nummern ohne Anschrift)", Short: "Heimat", Type: tBool, Listable: true},
+			{Key: "dial_code", Label: "Ländervorwahl", Help: "Ohne +, z. B. 49", Short: "Vorwahl", Type: tText, Required: true, Listable: true},
+			{Key: "trunk_prefix", Label: "Verkehrsausscheidungsziffer", Help: "Entfällt international, z. B. 0; leer = keine", Short: "Präfix", Type: tText, Listable: true},
+			{Key: "is_main", Label: "Heimatland", Help: "Für Nummern ohne Anschrift", Short: "Heimat", Type: tBool, Listable: true},
 			// seit 0.17.0: Postleitzahl erkennen beim Übernehmen aus Text
-			{Key: "zip_pattern", Label: "Aufbau der Postleitzahl (regulärer Ausdruck, z. B. \\d{5}; leer = nicht erkennen)", Short: "PLZ", Type: tText, Listable: true},
+			{Key: "zip_pattern", Label: "Aufbau der Postleitzahl", Help: "Regulärer Ausdruck, z. B. \\d{5}; leer = nicht erkennen", Short: "PLZ", Type: tText, Listable: true},
 		},
 		Validate: func(ctx context.Context, rec, _ record) error {
 			rec["country"] = strings.ToUpper(strings.TrimSpace(str(rec["country"])))

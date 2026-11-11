@@ -38,7 +38,7 @@ import (
 
 const (
 	Name    = "numrange"
-	Version = "0.3.2"
+	Version = "0.3.3"
 
 	defaultKey = "01"
 	allCC      = "*"

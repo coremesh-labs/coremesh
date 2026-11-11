@@ -152,11 +152,17 @@ func (s *server) parseMasked(r *http.Request, oc objectCtx, mode, id string) (ma
 }
 
 // lookupLabels: lesbarer Text der Lookup-Werte eines Formulars (wenn der
-// Datensatz keine _labels mitbringt, z. B. nach einer Neuauswertung).
+// Datensatz keine _labels mitbringt, z. B. nach einer Neuauswertung oder im
+// Dialog einer eigenen Aktion). Seit 0.65.0 über resolveLabel – auch für Ziele,
+// deren Liste nicht nach dem Wertfeld filtert, und mit den Filtern des Lookups.
 func (s *server) lookupLabels(r *http.Request, d metamodel.ObjectDefinition, values, known map[string]string) map[string]string {
 	out := maps.Clone(known)
 	if out == nil {
 		out = map[string]string{}
+	}
+	q := url.Values{}
+	for k, v := range values {
+		q.Set(k, v)
 	}
 	for _, f := range d.Fields {
 		v := values[f.Key]
@@ -171,30 +177,55 @@ func (s *server) lookupLabels(r *http.Request, d metamodel.ObjectDefinition, val
 		if err != nil {
 			continue
 		}
-		act, err := need(tgt, metamodel.KindList)
-		if err != nil {
-			continue
-		}
-		resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": map[string]any{lk.ValueField: v}})
-		if err != nil {
-			continue
-		}
-		recs, _ := records(resp.Payload)
-		for _, rec := range recs {
-			if scalar(rec[lk.ValueField]) != v {
-				continue
-			}
-			var parts []string
-			for _, k := range lk.LabelFields {
-				if t := scalar(rec[k]); t != "" {
-					parts = append(parts, t)
-				}
-			}
-			out[f.Key] = strings.Join(parts, " ")
-			break
+		if t, ok := s.resolveLabel(r, tgt, lk, v, d.Name, q); ok {
+			out[f.Key] = t
 		}
 	}
 	return out
+}
+
+// resolveLabel (seit 0.65.0): Text eines Lookup-Werts beim Ziel, so wie ihn der
+// Auswahldialog neben das Feld schreibt (LabelFields mit Leerzeichen). Sucht den
+// Datensatz über get (Wertfeld id), sonst in der Liste des Ziels: mit den Filtern
+// des Lookups und dem Wertfeld, danach über die Suche. ok = false: Wert unbekannt.
+func (s *server) resolveLabel(r *http.Request, tgt objectCtx, lk *metamodel.Lookup, v, from string, q url.Values) (string, bool) {
+	var rec record
+	if lk.ValueField == "id" {
+		if got, err := s.fetchRecord(r, tgt, v); err == nil && scalar(got[lk.ValueField]) == v {
+			rec = got
+		}
+	}
+	if act, err := need(tgt, metamodel.KindList); rec == nil && err == nil {
+		filters := map[string]any{}
+		for target, src := range lk.Filters {
+			if fv := s.filterValue(r, from, src, q); fv != "" {
+				filters[target] = fv
+			}
+		}
+		for _, extra := range []string{lk.ValueField, "q"} {
+			query := maps.Clone(filters)
+			query[extra] = v
+			resp, err := s.call(r, tgt.Object, act.Name, map[string]any{"query": query})
+			if err != nil {
+				continue
+			}
+			recs, _ := records(resp.Payload)
+			if i := slices.IndexFunc(recs, func(x record) bool { return scalar(x[lk.ValueField]) == v }); i >= 0 {
+				rec = recs[i]
+				break
+			}
+		}
+	}
+	if rec == nil {
+		return "", false
+	}
+	var parts []string
+	for _, k := range lk.LabelFields {
+		if t := strings.TrimSpace(scalar(rec[k])); t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return strings.Join(parts, " "), true
 }
 
 // POST /m/{module}/{object}/_form – Formularinhalt für die aktuellen Eingaben

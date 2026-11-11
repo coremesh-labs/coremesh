@@ -104,6 +104,7 @@
   "core.lookup.select": "选择…",
   "core.lookup.select_from": "从%s中选择",
   "core.lookup.title": "选择%s",
+  "core.lookup.unknown": "未知 – 在%s中未找到",
   "core.nav.toggle": "折叠/展开菜单",
   "core.peek.loading": "加载中 …",
   "core.peek.no_permission": "无权读取此记录。",

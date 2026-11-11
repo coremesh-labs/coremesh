@@ -34,7 +34,8 @@ func TestActionFormDefaults(t *testing.T) {
 		d.FormState = "formState"
 		d.Actions = append(slices.Clone(d.Actions),
 			metamodel.ActionConfig{Name: "remind", Kind: metamodel.KindCustom, Label: "Erinnern …", Fields: []string{"value"}, FormState: true},
-			metamodel.ActionConfig{Name: "plain", Kind: metamodel.KindCustom, Label: "Ohne …", Fields: []string{"value"}})
+			metamodel.ActionConfig{Name: "plain", Kind: metamodel.KindCustom, Label: "Ohne …", Fields: []string{"value"}},
+			metamodel.ActionConfig{Name: "retype", Kind: metamodel.KindCustom, Label: "Art ändern …", Fields: []string{"kind_code"}, FormState: true})
 	})
 	s, h := newMDServer(t)
 	b := do(s, "GET", "/action/crm/CustomerContact/remind?id=k1", nil, true).Body.String()
@@ -42,6 +43,9 @@ func TestActionFormDefaults(t *testing.T) {
 	if req := h.find("formState").Payload.(metamodel.FormStateRequest); req.Mode != "action" || req.Action != "remind" || req.ID != "k1" {
 		t.Fatalf("FormStateRequest: %+v", req)
 	}
+	// Seit 0.65.0: der Dialog einer Aktion zeigt den Text zur gewählten Nummer – auch nach dem Neuaufbau
+	b = do(s, "POST", "/action/crm/CustomerContact/retype/_form", url.Values{"_id": {"k1"}, "kind_code": {"TEL"}}, true).Body.String()
+	mustContain(t, b, `name="kind_code" value="TEL"`, `data-lookup-label="kind_code">Telefon</span>`)
 	n := len(h.calls)
 	b = do(s, "GET", "/action/crm/CustomerContact/plain", nil, true).Body.String()
 	mustNotContain(t, b, `2026-10-08`)

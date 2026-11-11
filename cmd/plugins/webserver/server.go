@@ -760,7 +760,8 @@ func (s *server) actionView(r *http.Request, oc objectCtx, act *metamodel.Action
 			}
 		}
 	}
-	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger, readonly: readonly}), keys)
+	v.FormFields = actionFields(buildFields(def, "action", values, errs, formOpts{trigger: trigger, readonly: readonly,
+		labels: s.lookupLabels(r, def, values, nil)}), keys) // seit 0.65.0: Text zur gewählten Nummer auch im Dialog einer Aktion
 	return v
 }
 
