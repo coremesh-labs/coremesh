@@ -80,6 +80,8 @@
   "core.form.multiple": "Tick one or more",
   "core.form.title": "%s – %s",
   "core.home.empty": "No modules registered yet, or no permission.",
+  "core.home.stand": "As of %s",
+  "core.home.refresh": "Refresh",
   "core.home.personas": "Personas",
   "core.home.persona_switch": "Switch persona",
   "core.home.modules": "Modules",
