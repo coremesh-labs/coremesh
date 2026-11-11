@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.12.6"
+	Version = "0.12.7"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -46,6 +46,7 @@ type Plugin struct {
 	cache    permCache
 	cancel   context.CancelFunc
 	host     sdk.Host
+	dash     dashboardCache
 }
 
 type settings struct {
