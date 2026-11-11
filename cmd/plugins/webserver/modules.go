@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/coremesh-labs/coremesh/pkg/sdk"
+	"github.com/coremesh-labs/coremesh/pkg/sdk/metamodel"
 )
 
 // Modul-Schicht des WebServers.
@@ -33,6 +34,8 @@ type moduleInfo struct {
 	Objects     []moduleObject `json:"objects"`
 	Services    []string       `json:"services"`    // Objects ohne Metamodell (nur JSON-API)
 	Customizing []string       `json:"customizing"` // Einstellungen (Kategorien, Arten, Kataloge)
+	// Dashboard: Action mit dem Status des Moduls (seit 0.66.0, siehe dashboard.go)
+	Dashboard *metamodel.DashboardRef `json:"dashboard"`
 
 	TitleKey       string `json:"title_key"`
 	DescriptionKey string `json:"description_key"`
@@ -203,6 +206,11 @@ func (s *server) moduleHome(w http.ResponseWriter, r *http.Request) {
 	m := moduleFrom(r)
 	if w := m.workOnly(userFrom(r)); len(w.Objects) > 0 {
 		m = w
+	}
+	// Seit 0.66.0: Module mit Dashboard zeigen ihre Übersicht (Kacheln mit Status).
+	if d, ok := s.dashboard(r, moduleFrom(r)); ok && len(d.Tiles) > 0 {
+		s.render(w, r, http.StatusOK, "module-dashboard", map[string]any{"Module": moduleFrom(r), "Dashboard": d}, moduleFrom(r).Title, "")
+		return
 	}
 	r.SetPathValue("object", m.Objects[0].Object)
 	s.list(w, r)

@@ -27,11 +27,12 @@ type ReadFunc func(ctx context.Context, req sdk.Request, w sdk.RowWriter) (sdk.R
 //		r.Object("PartnerRoleType").Section("Kataloge").Describe(…).Handle(…)
 //	}
 type Router struct {
-	module   string
-	objects  []*ObjectRoutes
-	commands []metamodel.CommandDefinition
-	errs     *[]error
-	owners   map[string]string // Object -> Modul (über alle Module eines Plugins)
+	module    string
+	objects   []*ObjectRoutes
+	commands  []metamodel.CommandDefinition
+	dashboard *metamodel.DashboardRef
+	errs      *[]error
+	owners    map[string]string // Object -> Modul (über alle Module eines Plugins)
 }
 
 // ObjectRoutes sind die Actions eines Objects.
@@ -147,6 +148,16 @@ func (r *Router) Command(c metamodel.CommandDefinition) {
 	r.commands = append(r.commands, c)
 }
 
+// Dashboard meldet die Action an, die den Status des Moduls liefert
+// (metamodel.DashboardResponse): Zahlen an der Kachel der Startseite und die
+// Übersicht des Moduls.
+//
+//	r.Object("ProcurementDashboard").Handle("status", m.dashboardAction)
+//	r.Dashboard("ProcurementDashboard", "status")
+func (r *Router) Dashboard(object, action string) {
+	r.dashboard = &metamodel.DashboardRef{Object: object, Action: action}
+}
+
 // check prüft das Ergebnis von RegisterRoutes.
 func (r *Router) check() {
 	if len(r.objects) == 0 {
@@ -163,6 +174,12 @@ func (r *Router) check() {
 		}
 		if o.def != nil && o.def.FormState != "" && o.handlers[o.def.FormState] == nil {
 			r.fail("Object %s: FormState-Action %s ist nicht registriert", o.name, o.def.FormState)
+		}
+	}
+	if d := r.dashboard; d != nil {
+		i := slices.IndexFunc(r.objects, func(o *ObjectRoutes) bool { return o.name == d.Object })
+		if i < 0 || r.objects[i].handlers[d.Action] == nil {
+			r.fail("Dashboard: %s.%s ist keine Route des Moduls", d.Object, d.Action)
 		}
 	}
 	for _, c := range r.commands {
@@ -188,5 +205,6 @@ func (r *Router) definition(d Descriptor) metamodel.ModuleDefinition {
 		}
 	}
 	md.Commands = r.commands
+	md.Dashboard = r.dashboard
 	return metamodel.ModuleKeys(md)
 }

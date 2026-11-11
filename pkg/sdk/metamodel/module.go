@@ -31,6 +31,49 @@ type ModuleDefinition struct {
 	// Commands sind Konsolenbefehle des Moduls: `console <modul>:<befehl> --param=wert`
 	// ruft Object.Action mit den Parametern auf (z. B. ledger:load-coa).
 	Commands []CommandDefinition `json:"commands,omitempty"`
+	// Dashboard: Action, die den Status des Moduls liefert (DashboardResponse) –
+	// Zahlen an der Kachel der Startseite und die Übersicht des Moduls.
+	Dashboard *DashboardRef `json:"dashboard,omitempty"`
+}
+
+// DashboardRef nennt die Action eines Objects bzw. Services des Moduls, die den
+// Status liefert. Aufruf ohne Payload; die Action zählt nur, was der Benutzer lesen darf.
+type DashboardRef struct {
+	Object string `json:"object"`
+	Action string `json:"action"`
+}
+
+// DashboardResponse ist der Status eines Moduls: Summary steht an der Kachel des
+// Moduls auf der Startseite (wenige Zahlen: was ist zu tun), Tiles sind die Kacheln
+// der Übersicht des Moduls (z. B. Rechnungen, Aufträge bzw. je Vorgangsart).
+type DashboardResponse struct {
+	Summary []DashboardFigure `json:"summary,omitempty"`
+	Tiles   []DashboardTile   `json:"tiles,omitempty"`
+}
+
+// DashboardTile ist eine Kachel der Übersicht eines Moduls. Object und Query
+// führen zur Liste (Filter wie in der Filterleiste).
+type DashboardTile struct {
+	Key      string            `json:"key"`
+	Title    string            `json:"title"`
+	TitleKey string            `json:"title_key,omitempty"` // Übersetzungsschlüssel (i18n)
+	Icon     string            `json:"icon,omitempty"`
+	Object   string            `json:"object,omitempty"`
+	Query    map[string]string `json:"query,omitempty"`
+	Figures  []DashboardFigure `json:"figures,omitempty"`
+}
+
+// DashboardFigure ist eine Zahl mit Beschriftung, z. B. „fällig 3“. Text ergänzt
+// sie (etwa ein Betrag), Tone färbt sie (ToneAttention, ToneDanger …), wenn sie
+// nicht null ist. Object und Query führen zur gefilterten Liste.
+type DashboardFigure struct {
+	Label    string            `json:"label"`
+	LabelKey string            `json:"label_key,omitempty"` // Übersetzungsschlüssel (i18n)
+	Count    int64             `json:"count"`
+	Text     string            `json:"text,omitempty"`
+	Tone     string            `json:"tone,omitempty"`
+	Object   string            `json:"object,omitempty"`
+	Query    map[string]string `json:"query,omitempty"`
 }
 
 // CommandDefinition ist ein Konsolenbefehl eines Moduls.
