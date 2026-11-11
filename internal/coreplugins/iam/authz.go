@@ -62,6 +62,12 @@ func (g grant) matches(object, action string) bool {
 	return okO && okA
 }
 
+// matchesObject: die Erlaubnis betrifft das Object (irgendeine Action).
+func (g grant) matchesObject(object string) bool {
+	ok, _ := path.Match(g.Object, object)
+	return ok
+}
+
 // activeValues: nur aktive Werte schränken ein.
 func (g grant) activeValues() []authValue {
 	var out []authValue
@@ -278,7 +284,10 @@ func (p *Plugin) Allowed(ctx context.Context, userID, object, action string) (bo
 	if err != nil {
 		return false, err
 	}
-	return slices.ContainsFunc(gs, func(g grant) bool { return g.matches(object, action) }), nil
+	if slices.ContainsFunc(gs, func(g grant) bool { return g.matches(object, action) }) {
+		return true, nil
+	}
+	return p.dashboardAllowed(ctx, gs, object, action), nil
 }
 
 // Check prüft object.action mit den Werten attrs (Buchungskreis unter
