@@ -153,6 +153,12 @@ pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius
 .cards .tile { display: grid; gap: .25rem; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .cards .tile a { display: block; padding: 0; background: none; border: 0; border-radius: 0; }
 .cards .tile a.figure:hover, .cards .tile a.tile-title:hover strong { text-decoration: underline; }
+.cards form { margin: 0; height: 100%; }
+.cards .tile-button { display: grid; gap: .25rem; width: 100%; height: 100%; padding: 1rem; text-align: left; align-content: start; font: inherit; cursor: pointer;
+                      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); }
+.cards .tile-button:hover { border-color: var(--accent); }
+.cards .tile-button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.home h2 { font-size: 1rem; color: var(--muted); margin: 1.25rem 0 .5rem; }
 .cards.tiles { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 720px) { body { grid-template-columns: 1fr; } .sidebar { border-right: 0; border-bottom: 1px solid var(--border); } }

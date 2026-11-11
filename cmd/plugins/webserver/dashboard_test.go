@@ -35,3 +35,28 @@ func TestDashboard(t *testing.T) {
 	b = do(s, "GET", "/", nil, false).Body.String()
 	mustNotContain(t, b, `class="figure`)
 }
+
+// TestHomePersonas: Kachel je Person – ohne gewählte Person mit den Zahlen ihrer Module,
+// die Aufmerksamkeit verlangen; mit gewählter Person ohne Zahlen (nur deren Rechte gelten).
+func TestHomePersonas(t *testing.T) {
+	mods := []homeModule{
+		{moduleInfo: moduleInfo{Name: "bank", Title: "Bank"}, Summary: []dashFigure{{Label: "nicht zugeordnet", Count: 3, Tone: "danger", URL: "/m/bank/X"}, {Label: "gebucht", Count: 9}}},
+		{moduleInfo: moduleInfo{Name: "mail", Title: "Posteingang"}, Summary: []dashFigure{{Label: "offen", Count: 0, Tone: "attention"}}},
+		{moduleInfo: moduleInfo{Name: "crm", Title: "CRM"}, Summary: []dashFigure{{Label: "neu", Count: 2, Tone: "attention"}}},
+	}
+	u := &user{Personas: []persona{{ID: "p1", Name: "Kontoauszüge", Modules: []string{"bank", "mail"}}, {ID: "p2", Name: "Administration"}}}
+	got := homePersonas(u, mods)
+	if len(got) != 2 || len(got[0].Figures) != 1 || got[0].Figures[0].Label != "Bank: nicht zugeordnet" || got[0].Figures[0].Count != 3 || got[0].Figures[0].URL != "" {
+		t.Fatalf("Kachel der Person: %+v", got)
+	}
+	if len(got[1].Figures) != 0 || got[1].Active {
+		t.Fatalf("Person ohne Module im Menü: %+v", got[1])
+	}
+	u.PersonaID = "p1"
+	if got = homePersonas(u, mods); !got[0].Active || len(got[0].Figures) != 0 {
+		t.Fatalf("gewählte Person: %+v", got)
+	}
+	if homePersonas(&user{}, mods) != nil {
+		t.Fatal("ohne Personen keine Kacheln")
+	}
+}
