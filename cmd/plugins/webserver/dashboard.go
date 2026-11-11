@@ -354,3 +354,58 @@ func oldestStand(mods []homeModule) string {
 	}
 	return at.Format("15:04")
 }
+
+// Vorberechnen beim Start (seit 0.69.0): Für alle Benutzer mit gültiger Anmeldung rechnet der
+// Server die Dashboards ihrer Module gleich nach dem Start – mit ihrer gewählten Person und der
+// Sprache ihres Profils (sonst der Standardsprache). So steht die Startseite auch nach einem
+// Neustart sofort. Die Module melden sich nach und nach an: der zweite Durchgang holt nach,
+// was beim ersten noch nicht abrufbar war.
+
+// dashboardWarmDelays: Wartezeiten vor den Durchgängen nach dem Start.
+var dashboardWarmDelays = []time.Duration{5 * time.Second, 40 * time.Second}
+
+func (s *server) warmDashboards(ctx context.Context) {
+	if s.dashboardRefresh() == 0 {
+		return
+	}
+	for _, wait := range dashboardWarmDelays {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		s.warmDashboardsOnce(ctx)
+	}
+}
+
+// warmDashboardsOnce rechnet, was noch nicht (erfolgreich) im Speicher steht; liefert die Zahl der Berechnungen.
+func (s *server) warmDashboardsOnce(ctx context.Context) int {
+	users, err := s.auth.ActiveUsers(ctx)
+	if err != nil {
+		_ = s.host.Log(ctx, sdk.LogWarn, "Dashboards nicht vorberechnet", map[string]string{"err": err.Error()})
+		return 0
+	}
+	n := 0
+	for _, u := range users {
+		loc := metamodel.NormalizeLocale(u.Locale)
+		if loc == "" {
+			loc = s.i18n.def
+		}
+		rctx := context.WithValue(context.WithValue(ctx, userKey{}, u), localeKey{}, loc)
+		r, err1 := http.NewRequestWithContext(rctx, http.MethodGet, "/", nil)
+		force, err2 := http.NewRequestWithContext(rctx, http.MethodGet, "/?refresh=1", nil)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		for _, m := range s.modules(r) {
+			if m.Dashboard == nil {
+				continue
+			}
+			if _, ok := s.dashboard(r, m); !ok {
+				s.dashboard(force, m) // z. B. Modul war noch nicht bereit: neu rechnen
+			}
+			n++
+		}
+	}
+	return n
+}

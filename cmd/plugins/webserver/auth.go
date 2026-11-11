@@ -121,6 +121,8 @@ type store interface {
 	DeleteSession(ctx context.Context, idHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) error
+	// SessionUsers liefert die Benutzer mit einer gültigen Session (seit 0.69.0: Dashboards beim Start vorberechnen).
+	SessionUsers(ctx context.Context, now time.Time) ([]string, error)
 }
 
 type authService struct {
@@ -187,6 +189,21 @@ func (a *authService) Session(ctx context.Context, token string) (*user, error) 
 		return nil, nil
 	}
 	return u, err
+}
+
+// ActiveUsers: die Benutzer mit gültiger Anmeldung, mit Profil (Rollen, Person, Sprache).
+func (a *authService) ActiveUsers(ctx context.Context) ([]*user, error) {
+	ids, err := a.store.SessionUsers(ctx, a.now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	var out []*user
+	for _, id := range ids {
+		if u, err := a.id.Me(ctx, id); err == nil && u != nil {
+			out = append(out, u)
+		}
+	}
+	return out, nil
 }
 
 func (a *authService) Logout(ctx context.Context, token string) error {
@@ -345,6 +362,18 @@ func (s *sqlStore) SessionUser(ctx context.Context, idHash string, now time.Time
 		return "", sdk.ErrNotFound
 	}
 	return scalar(res.Rows[0][0]), nil
+}
+
+func (s *sqlStore) SessionUsers(ctx context.Context, now time.Time) ([]string, error) {
+	res, err := s.host.Query(s.ctx(ctx), s.db, `SELECT DISTINCT user_id FROM webserver__sessions WHERE expires_at > ?`, ts(now))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(res.Rows))
+	for _, r := range res.Rows {
+		out = append(out, scalar(r[0]))
+	}
+	return out, nil
 }
 
 func (s *sqlStore) DeleteSession(ctx context.Context, idHash string) error {

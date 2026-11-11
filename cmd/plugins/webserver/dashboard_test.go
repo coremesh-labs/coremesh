@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"maps"
 	"testing"
 
@@ -96,5 +97,37 @@ func TestHomePersonas(t *testing.T) {
 	}
 	if homePersonas(&user{}, mods) != nil {
 		t.Fatal("ohne Personen keine Kacheln")
+	}
+}
+
+// TestWarmDashboards: Beim Start rechnet der Server die Dashboards der angemeldeten Benutzer vor;
+// die Startseite kommt danach ohne weiteren Abruf beim Modul aus.
+func TestWarmDashboards(t *testing.T) {
+	plain := maps.Clone(crmModule)
+	crmModule["dashboard"] = map[string]any{"object": "CrmDashboard", "action": "status"}
+	t.Cleanup(func() { crmModule = plain })
+	s, h := newTestServer(t, "")
+	calls := func() int {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		n := 0
+		for _, c := range h.calls {
+			if c.Object == "CrmDashboard" {
+				n++
+			}
+		}
+		return n
+	}
+	if n := s.warmDashboardsOnce(context.Background()); n != 1 || calls() != 1 {
+		t.Fatalf("vorberechnet: %d Module, %d Abrufe", n, calls())
+	}
+	mustContain(t, do(s, "GET", "/", nil, false).Body.String(), `<b>4</b> zu begleichen`)
+	if calls() != 1 {
+		t.Fatalf("Startseite hat neu gerechnet: %d Abrufe", calls())
+	}
+	// zweiter Durchgang: nichts mehr zu tun
+	s.warmDashboardsOnce(context.Background())
+	if calls() != 1 {
+		t.Fatalf("zweiter Durchgang hat neu gerechnet: %d Abrufe", calls())
 	}
 }
