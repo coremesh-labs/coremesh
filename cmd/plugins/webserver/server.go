@@ -254,7 +254,7 @@ func (s *server) logError(r *http.Request, what string, err error) {
 // --- Handler -----------------------------------------------------------------
 
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "home", map[string]any{"Modules": s.modules(r), "AppTitle": s.cfg.Title}, "", "")
+	s.render(w, r, http.StatusOK, "home", map[string]any{"Modules": s.homeModules(r), "AppTitle": s.cfg.Title}, "", "")
 }
 
 // GET /m/{module}/{object}

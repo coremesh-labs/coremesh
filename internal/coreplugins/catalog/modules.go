@@ -22,6 +22,7 @@ type ModuleInfo struct {
 	Services    []string                      `json:"services,omitempty"`    // Objects ohne Metamodell (nur JSON-API)
 	Commands    []metamodel.CommandDefinition `json:"commands,omitempty"`    // Konsolenbefehle (console <modul>:<befehl>)
 	Customizing []string                      `json:"customizing,omitempty"` // Einstellungen (Modulrollen in iam)
+	Dashboard   *metamodel.DashboardRef       `json:"dashboard,omitempty"`   // Action mit dem Status des Moduls
 
 	TitleKey       string `json:"title_key,omitempty"`
 	DescriptionKey string `json:"description_key,omitempty"`
@@ -82,7 +83,7 @@ func (p *Plugin) listModules(includeUnavailable bool) []ModuleInfo {
 			}
 			seen[md.Name] = true
 			mi := ModuleInfo{Name: md.Name, Title: md.Title, Icon: md.Icon, Description: md.Description,
-				Plugin: plugin, Objects: []ModuleObjectInfo{}, Services: md.Services, Commands: md.Commands, Customizing: md.Customizing, TitleKey: md.TitleKey, DescriptionKey: md.DescriptionKey}
+				Plugin: plugin, Objects: []ModuleObjectInfo{}, Services: md.Services, Commands: md.Commands, Customizing: md.Customizing, Dashboard: md.Dashboard, TitleKey: md.TitleKey, DescriptionKey: md.DescriptionKey}
 			for _, o := range md.Objects {
 				t := titles[o.Object]
 				oi := ModuleObjectInfo{Object: o.Object, Title: t[0], Icon: t[1], Section: o.Section, Available: available[o.Object],

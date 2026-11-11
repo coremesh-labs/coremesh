@@ -101,6 +101,13 @@ func (h *fakeHost) Handle(ctx context.Context, req sdk.Request) (sdk.Response, e
 	case "Catalog.ListActions":
 		return sdk.Response{Payload: map[string]any{"object": "Partner", "actions": []any{
 			map[string]any{"action": "List"}, map[string]any{"action": "Deactivate"}}}}, nil
+	case "CrmDashboard.status":
+		return sdk.Response{Payload: metamodel.DashboardResponse{
+			Summary: []metamodel.DashboardFigure{{Label: "zu begleichen", Count: 4, Tone: metamodel.ToneAttention}, {Label: "fällig", Count: 0, Tone: metamodel.ToneDanger}},
+			Tiles: []metamodel.DashboardTile{{Key: "partner", Title: "Partner", Object: "Partner", Figures: []metamodel.DashboardFigure{
+				{Label: "aktiv", LabelKey: "crm.module.title", Count: 7, Text: "12,50 EUR", Tone: metamodel.ToneDanger, Object: "Partner", Query: map[string]string{"kind": "customer"}},
+				{Label: "fremd", Count: 1, Object: "Secret"}}}},
+		}}, nil
 	case "Catalog.ListModules":
 		return sdk.Response{Payload: map[string]any{"modules": []any{crmModule}}}, nil
 	case "Catalog.ListObjects":

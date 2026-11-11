@@ -67,14 +67,40 @@
     {{range .Modules}}
     <li><a href="/m/{{.Name}}">
       {{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{.Title}}</strong>
+      {{if .Summary}}
+      <span class="figures">{{range .Summary}}<span class="figure{{with .Tone}} tone-{{.}}{{end}}{{if not .Count}} zero{{end}}"><b>{{.Count}}</b> {{.Label}}{{with .Text}} <em>{{.}}</em>{{end}}</span>{{end}}</span>
+      {{else}}
       {{with .Description}}<span>{{.}}</span>{{end}}
       <small>{{if eq (len .Objects) 1}}{{t "core.home.objects_one" 1}}{{else}}{{t "core.home.objects_many" (len .Objects)}}{{end}}</small>
+      {{end}}
     </a></li>
     {{end}}
   </ul>
   {{else}}
   <p class="empty">{{t "core.home.empty"}}</p>
   {{end}}
+</section>
+{{end}}
+
+{{/* Übersicht eines Moduls (seit 0.66.0). Daten: {Module moduleInfo, Dashboard dashboardData}.
+     Kachel und Zahlen führen in die (gefilterte) Liste. */}}
+{{define "module-dashboard"}}
+<section class="home module-dashboard">
+  <h1>{{with .Module.Icon}}<i class="{{.}}"></i> {{end}}{{.Module.Title}}</h1>
+  <ul class="cards tiles">
+    {{range .Dashboard.Tiles}}
+    <li><div class="tile">
+      {{if .URL}}<a class="tile-title" href="{{.URL}}">{{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{.Title}}</strong></a>
+      {{else}}<span class="tile-title">{{with .Icon}}<i class="{{.}}"></i>{{end}}<strong>{{.Title}}</strong></span>{{end}}
+      <span class="figures">
+        {{range .Figures}}
+        {{if .URL}}<a class="figure{{with .Tone}} tone-{{.}}{{end}}{{if not .Count}} zero{{end}}" href="{{.URL}}"><b>{{.Count}}</b> {{.Label}}{{with .Text}} <em>{{.}}</em>{{end}}</a>
+        {{else}}<span class="figure{{with .Tone}} tone-{{.}}{{end}}{{if not .Count}} zero{{end}}"><b>{{.Count}}</b> {{.Label}}{{with .Text}} <em>{{.}}</em>{{end}}</span>{{end}}
+        {{end}}
+      </span>
+    </div></li>
+    {{end}}
+  </ul>
 </section>
 {{end}}
 
