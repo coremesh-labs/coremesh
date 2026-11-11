@@ -20,7 +20,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.68.0"
+	version = "0.69.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -49,7 +49,7 @@ type settings struct {
 	// höchstens maxSettingMiB – darüber passt die Nachricht nicht mehr durch den Plugin-Kanal.
 	MaxAPIBodyMB int `json:"max_api_body_mb"`
 	MaxUploadMB  int `json:"max_upload_mb"`
-	// DashboardRefresh (seit 0.68.0): Abstand, in dem die Zahlen der Dashboards neu berechnet werden
+	// DashboardRefresh (seit 0.69.0): Abstand, in dem die Zahlen der Dashboards neu berechnet werden
 	// (Dauer, Standard 5m); die Seiten zeigen den gespeicherten Stand. "0" = ohne Speicher, jeder Abruf rechnet.
 	DashboardRefresh string `json:"dashboard_refresh"`
 	// DashboardIdle: so lange nach der letzten Anzeige rechnet der Zeitgeber weiter (Dauer, Standard 12h).
@@ -142,6 +142,7 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 	bg, cancel := context.WithCancel(context.Background())
 	go cleanupSessions(bg, auth)
 	go web.dashboardTimer(bg)
+	go web.warmDashboards(bg)
 
 	w.mu.Lock()
 	oldSrv, oldCancel := w.http, w.cancel

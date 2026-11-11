@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -141,4 +142,16 @@ func (m *memIdentity) deactivate(username string) {
 	m.mu.Lock()
 	m.users[username].active = false
 	m.mu.Unlock()
+}
+
+func (m *memStore) SessionUsers(_ context.Context, now time.Time) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []string
+	for _, s := range m.sessions {
+		if now.Before(s.expires) && !slices.Contains(out, s.userID) {
+			out = append(out, s.userID)
+		}
+	}
+	return out, nil
 }
