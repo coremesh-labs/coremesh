@@ -234,6 +234,15 @@ func TestLookupActionField(t *testing.T) {
 	}
 	b := do(s, "GET", "/m/crm/Customer/c1", nil, true).Body.String()
 	mustContain(t, b, `hx-trigger="coremesh-record-changed from:body"`, `hx-select="#detail"`, `hx-disinherit="*"`)
+	// Eingetippter Wert: Text bzw. Hinweis „unbekannt“
+	w = do(s, "GET", "/lookup?from=Customer&field=target&resolve=1&target=TEL", nil, true)
+	if got := w.Body.String(); got != "Telefon" || w.Header().Get("X-Lookup-Unknown") != "" {
+		t.Fatalf("Text zum Wert: %q", got)
+	}
+	w = do(s, "GET", "/lookup?from=Customer&field=target&resolve=1&target=XX", nil, true)
+	if got := w.Body.String(); w.Header().Get("X-Lookup-Unknown") != "1" || !strings.Contains(got, "Kontaktarten") {
+		t.Fatalf("unbekannter Wert: %q", got)
+	}
 }
 
 // TestPreviewDialog: /preview bettet /file/{object}/{id} im Dialog ein; Unter-Objects mit

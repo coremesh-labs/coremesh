@@ -104,6 +104,7 @@
   "core.lookup.select": "Auswählen …",
   "core.lookup.select_from": "Aus %s auswählen",
   "core.lookup.title": "%s auswählen",
+  "core.lookup.unknown": "Unbekannt – in %s nicht gefunden",
   "core.nav.toggle": "Menü ein-/ausklappen",
   "core.peek.loading": "Lädt …",
   "core.peek.no_permission": "Keine Berechtigung, diesen Datensatz zu lesen.",

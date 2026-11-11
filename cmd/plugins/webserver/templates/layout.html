@@ -441,6 +441,30 @@
       });
     }
     htmx.onLoad(mdInit);
+    // Eingetippter Schlüssel in einem Lookup-Feld (seit 0.65.0): den Text dazu holen und daneben
+    // zeigen – wie nach der Auswahl im Dialog. Unbekannte Werte fallen sofort auf. Felder mit
+    // Trigger baut die Maske ohnehin neu auf (mit Text).
+    document.addEventListener("change", function (e) {
+      var input = e.target;
+      if (!input.matches || !input.matches(".lookup > input[type=text]") || input.hasAttribute("hx-post")) return;
+      var box = input.parentNode, btn = box.querySelector(".lookup-btn[hx-get]"), label = box.querySelector(".lookup-label");
+      if (!btn || !label) return;
+      var value = input.value.trim();
+      label.classList.remove("unknown");
+      if (!value) { label.textContent = ""; return; }
+      var u = new URL(btn.getAttribute("hx-get"), location.href), form = input.closest("form");
+      if (form) new FormData(form).forEach(function (v, k) { if (typeof v === "string" && !u.searchParams.has(k)) u.searchParams.set(k, v); });
+      u.searchParams.set(input.name, value);
+      u.searchParams.set("resolve", "1");
+      fetch(u, { credentials: "same-origin" }).then(function (r) {
+        if (!r.ok) return;
+        return r.text().then(function (t) {
+          if (input.value.trim() !== value) return; // inzwischen geändert
+          label.textContent = t;
+          label.classList.toggle("unknown", r.headers.get("X-Lookup-Unknown") === "1");
+        });
+      });
+    });
     function coremeshPick(row) {
       var field = row.dataset.field;
       if (row.dataset.snippet) { document.getElementById("lookup").innerHTML = ""; coremeshSnippet(field, row.dataset.snippet, row.dataset.value); return; }
@@ -448,7 +472,7 @@
       var input = scope.querySelector("[name=\"" + field + "\"]");
       if (input) { input.value = row.dataset.value; input.dispatchEvent(new Event("change", { bubbles: true })); }
       var label = scope.querySelector("[data-lookup-label=\"" + field + "\"]");
-      if (label) label.textContent = row.dataset.label;
+      if (label) { label.textContent = row.dataset.label; label.classList.remove("unknown"); }
       document.getElementById("lookup").innerHTML = "";
       if (input) input.focus();
     }

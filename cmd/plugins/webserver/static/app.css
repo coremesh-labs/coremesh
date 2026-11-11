@@ -182,6 +182,7 @@ table.data.sub { font-size: .92rem; }
 .lookup input { flex: 1 1 10rem; }
 .lookup-btn { white-space: nowrap; }
 .lookup-label { color: var(--muted); font-size: .85rem; flex-basis: 100%; }
+.lookup-label.unknown { color: var(--danger, #b3261e); }
 #lookup { display: contents; }
 dialog.lookup-dialog { z-index: 45; max-width: 720px; }
 dialog.lookup-dialog input[type=search] { width: 100%; margin-bottom: .75rem; }

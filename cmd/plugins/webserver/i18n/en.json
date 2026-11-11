@@ -104,6 +104,7 @@
   "core.lookup.select": "Select …",
   "core.lookup.select_from": "Select from %s",
   "core.lookup.title": "Select %s",
+  "core.lookup.unknown": "Unknown – not found in %s",
   "core.nav.toggle": "Collapse/expand menu",
   "core.peek.loading": "Loading …",
   "core.peek.no_permission": "No permission to read this record.",

@@ -27,7 +27,7 @@ import (
 // unverändert; eine abweichende Anschrift oder ein anderer Name wird nur gemeldet.
 
 var pasteFields = []field{
-	{Key: "paste_text", Label: "Text (z. B. Impressum, Briefkopf oder Signatur – Anschrift, Telefon, Fax, E-Mail, Web)", Type: metamodel.TypeTextarea, ActionOnly: true, Wide: true},
+	{Key: "paste_text", Label: "Text", Help: "Z. B. Impressum, Briefkopf oder Signatur – Anschrift, Telefon, Fax, E-Mail, Web", Type: metamodel.TypeTextarea, ActionOnly: true, Wide: true},
 	{Key: "paste_check", Label: "Nur prüfen (nichts anlegen)", Type: tBool, ActionOnly: true},
 }
 

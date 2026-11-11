@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"net/url"
@@ -386,6 +387,22 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) {
 	}
 	if object != "" && tgt.Def.TitleField != "" {
 		lk.LabelFields = []string{tgt.Def.TitleField}
+	}
+	// resolve=1 (seit 0.65.0): nur der Text zum eingetippten Wert des Felds – die
+	// Maske zeigt ihn neben der Eingabe; unbekannte Werte meldet sie sofort.
+	if q.Get("resolve") == "1" {
+		v := strings.TrimSpace(q.Get(field))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if v == "" {
+			return
+		}
+		t, ok := s.resolveLabel(r, tgt, lk, v, from, q)
+		if !ok {
+			w.Header().Set("X-Lookup-Unknown", "1")
+			t = s.T(r, "core.lookup.unknown", tgt.Def.Title)
+		}
+		_, _ = io.WriteString(w, t)
+		return
 	}
 	act, err := need(tgt, metamodel.KindList)
 	if err != nil {

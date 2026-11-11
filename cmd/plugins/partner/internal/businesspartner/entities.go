@@ -68,10 +68,10 @@ func (m *Module) commCategoryCatalog() *entity {
 		Object: "PartnerCommCategory", Customizing: true, Section: "Kataloge", Title: "Kommunikationskategorien", Icon: "icon-tag", Table: "partner__comm_categories",
 		Keys: []string{"code"}, Order: "code", Search: []string{"code", "description"},
 		Fields: []field{
-			{Key: "code", Label: "Code (maschinenlesbar: EMAIL, PHONE, FAX, WEB …)", Type: tText, Required: true, Listable: true, Immutable: true},
+			{Key: "code", Label: "Code", Help: "Maschinenlesbar: EMAIL, PHONE, FAX, WEB …", Type: tText, Required: true, Listable: true, Immutable: true},
 			{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
 			// seit 0.16.1: Inhalt des QR-Codes „Anrufen (QR)“ – {number} = +49…, {display} = +49 341 …
-			{Key: "qr_template", Label: "QR-Code „Anrufen“ (z. B. tel:{number} oder nur {number}; leer = kein QR-Code)", Short: "QR", Type: tText, Listable: true},
+			{Key: "qr_template", Label: "QR-Code „Anrufen“", Help: "Z. B. tel:{number} oder nur {number}; leer = kein QR-Code", Short: "QR", Type: tText, Listable: true},
 		},
 	}
 }
@@ -86,9 +86,9 @@ func (m *Module) commTypeCatalog() *entity {
 			field{Key: "description", Label: "Beschreibung", Type: tText, Required: true, Listable: true},
 			field{Key: "is_main", Label: "Haupttyp der Kategorie", Short: "Haupt", Type: tBool, Listable: true},
 			// seit 0.16.0: Typ in der vCard (Kontakt aufs Handy), z. B. WORK,VOICE · CELL · WORK,FAX · WORK
-			field{Key: "vcard_type", Label: "Typ in der vCard (z. B. WORK,VOICE · CELL · WORK,FAX; leer = ohne)", Short: "vCard", Type: tText, Listable: true},
+			field{Key: "vcard_type", Label: "Typ in der vCard", Help: "Z. B. WORK,VOICE · CELL · WORK,FAX; leer = ohne", Short: "vCard", Type: tText, Listable: true},
 			// seit 0.17.0: Wörter vor dem Wert, an denen „Kontaktdaten aus Text übernehmen“ den Typ erkennt
-			field{Key: "keywords", Label: "Erkennungswörter beim Übernehmen aus Text (kommagetrennt, z. B. Telefon, Tel, Fon)", Short: "Erkennung", Type: tText, Listable: true},
+			field{Key: "keywords", Label: "Erkennungswörter beim Übernehmen aus Text", Help: "Kommagetrennt, z. B. Telefon, Tel, Fon", Short: "Erkennung", Type: tText, Listable: true},
 		),
 		// Pro Kategorie höchstens ein Haupt-Kommunikationstyp.
 		Validate: func(ctx context.Context, rec, _ record) error {
@@ -192,13 +192,13 @@ func (m *Module) businessPartner() *entity {
 			field{Key: "group_code", Label: "Partnergruppe", Short: "Gruppe", Type: tText, Listable: true, Immutable: true, Trigger: true,
 				Lookup: &metamodel.Lookup{Object: "PartnerGroup", ValueField: "code", LabelFields: []string{"description"}}},
 			field{Key: "type", Label: "Art", Type: tSelect, Required: true, Listable: true, Options: personTypeOptions, Trigger: true},
-			field{Key: "salutation_code", Label: "Anrede (leer = Vorschlag nach Art und Geschlecht)", Type: tText,
+			field{Key: "salutation_code", Label: "Anrede", Help: "Leer = Vorschlag nach Art und Geschlecht", Type: tText,
 				Lookup: &metamodel.Lookup{Object: "PartnerSalutation", ValueField: "code", LabelFields: []string{"description"}}},
 			field{Key: "gender", Label: "Geschlecht", Type: tSelect, Options: genderOptions, ShowIf: showPerson},
-			field{Key: "name1", Label: "Name 1 (Firma / Nachname)", Type: tText, Required: true, Listable: true, Trigger: true},
-			field{Key: "name2", Label: "Name 2 (Vorname / Zusatz)", Type: tText, Listable: true},
-			field{Key: "search_term", Label: "Kurzname (Matchcode; leer = Vorschlag aus dem Namen)", Type: tText, Listable: true},
-			field{Key: "abbreviation", Label: "Kürzel (eindeutig, z. B. im Dateinamen; Buchstaben, Ziffern, -)", Type: tText, Listable: true},
+			field{Key: "name1", Label: "Name 1", Help: "Firma / Nachname", Type: tText, Required: true, Listable: true, Trigger: true},
+			field{Key: "name2", Label: "Name 2", Help: "Vorname / Zusatz", Type: tText, Listable: true},
+			field{Key: "search_term", Label: "Kurzname", Help: "Matchcode; leer = Vorschlag aus dem Namen", Type: tText, Listable: true},
+			field{Key: "abbreviation", Label: "Kürzel", Help: "Eindeutig, z. B. im Dateinamen; Buchstaben, Ziffern, -", Type: tText, Listable: true},
 			field{Key: "letter_salutation", Label: "Briefanrede", Type: tText, ReadOnly: true, Virtual: true},
 			// Rollen, die der Partner heute hat (kommagetrennt) – z. B. für Bedingungen von Tag Sets
 			field{Key: "roles", Label: "Rollen (heute)", Type: tText, ReadOnly: true, Virtual: true},

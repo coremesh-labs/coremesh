@@ -19,10 +19,10 @@ import (
 const ledgerReportObject = "LedgerReport"
 
 var partnerAccountFields = []field{
-	{Key: "statement_company_code", Label: "Buchungskreis (leer = alle)", Type: tText, ActionOnly: true,
+	{Key: "statement_company_code", Label: "Buchungskreis", Help: "Leer = alle", Type: tText, ActionOnly: true,
 		Lookup: &metamodel.Lookup{Object: "CompanyCode", ValueField: "code", LabelFields: []string{"description"}}},
-	{Key: "statement_from", Label: "Von (leer = erster Posten)", Type: tDate, ActionOnly: true},
-	{Key: "statement_to", Label: "Bis (leer = heute)", Type: tDate, ActionOnly: true},
+	{Key: "statement_from", Label: "Von", Help: "Leer = erster Posten", Type: tDate, ActionOnly: true},
+	{Key: "statement_to", Label: "Bis", Help: "Leer = heute", Type: tDate, ActionOnly: true},
 }
 
 func (m *Module) partnerAccountAction() crud.Action {
