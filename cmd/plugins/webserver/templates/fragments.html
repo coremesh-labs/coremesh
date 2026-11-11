@@ -59,9 +59,29 @@
 {{end}}
 
 {{/* Startseite: alle Module, die der Benutzer sehen darf. Daten: {AppTitle, Modules}. */}}
+{{define "home-personas"}}
+  <h2>{{if .PersonaName}}{{t "core.home.persona_switch"}}{{else}}{{t "core.home.personas"}}{{end}}</h2>
+  <ul class="cards personas">
+    {{range .Personas}}
+    <li><form method="post" action="/persona"><input type="hidden" name="persona_id" value="{{.ID}}">
+      <button type="submit" class="tile-button{{if .Active}} active{{end}}"{{if .Active}} aria-current="true"{{end}}>
+        <i class="icon-users"></i><strong>{{.Name}}</strong>
+        {{if .Figures}}<span class="figures">{{range .Figures}}<span class="figure{{with .Tone}} tone-{{.}}{{end}}"><b>{{.Count}}</b> {{.Label}}{{with .Text}} <em>{{.}}</em>{{end}}</span>{{end}}
+          {{if .More}}<span class="figure zero">{{t "core.home.more" .More}}</span>{{end}}</span>{{end}}
+      </button></form></li>
+    {{end}}
+    {{if .PersonaName}}
+    <li><form method="post" action="/persona"><input type="hidden" name="persona_id" value="">
+      <button type="submit" class="tile-button"><i class="icon-users"></i><strong>{{t "core.persona.all"}}</strong></button></form></li>
+    {{end}}
+  </ul>
+{{end}}
+
 {{define "home"}}
 <section class="home">
-  <h1>{{.AppTitle}}</h1>
+  <h1>{{.AppTitle}}{{with .PersonaName}} – {{.}}{{end}}</h1>
+  {{if and .Personas (not .PersonaName)}}{{template "home-personas" .}}
+  <h2>{{t "core.home.modules"}}</h2>{{end}}
   {{if .Modules}}
   <ul class="cards">
     {{range .Modules}}
@@ -79,6 +99,7 @@
   {{else}}
   <p class="empty">{{t "core.home.empty"}}</p>
   {{end}}
+  {{if and .Personas .PersonaName}}{{template "home-personas" .}}{{end}}
 </section>
 {{end}}
 

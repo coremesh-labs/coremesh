@@ -31,7 +31,7 @@ import (
 
 const (
 	Name    = "iam"
-	Version = "0.12.5"
+	Version = "0.12.6"
 
 	// AdminRole ist die beim ersten Start angelegte Rolle mit *.*.
 	AdminRole      = "Administrator"
@@ -305,7 +305,12 @@ func (p *Plugin) profile(ctx context.Context, id string) (sdk.Response, error) {
 	}
 	list, active, modules, hideSettings := []any{}, "", []any{}, false
 	for _, pr := range pers {
-		list = append(list, map[string]any{"id": pr.ID, "name": pr.Name})
+		// modules (seit 0.12.6): Module im Menü der Person – die Startseite zeigt deren Status an der Kachel der Person
+		mods := make([]any, len(pr.Modules))
+		for i, m := range pr.Modules {
+			mods[i] = m
+		}
+		list = append(list, map[string]any{"id": pr.ID, "name": pr.Name, "modules": mods})
 		if pr.ID == u.PersonaID {
 			active = pr.ID
 			hideSettings = !pr.SettingsMenu

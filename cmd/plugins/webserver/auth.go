@@ -55,6 +55,8 @@ type user struct {
 type persona struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Module im Menü der Person (leer = alle erlaubten; seit 0.67.0 für die Kachel der Startseite)
+	Modules []string `json:"modules"`
 }
 
 // PersonaName: Name der gewählten Person ("" = alle Rollen).

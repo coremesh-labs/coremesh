@@ -254,7 +254,13 @@ func (s *server) logError(r *http.Request, what string, err error) {
 // --- Handler -----------------------------------------------------------------
 
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "home", map[string]any{"Modules": s.homeModules(r), "AppTitle": s.cfg.Title}, "", "")
+	mods := s.homeModules(r)
+	u := userFrom(r)
+	data := map[string]any{"Modules": mods, "AppTitle": s.cfg.Title, "Personas": homePersonas(u, mods), "PersonaName": ""}
+	if u != nil {
+		data["PersonaName"] = u.PersonaName()
+	}
+	s.render(w, r, http.StatusOK, "home", data, "", "")
 }
 
 // GET /m/{module}/{object}

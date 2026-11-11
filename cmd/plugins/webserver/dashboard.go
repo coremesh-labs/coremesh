@@ -120,3 +120,50 @@ func (s *server) homeModules(r *http.Request) []homeModule {
 	wg.Wait()
 	return out
 }
+
+// Personen auf der Startseite (seit 0.67.0): eine Kachel je Person, die der Benutzer
+// einnehmen kann. Ohne gewählte Person (alle Rollen) zeigt sie, was in den Modulen der
+// Person zu tun ist – die Zahlen der Module, die Aufmerksamkeit verlangen (Tone attention
+// bzw. danger, nicht null), mit dem Namen des Moduls. Ein Klick wählt die Person; die
+// Startseite zeigt dann deren Module mit ihrem Status. Mit gewählter Person gelten nur
+// deren Rechte – die Kacheln der anderen Personen stehen dann ohne Zahlen zum Wechseln da.
+
+// personaFigureMax: so viele Zahlen zeigt die Kachel einer Person höchstens.
+const personaFigureMax = 6
+
+type homePersona struct {
+	ID, Name string
+	Active   bool
+	Figures  []dashFigure
+	More     int // weitere Zahlen, die nicht mehr auf die Kachel passen
+}
+
+func homePersonas(u *user, mods []homeModule) []homePersona {
+	if u == nil || len(u.Personas) == 0 {
+		return nil
+	}
+	out := make([]homePersona, 0, len(u.Personas))
+	for _, p := range u.Personas {
+		hp := homePersona{ID: p.ID, Name: p.Name, Active: p.ID == u.PersonaID}
+		if u.PersonaID == "" {
+			for _, m := range mods {
+				if !slices.Contains(p.Modules, m.Name) {
+					continue
+				}
+				for _, f := range m.Summary {
+					if f.Count == 0 || (f.Tone != metamodel.ToneAttention && f.Tone != metamodel.ToneDanger) {
+						continue
+					}
+					if len(hp.Figures) == personaFigureMax {
+						hp.More++
+						continue
+					}
+					f.Label, f.URL = m.Title+": "+f.Label, ""
+					hp.Figures = append(hp.Figures, f)
+				}
+			}
+		}
+		out = append(out, hp)
+	}
+	return out
+}
