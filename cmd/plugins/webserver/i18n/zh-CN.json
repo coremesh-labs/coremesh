@@ -80,6 +80,8 @@
   "core.form.multiple": "可勾选多项",
   "core.form.title": "%s – %s",
   "core.home.empty": "尚未注册任何模块，或您没有访问权限。",
+  "core.home.stand": "截至 %s",
+  "core.home.refresh": "刷新",
   "core.home.personas": "角色",
   "core.home.persona_switch": "切换角色",
   "core.home.modules": "模块",

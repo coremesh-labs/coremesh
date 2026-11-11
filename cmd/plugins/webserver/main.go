@@ -20,7 +20,7 @@ import (
 
 const (
 	name    = "webserver"
-	version = "0.67.0"
+	version = "0.68.0"
 )
 
 // settings aus plugins.webserver.settings in der Host-Konfiguration.
@@ -47,9 +47,14 @@ type settings struct {
 	// Größengrenzen (seit 0.48.0) in MiB: JSON-Body der API (Dateien reisen dort Base64-kodiert,
 	// z. B. DmsDocument.store; Standard 48) und Datei im Aktionsformular (Standard 32). Beide
 	// höchstens maxSettingMiB – darüber passt die Nachricht nicht mehr durch den Plugin-Kanal.
-	MaxAPIBodyMB int    `json:"max_api_body_mb"`
-	MaxUploadMB  int    `json:"max_upload_mb"`
-	CookieSecure string `json:"cookie_secure"` // auto (bei TLS) | true (z. B. hinter TLS-Proxy) | false
+	MaxAPIBodyMB int `json:"max_api_body_mb"`
+	MaxUploadMB  int `json:"max_upload_mb"`
+	// DashboardRefresh (seit 0.68.0): Abstand, in dem die Zahlen der Dashboards neu berechnet werden
+	// (Dauer, Standard 5m); die Seiten zeigen den gespeicherten Stand. "0" = ohne Speicher, jeder Abruf rechnet.
+	DashboardRefresh string `json:"dashboard_refresh"`
+	// DashboardIdle: so lange nach der letzten Anzeige rechnet der Zeitgeber weiter (Dauer, Standard 12h).
+	DashboardIdle string `json:"dashboard_idle"`
+	CookieSecure  string `json:"cookie_secure"` // auto (bei TLS) | true (z. B. hinter TLS-Proxy) | false
 
 	// TLS: beide gesetzt = HTTPS
 	TLSCert string `json:"tls_cert"`
@@ -118,8 +123,9 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 	if err != nil {
 		return fmt.Errorf("%w: listen %s: %v", sdk.ErrUnavailable, s.Listen, err)
 	}
+	web := newServer(cfg.Host, views, s, auth)
 	srv := &http.Server{
-		Handler:           newServer(cfg.Host, views, s, auth),
+		Handler:           web,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      writeTimeout,
@@ -135,6 +141,7 @@ func (w *webserver) Configure(ctx context.Context, cfg sdk.Config) error {
 
 	bg, cancel := context.WithCancel(context.Background())
 	go cleanupSessions(bg, auth)
+	go web.dashboardTimer(bg)
 
 	w.mu.Lock()
 	oldSrv, oldCancel := w.http, w.cancel

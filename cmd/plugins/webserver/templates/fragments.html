@@ -80,6 +80,7 @@
 {{define "home"}}
 <section class="home">
   <h1>{{.AppTitle}}{{with .PersonaName}} – {{.}}{{end}}</h1>
+  {{with .Stand}}<p class="stand">{{t "core.home.stand" .}} · <a href="/?refresh=1">{{t "core.home.refresh"}}</a></p>{{end}}
   {{if and .Personas (not .PersonaName)}}{{template "home-personas" .}}
   <h2>{{t "core.home.modules"}}</h2>{{end}}
   {{if .Modules}}
@@ -108,6 +109,7 @@
 {{define "module-dashboard"}}
 <section class="home module-dashboard">
   <h1>{{with .Module.Icon}}<i class="{{.}}"></i> {{end}}{{.Module.Title}}</h1>
+  <p class="stand">{{t "core.home.stand" .Stand}} · <a href="/m/{{.Module.Name}}/?refresh=1">{{t "core.home.refresh"}}</a></p>
   <ul class="cards tiles">
     {{range .Dashboard.Tiles}}
     <li><div class="tile">

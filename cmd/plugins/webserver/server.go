@@ -52,6 +52,7 @@ type server struct {
 	i18n    *translationService
 	mux     *http.ServeMux
 	handler http.Handler
+	dash    dashCache // Zwischenspeicher der Dashboards (dashboard.go)
 }
 
 func newServer(host sdk.Host, views *renderer, cfg settings, auth *authService) *server {
@@ -256,7 +257,7 @@ func (s *server) logError(r *http.Request, what string, err error) {
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
 	mods := s.homeModules(r)
 	u := userFrom(r)
-	data := map[string]any{"Modules": mods, "AppTitle": s.cfg.Title, "Personas": homePersonas(u, mods), "PersonaName": ""}
+	data := map[string]any{"Modules": mods, "AppTitle": s.cfg.Title, "Personas": homePersonas(u, mods), "PersonaName": "", "Stand": oldestStand(mods)}
 	if u != nil {
 		data["PersonaName"] = u.PersonaName()
 	}

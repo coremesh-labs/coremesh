@@ -158,6 +158,7 @@ pre.result { background: var(--bg); padding: .75rem; border-radius: var(--radius
                       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); }
 .cards .tile-button:hover { border-color: var(--accent); }
 .cards .tile-button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.home .stand { color: var(--muted); font-size: .85rem; margin: -.5rem 0 1rem; }
 .home h2 { font-size: 1rem; color: var(--muted); margin: 1.25rem 0 .5rem; }
 .cards.tiles { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

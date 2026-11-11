@@ -27,13 +27,51 @@ func TestDashboard(t *testing.T) {
 		t.Fatalf("Liste: %d", w.Code)
 	}
 
-	// Dashboard nicht abrufbar: die erste Liste wie bisher
+	// Zwischenspeicher: Startseite und Übersicht haben zusammen einmal gerechnet; der Stand steht auf der Seite.
+	calls := func() int {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		n := 0
+		for _, c := range h.calls {
+			if c.Object == "CrmDashboard" {
+				n++
+			}
+		}
+		return n
+	}
+	do(s, "GET", "/", nil, false)
+	if n := calls(); n != 1 {
+		t.Fatalf("Abrufe beim Modul: %d statt 1", n)
+	}
+	mustContain(t, b, `class="stand"`, `href="/m/crm/?refresh=1"`)
+	// „Aktualisieren“ rechnet neu
+	do(s, "GET", "/m/crm/?refresh=1", nil, false)
+	if n := calls(); n != 2 {
+		t.Fatalf("nach Aktualisieren: %d Abrufe", n)
+	}
+
+	// Dashboard nicht abrufbar: aus dem Speicher weiter die alten Zahlen, nach der Neuberechnung die erste Liste wie bisher
+	h.mu.Lock()
 	h.fail = map[string]error{"CrmDashboard.status": sdk.ErrPermissionDenied}
-	b = do(s, "GET", "/m/crm/", nil, false).Body.String()
+	h.mu.Unlock()
+	mustContain(t, do(s, "GET", "/m/crm/", nil, false).Body.String(), "module-dashboard")
+	b = do(s, "GET", "/m/crm/?refresh=1", nil, false).Body.String()
 	mustNotContain(t, b, "module-dashboard")
 	mustContain(t, b, "ACME")
 	b = do(s, "GET", "/", nil, false).Body.String()
 	mustNotContain(t, b, `class="figure`)
+
+	// dashboard_refresh "0": ohne Speicher rechnet jeder Abruf
+	h.mu.Lock()
+	h.fail = nil
+	h.mu.Unlock()
+	s.cfg.DashboardRefresh = "0"
+	n := calls()
+	do(s, "GET", "/m/crm/", nil, false)
+	do(s, "GET", "/m/crm/", nil, false)
+	if got := calls() - n; got != 2 {
+		t.Fatalf("ohne Speicher: %d Abrufe statt 2", got)
+	}
 }
 
 // TestHomePersonas: Kachel je Person – ohne gewählte Person mit den Zahlen ihrer Module,

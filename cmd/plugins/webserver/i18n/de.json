@@ -80,6 +80,8 @@
   "core.form.multiple": "Mehrere ankreuzen möglich",
   "core.form.title": "%s – %s",
   "core.home.empty": "Noch keine Module registriert oder keine Berechtigung.",
+  "core.home.stand": "Stand %s Uhr",
+  "core.home.refresh": "Aktualisieren",
   "core.home.personas": "Personen",
   "core.home.persona_switch": "Person wechseln",
   "core.home.modules": "Module",

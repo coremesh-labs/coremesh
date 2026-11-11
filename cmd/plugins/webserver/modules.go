@@ -209,7 +209,7 @@ func (s *server) moduleHome(w http.ResponseWriter, r *http.Request) {
 	}
 	// Seit 0.66.0: Module mit Dashboard zeigen ihre Übersicht (Kacheln mit Status).
 	if d, ok := s.dashboard(r, moduleFrom(r)); ok && len(d.Tiles) > 0 {
-		s.render(w, r, http.StatusOK, "module-dashboard", map[string]any{"Module": moduleFrom(r), "Dashboard": d}, moduleFrom(r).Title, "")
+		s.render(w, r, http.StatusOK, "module-dashboard", map[string]any{"Module": moduleFrom(r), "Dashboard": d, "Stand": d.At.Format("15:04")}, moduleFrom(r).Title, "")
 		return
 	}
 	r.SetPathValue("object", m.Objects[0].Object)
