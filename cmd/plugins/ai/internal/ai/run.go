@@ -17,7 +17,7 @@ import (
 
 // Schnittstelle für andere Module:
 //
-//	Ai.run     {request, input (Base64), content_type?, text?, context? (Zeilen), company_code?, keep?, defaults?}
+//	Ai.run     {request, input (Base64), content_type?, text?, context? (Zeilen), company_code?, keep?, defaults?, provider?}
 //	           (text und eine Datei als input zusammen: Text im Auftrag, Datei als Anhang)
 //	           → {log_id, status, message, result (OBJECT: Struktur), text (TEXT), notes}
 //	Ai.form    {request, result, defaults? {"name.feld": Wert}, company_code?} → {fields [FieldDefinition], values}
@@ -37,6 +37,9 @@ type runRequest struct {
 	Context     any    `json:"context"`
 	CompanyCode string `json:"company_code"`
 	Keep        bool   `json:"keep"`
+	// Provider (seit 0.6.0): KI-Dienst dieser Ausführung statt des Dienstes der Anfrage –
+	// z. B. wenn der Benutzer den Dienst im Dialog wählt. Das Modell ist dann das des Dienstes.
+	Provider string `json:"provider"`
 	// Vorgaben „name.feld“ → Wert (wie bei form/create): schränken Auswahllisten ein
 	Defaults map[string]string `json:"defaults"`
 }
@@ -180,6 +183,9 @@ func (m *Module) run(ctx context.Context, in runRequest) (*runResult, error) {
 	logInput, logType := text, "text/plain"
 	if file != nil {
 		logInput, logType = base64.StdEncoding.EncodeToString(file), ctype
+	}
+	if over := strings.ToUpper(strings.TrimSpace(in.Provider)); over != "" && over != rq.Provider {
+		rq.Provider, rq.Model = over, "" // gewählter Dienst mit seinem eigenen Modell
 	}
 	p, perr := m.loadProvider(ctx, rq.Provider)
 	if perr == nil && file != nil && p.FilePart == filePartFile {
